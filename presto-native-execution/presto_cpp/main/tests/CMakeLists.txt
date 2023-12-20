@@ -19,6 +19,7 @@ add_executable(
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
   ServerOperationTest.cpp
+  SystemSessionPropertiesTest.cpp
   TaskManagerTest.cpp
   QueryContextManagerTest.cpp)
 
