@@ -360,6 +360,14 @@ void PrestoServer::run() {
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
       });
+  httpServer_->registerGet(
+      "/v1/info/workerFunctionSignatures",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->getFunctionSignatures(downstream);
+      });
 
   registerFunctions();
   registerRemoteFunctions();
@@ -1149,6 +1157,11 @@ void PrestoServer::reportSessionProperties(proxygen::ResponseHandler* downstream
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::getFunctionSignatures(proxygen::ResponseHandler* downstream) {
+  std::unordered_map<std::string, std::string> placeholderMap;
+  http::sendOkResponse(downstream, json(placeholderMap));
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {
