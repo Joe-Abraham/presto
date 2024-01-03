@@ -35,6 +35,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "velox/common/base/Counters.h"
@@ -1152,18 +1153,21 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
-void PrestoServer::reportSessionProperties(proxygen::ResponseHandler* downstream) {
+void PrestoServer::reportSessionProperties(
+    proxygen::ResponseHandler* downstream) {
   SessionPropertyReporter sessionPropertyReporterObject;
-  http::sendOkResponse(downstream, sessionPropertyReporterObject.getJsonMetaDataSessionProperty());
+  http::sendOkResponse(
+      downstream,
+      sessionPropertyReporterObject.getJsonMetaDataSessionProperty());
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
 }
 
-void PrestoServer::getFunctionSignatures(proxygen::ResponseHandler* downstream) {
-  std::unordered_map<std::string, std::string> placeholderMap;
-  http::sendOkResponse(downstream, json(placeholderMap));
+void PrestoServer::getFunctionSignatures(
+    proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, getJsonFunctionMetadata());
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

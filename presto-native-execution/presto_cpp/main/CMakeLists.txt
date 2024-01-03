@@ -48,8 +48,10 @@ target_link_libraries(
   presto_exception
   presto_http
   presto_operators
+  presto_function_metadata
   velox_aggregates
   velox_core
+  velox_coverage_util
   velox_dwio_common_exception
   velox_encode
   velox_exec
