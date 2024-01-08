@@ -21,6 +21,7 @@ add_executable(
   ServerOperationTest.cpp
   SystemSessionPropertiesTest.cpp
   TaskManagerTest.cpp
+  SessionPropertyReporterTest.cpp
   QueryContextManagerTest.cpp)
 
 add_test(

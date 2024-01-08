@@ -340,6 +340,14 @@ void PrestoServer::run() {
           proxygen::ResponseHandler* downstream) {
         server->reportNodeStatus(downstream);
       });
+  httpServer_->registerGet(
+      "/v1/sessionProperties",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportSessionProperties(downstream);
+      });
   httpServer_->registerHead(
       "/v1/status",
       [](proxygen::HTTPMessage* /*message*/,
@@ -1132,6 +1140,11 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
       false,
       std::make_shared<protocol::Duration>(getUptime(start_))};
   http::sendOkResponse(downstream, json(serverInfo));
+}
+
+void PrestoServer::reportSessionProperties(proxygen::ResponseHandler* downstream) {
+  SessionPropertyReporter sessionPropertyReporterObject;
+  http::sendOkResponse(downstream, sessionPropertyReporterObject.getJsonMetaDataSessionProperty());
 }
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {

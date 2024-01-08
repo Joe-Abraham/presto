@@ -31,6 +31,7 @@ add_library(
   SystemSessionProperties.cpp
   TaskManager.cpp
   TaskResource.cpp
+  SessionPropertyReporter.cpp
   PeriodicHeartbeatManager.cpp
   PeriodicServiceInventoryManager.cpp)
 

@@ -27,6 +27,7 @@
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
+#include "presto_cpp/main/SessionPropertyReporter.h"
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -187,6 +188,8 @@ class PrestoServer {
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
+
+  void reportSessionProperties(proxygen::ResponseHandler* downstream);
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
