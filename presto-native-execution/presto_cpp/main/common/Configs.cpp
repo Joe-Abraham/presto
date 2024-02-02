@@ -142,6 +142,7 @@ SystemConfig::SystemConfig() {
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
           NONE_PROP(kPrestoVersion),
+          NONE_PROP(kNativeSidecar),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
@@ -375,6 +376,10 @@ int32_t SystemConfig::shutdownOnsetSec() const {
 
 uint32_t SystemConfig::systemMemoryGb() const {
   return optionalProperty<uint32_t>(kSystemMemoryGb).value();
+}
+
+bool SystemConfig::prestoNativeSidecar() const {
+  return optionalProperty<bool>(kNativeSidecar).value();
 }
 
 uint32_t SystemConfig::systemMemLimitGb() const {

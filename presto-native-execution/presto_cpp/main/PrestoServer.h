@@ -251,6 +251,7 @@ class PrestoServer {
   std::string address_;
   std::string nodeLocation_;
   folly::SSLContextPtr sslContext_;
+  bool sideCar_;
 };
 
 } // namespace facebook::presto

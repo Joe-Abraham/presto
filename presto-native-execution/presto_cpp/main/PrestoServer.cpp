@@ -213,6 +213,7 @@ void PrestoServer::run() {
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
+    sideCar_ = systemConfig->prestoNativeSidecar();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
     address_ = nodeConfig->nodeInternalAddress(
@@ -266,6 +267,7 @@ void PrestoServer::run() {
         environment_,
         nodeId_,
         nodeLocation_,
+        sideCar_,
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
         sslContext_);
