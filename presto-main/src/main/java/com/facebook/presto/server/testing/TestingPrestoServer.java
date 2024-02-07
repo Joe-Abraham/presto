@@ -60,6 +60,7 @@ import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
@@ -67,6 +68,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -515,6 +517,17 @@ public class TestingPrestoServer
         return queryManager;
     }
 
+    public void loadSystemSessionPropertyProvider()
+            throws IOException
+    {
+        injector.getInstance(SystemSessionPropertyProviderManager.class).loadSessionPropertyProvider();
+    }
+
+    public SystemSessionPropertyProvider getSystemSessionPropertyProvider()
+            throws IOException
+    {
+        return injector.getInstance(SystemSessionPropertyProviderManager.class).getSessionPropertyProvider();
+    }
     public Plan getQueryPlan(QueryId queryId)
     {
         checkState(coordinator, "not a coordinator");
