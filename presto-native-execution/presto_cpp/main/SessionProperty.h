@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <optional>
 #include <string>
 #include <typeinfo>
 
@@ -23,6 +24,7 @@ enum class PropertyType {
   kInt,
   kBool,
   kLong,
+  kString,
   // Add more types as needed.
   kUnknown
 };
@@ -44,24 +46,28 @@ class SessionProperty {
   virtual std::string getDefaultValue() const = 0;
 
   virtual bool isHidden() const = 0;
+
+  virtual std::string getVeloxConfigName() const = 0;
 };
 
-// Template class for different types of the session property.
-template <class T>
+/// Template class for different types of the session property.
+template <typename T>
 class SessionPropertyData : public SessionProperty {
  public:
-  // Restricting session properties without data.
+  /// Restricting session properties without data.
   SessionPropertyData() = delete;
 
   SessionPropertyData(
       const std::string& name,
       const std::string& description,
-      const T& default_value,
-      const bool hidden)
+      const bool hidden,
+      const std::string& veloxConfigName,
+      const std::optional<T>& defaultValue = std::nullopt)
       : name_(name),
         description_(description),
-        default_value_(default_value),
-        hidden_(hidden) {}
+        defaultValue_(defaultValue),
+        hidden_(hidden),
+        veloxConfigName_(veloxConfigName) {}
 
   inline std::string getName() const {
     return name_;
@@ -76,22 +82,52 @@ class SessionPropertyData : public SessionProperty {
     return (typeinfo == typeid(int)) ? PropertyType::kInt
         : (typeinfo == typeid(bool)) ? PropertyType::kBool
         : (typeinfo == typeid(long)) ? PropertyType::kLong
+        : (typeinfo == typeid(std::string)) ? PropertyType::kString
                                      : PropertyType::kUnknown;
   }
 
-  std::string getDefaultValue() const {
-    return std::to_string(default_value_);
+  /// Returns default value set in prestissmo worker.
+  inline std::string getDefaultValue() const {
+    if (defaultValue_.has_value()) {
+      return toString(defaultValue_.value());
+    } else {
+      // Return empty, if there is no default value for property.
+      return "";
+    }
   }
 
   inline bool isHidden() const {
     return hidden_;
   }
 
+  inline std::string getVeloxConfigName() const {
+    return veloxConfigName_;
+  }
+
+ private:
+  template <typename U>
+  std::string toString(const U& value) const {
+      return std::to_string(value);
+  }
+
+  /// Template specialization for bool
+  template <>
+  std::string toString<bool>(const bool& value) const {
+      return value ? "true" : "false";
+  }
+
+  /// Template specialization for string
+  template <>
+  std::string toString<std::string>(const std::string& value) const {
+      return value;
+  }
+
  private:
   const std::string name_;
   const std::string description_;
-  const T default_value_;
+  const std::optional<T> defaultValue_;
   const bool hidden_;
+  const std::string veloxConfigName_;
 };
 
 } // namespace facebook::presto

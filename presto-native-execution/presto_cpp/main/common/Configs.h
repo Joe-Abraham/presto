@@ -729,6 +729,8 @@ class BaseVeloxQueryConfig : public ConfigBase {
       std::unordered_map<std::string, std::string>& values) const override;
 
   static BaseVeloxQueryConfig* instance();
+
+  std::string getDefaultValue(const std::string& propertyName) const;
 };
 
 } // namespace facebook::presto
