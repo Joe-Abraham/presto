@@ -21,6 +21,7 @@ import javax.validation.constraints.Min;
 public class NodeResourceStatusConfig
 {
     private int requiredWorkersActive;
+    private int requiredCoordinatorSidecarsActive;
     private int requiredResourceManagersActive = 1;
     private int requiredCoordinatorsActive = 1;
 
@@ -63,6 +64,20 @@ public class NodeResourceStatusConfig
     public NodeResourceStatusConfig setRequiredCoordinatorsActive(int requiredCoordinatorsActive)
     {
         this.requiredCoordinatorsActive = requiredCoordinatorsActive;
+        return this;
+    }
+
+    @Min(0)
+    public int getRequiredCoordinatorSidecarsActive()
+    {
+        return requiredCoordinatorSidecarsActive;
+    }
+
+    @Config("cluster.required-coordinator-sidecars-active")
+    @ConfigDescription("Minimum number of active coordinator sidecars that must be available before activating the cluster")
+    public NodeResourceStatusConfig setRequiredCoordinatorSidecarsActive(int requiredCoordinatorSidecarsActive)
+    {
+        this.requiredCoordinatorSidecarsActive = requiredCoordinatorSidecarsActive;
         return this;
     }
 }

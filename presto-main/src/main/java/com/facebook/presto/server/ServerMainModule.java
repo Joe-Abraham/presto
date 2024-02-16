@@ -689,6 +689,7 @@ public class ServerMainModule
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
+                .addProperty("sidecar", String.valueOf(serverConfig.isCoordinatorSidecar()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()))
                 .addProperty(POOL_TYPE, serverConfig.getPoolType().name());
 

@@ -45,6 +45,8 @@ public class TestServerConfig
                 .setResourceManager(false)
                 .setCatalogServer(false)
                 .setCatalogServerEnabled(false)
+                .setCoordinatorSidecar(false)
+                .setCoordinatorSidecarEnabled(false)
                 .setPoolType(DEFAULT)
                 .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
                 .setNestedDataSerializationEnabled(true));
@@ -65,6 +67,8 @@ public class TestServerConfig
                 .put("resource-manager", "true")
                 .put("catalog-server-enabled", "true")
                 .put("catalog-server", "true")
+                .put("coordinator-sidecar", "true")
+                .put("coordinator-sidecar-enabled", "true")
                 .put("pool-type", "LEAF")
                 .put("cluster-stats-expiration-duration", "10s")
                 .put("nested-data-serialization-enabled", "false")
@@ -82,6 +86,8 @@ public class TestServerConfig
                 .setResourceManager(true)
                 .setCatalogServer(true)
                 .setCatalogServerEnabled(true)
+                .setCoordinatorSidecar(true)
+                .setCoordinatorSidecarEnabled(true)
                 .setPoolType(LEAF)
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
                 .setNestedDataSerializationEnabled(false);
