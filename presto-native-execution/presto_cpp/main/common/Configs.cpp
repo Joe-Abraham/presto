@@ -142,7 +142,7 @@ SystemConfig::SystemConfig() {
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
           NONE_PROP(kPrestoVersion),
-          NONE_PROP(kNativeSidecar),
+          BOOL_PROP(kNativeSidecar, false),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
