@@ -446,7 +446,7 @@ public class TestMemoryManager
                 .put("experimental.reserved-pool-enabled", "false")
                 .build();
 
-        queryRunner2 = createQueryRunner(rmProperties, extraProperties, extraProperties ,coordinatorProperties, extraProperties, 2);
+        queryRunner2 = createQueryRunner(rmProperties, extraProperties, extraProperties, coordinatorProperties, extraProperties, 2);
     }
 
     @AfterGroups(groups = {"reservedPoolDisabledMultiCoordinator"})
