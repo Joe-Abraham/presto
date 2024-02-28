@@ -493,6 +493,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
+  static constexpr std::string_view kPrestoDefaultNamespacePrefix{
+      "presto.default-namespace"};
 
   SystemConfig();
 
@@ -683,6 +685,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
 
   bool enableRuntimeMetricsCollection() const;
+
+  std::string prestoDefaultNamespacePrefix() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
