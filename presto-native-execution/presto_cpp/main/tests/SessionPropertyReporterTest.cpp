@@ -27,21 +27,21 @@ TEST_F(SessionPropertyReporterTest, getSessionProperties) {
         {
           "name": "join_spill_enabled",
           "description": "Native Execution only. Enable join spilling on native engine",
-          "sqlType": "boolean",
+          "typeSignature": "boolean",
           "defaultValue": "false",
           "hidden": false
         },
         {
           "name": "max_spill_level",
           "description": "Native Execution only. The maximum allowed spilling level for hash join build.\n0 is the initial spilling level, -1 means unlimited.",
-          "sqlType": "integer",
+          "typeSignature": "integer",
           "defaultValue": "4",
           "hidden": false
         },
         {
           "name": "spill_write_buffer_size",
           "description": "Native Execution only. The maximum size in bytes to buffer the serialized spill data before writing to disk for IO efficiency.\nIf set to zero, buffering is disabled.",
-          "sqlType": "bigint",
+          "typeSignature": "bigint",
           "defaultValue": "1048576",
           "hidden": false
         }
