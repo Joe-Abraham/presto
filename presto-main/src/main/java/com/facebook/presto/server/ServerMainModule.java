@@ -41,6 +41,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
@@ -143,6 +144,7 @@ import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSession
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
@@ -783,6 +785,10 @@ public class ServerMainModule
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
 
         binder.bind(SystemSessionPropertyProviderManager.class).in(Scopes.SINGLETON);
+
+        //native-function-namespace-manager binder
+        binder.bind(NativeFunctionNamespaceManagerProvider.class);
+        binder.bind(NodeManager.class).to(ConnectorAwareNodeManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

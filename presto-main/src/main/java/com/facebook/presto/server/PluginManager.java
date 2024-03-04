@@ -69,6 +69,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -122,6 +123,7 @@ public class PluginManager
     private final List<String> plugins;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
+    private final String defaultNamespacePrefix;
     private final ImmutableSet<String> disabledConnectors;
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final TracerProviderManager tracerProviderManager;
@@ -155,6 +157,7 @@ public class PluginManager
         requireNonNull(config, "config is null");
 
         installedPluginsDir = config.getInstalledPluginsDir();
+        defaultNamespacePrefix = config.getDefaultNamespacePrefix();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
         }
@@ -264,7 +267,7 @@ public class PluginManager
 
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
-            metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+            metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory, Optional.ofNullable(defaultNamespacePrefix));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

@@ -47,6 +47,8 @@ public class NativeQueryRunnerUtils
                 .put("use-alternative-function-signatures", "true")
                 .put("experimental.table-writer-merge-operator-enabled", "false")
                 .put("query-manager.experimental.required-coordinator-sidecars", "1")
+                .put("list-built-in-functions-only", "false")
+                .put("presto.default-namespace", "native.default.")
                 .build();
     }
 
