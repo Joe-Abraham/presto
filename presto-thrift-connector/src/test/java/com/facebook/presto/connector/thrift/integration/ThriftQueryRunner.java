@@ -295,6 +295,11 @@ public final class ThriftQueryRunner
             throw new UnsupportedOperationException();
         }
 
+        public void loadSystemSessionPropertyProvider()
+        {
+            throw new UnsupportedOperationException();
+        }
+
         @Override
         public Lock getExclusiveLock()
         {

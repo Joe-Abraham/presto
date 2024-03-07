@@ -187,6 +187,11 @@ public final class StandaloneQueryRunner
         throw new UnsupportedOperationException();
     }
 
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     public TestingPrestoServer getServer()
     {
         return server;

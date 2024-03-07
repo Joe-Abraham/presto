@@ -68,7 +68,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -178,6 +177,7 @@ public class TestingPrestoServer
 
     private final NativeFunctionNamespaceManagerProvider nativeFunctionNamespaceManagerProvider;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
+    private final SystemSessionPropertyProviderManager sessionPropertyProviderManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -435,6 +435,7 @@ public class TestingPrestoServer
         requestBlocker = injector.getInstance(RequestBlocker.class);
         serverInfoResource = injector.getInstance(ServerInfoResource.class);
         nativeFunctionNamespaceManagerProvider = injector.getInstance(NativeFunctionNamespaceManagerProvider.class);
+        sessionPropertyProviderManager = injector.getInstance(SystemSessionPropertyProviderManager.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -517,17 +518,11 @@ public class TestingPrestoServer
         return queryManager;
     }
 
-    public void loadSystemSessionPropertyProvider()
-            throws IOException
+    public SystemSessionPropertyProviderManager getSessionPropertyProviderManager()
     {
-        injector.getInstance(SystemSessionPropertyProviderManager.class).loadSessionPropertyProvider();
+        return sessionPropertyProviderManager;
     }
 
-    public SystemSessionPropertyProvider getSystemSessionPropertyProvider()
-            throws IOException
-    {
-        return injector.getInstance(SystemSessionPropertyProviderManager.class).getSessionPropertyProvider();
-    }
     public Plan getQueryPlan(QueryId queryId)
     {
         checkState(coordinator, "not a coordinator");

@@ -19,6 +19,7 @@ import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespace
 import com.facebook.presto.functionNamespace.prestissimo.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.hive.HiveQueryRunner;
 import com.facebook.presto.iceberg.FileFormat;
+import com.facebook.presto.sessionpropertyproviders.SystemSessionPropertyProviderPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
@@ -464,5 +465,11 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+    }
+
+    public static void setupSessionPropertyProvider(QueryRunner queryRunner)
+    {
+        queryRunner.installPlugin(new SystemSessionPropertyProviderPlugin());
+        queryRunner.loadSystemSessionPropertyProvider();
     }
 }
