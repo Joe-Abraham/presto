@@ -672,9 +672,8 @@ public class DistributedQueryRunner
     @Override
     public void loadNativeFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        // Todo: Integrate with the new PluginNodeManager
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.ofNullable(server.getConnectorAwareNodeManager()));
+            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.ofNullable(server.getPluginNodeManager()));
         }
     }
 

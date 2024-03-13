@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
 
 import java.util.Set;
 
@@ -30,14 +29,6 @@ public class ConnectorAwareNodeManager
     private final InternalNodeManager nodeManager;
     private final String environment;
     private final ConnectorId connectorId;
-
-    @Inject
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager)
-    {
-        this.nodeManager = nodeManager;
-        this.environment = "test";
-        this.connectorId = new ConnectorId("hive");
-    }
 
     public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, ConnectorId connectorId)
     {

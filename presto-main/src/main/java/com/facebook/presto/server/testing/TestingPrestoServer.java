@@ -544,7 +544,7 @@ public class TestingPrestoServer
         return connectorId;
     }
 
-    public NodeManager getConnectorAwareNodeManager()
+    public NodeManager getPluginNodeManager()
     {
         return nativeFunctionNamespaceManagerProvider.getNodeManager();
     }
