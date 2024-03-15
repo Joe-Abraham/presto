@@ -25,7 +25,7 @@ namespace facebook::presto {
             json sessionPropertyJson;
             sessionPropertyJson["name"] = sessionProperty->getName();
             sessionPropertyJson["description"] = sessionProperty->getDescription();
-            sessionPropertyJson["sqlType"] = getSqlType(*sessionProperty);
+            sessionPropertyJson["typeSignature"] = getSqlType(*sessionProperty);
             sessionPropertyJson["defaultValue"] = getDefault(*sessionProperty);
             sessionPropertyJson["hidden"] = sessionProperty->isHidden();
             j.emplace_back(sessionPropertyJson);
