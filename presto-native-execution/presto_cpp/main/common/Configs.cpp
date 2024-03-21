@@ -15,6 +15,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/SystemSessionProperties.h"
 #include "velox/core/QueryConfig.h"
 
 #if __has_include("filesystem")
@@ -671,86 +672,96 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
   // Use empty instance to get default property values.
   velox::core::QueryConfig c{{}};
   using namespace velox::core;
-  registeredProps_ =
-      std::unordered_map<std::string, folly::Optional<std::string>>{
-          BOOL_PROP(kMutableConfig, false),
-          BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
-          STR_PROP(
-              QueryConfig::kCodegenConfigurationFilePath,
-              c.codegenConfigurationFilePath()),
-          BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
-          STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
-          BOOL_PROP(
-              QueryConfig::kAdjustTimestampToTimezone,
-              c.adjustTimestampToTimezone()),
-          BOOL_PROP(QueryConfig::kExprEvalSimplified, c.exprEvalSimplified()),
-          BOOL_PROP(QueryConfig::kExprTrackCpuUsage, c.exprTrackCpuUsage()),
-          BOOL_PROP(
-              QueryConfig::kOperatorTrackCpuUsage, c.operatorTrackCpuUsage()),
-          BOOL_PROP(
-              QueryConfig::kCastMatchStructByName, c.isMatchStructByName()),
-          NUM_PROP(
-              QueryConfig::kMaxLocalExchangeBufferSize,
-              c.maxLocalExchangeBufferSize()),
-          NUM_PROP(
-              QueryConfig::kMaxPartialAggregationMemory,
-              c.maxPartialAggregationMemoryUsage()),
-          NUM_PROP(
-              QueryConfig::kMaxExtendedPartialAggregationMemory,
-              c.maxExtendedPartialAggregationMemoryUsage()),
-          NUM_PROP(
-              QueryConfig::kAbandonPartialAggregationMinRows,
-              c.abandonPartialAggregationMinRows()),
-          NUM_PROP(
-              QueryConfig::kAbandonPartialAggregationMinPct,
-              c.abandonPartialAggregationMinPct()),
-          NUM_PROP(
-              QueryConfig::kMaxPartitionedOutputBufferSize,
-              c.maxPartitionedOutputBufferSize()),
-          NUM_PROP(
-              QueryConfig::kPreferredOutputBatchBytes,
-              c.preferredOutputBatchBytes()),
-          NUM_PROP(
-              QueryConfig::kPreferredOutputBatchRows,
-              c.preferredOutputBatchRows()),
-          NUM_PROP(QueryConfig::kMaxOutputBatchRows, c.maxOutputBatchRows()),
-          BOOL_PROP(
-              QueryConfig::kHashAdaptivityEnabled, c.hashAdaptivityEnabled()),
-          BOOL_PROP(
-              QueryConfig::kAdaptiveFilterReorderingEnabled,
-              c.adaptiveFilterReorderingEnabled()),
-          BOOL_PROP(QueryConfig::kSpillEnabled, c.spillEnabled()),
-          BOOL_PROP(
-              QueryConfig::kAggregationSpillEnabled,
-              c.aggregationSpillEnabled()),
-          BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
-          BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
-          NUM_PROP(
-              QueryConfig::kAggregationSpillMemoryThreshold,
-              c.aggregationSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kJoinSpillMemoryThreshold,
-              c.joinSpillMemoryThreshold()),
-          NUM_PROP(
-              QueryConfig::kOrderBySpillMemoryThreshold,
-              c.orderBySpillMemoryThreshold()),
-          NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
-          NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
-          NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
-          NUM_PROP(
-              QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
-          NUM_PROP(
-              QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
-          NUM_PROP(
-              QueryConfig::kSpillableReservationGrowthPct,
-              c.spillableReservationGrowthPct()),
-          BOOL_PROP(
-              QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
-          BOOL_PROP(
-              QueryConfig::kPrestoArrayAggIgnoreNulls,
-              c.prestoArrayAggIgnoreNulls()),
-          NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
-      };
+  registeredProps_ = std::unordered_map<
+      std::string,
+      folly::Optional<std::string>>{
+      BOOL_PROP(kMutableConfig, false),
+      BOOL_PROP(QueryConfig::kCodegenEnabled, c.codegenEnabled()),
+      STR_PROP(
+          QueryConfig::kCodegenConfigurationFilePath,
+          c.codegenConfigurationFilePath()),
+      BOOL_PROP(QueryConfig::kCodegenLazyLoading, c.codegenLazyLoading()),
+      STR_PROP(QueryConfig::kSessionTimezone, c.sessionTimezone()),
+      BOOL_PROP(
+          QueryConfig::kAdjustTimestampToTimezone,
+          c.adjustTimestampToTimezone()),
+      BOOL_PROP(QueryConfig::kExprEvalSimplified, c.exprEvalSimplified()),
+      BOOL_PROP(QueryConfig::kExprTrackCpuUsage, c.exprTrackCpuUsage()),
+      BOOL_PROP(QueryConfig::kOperatorTrackCpuUsage, c.operatorTrackCpuUsage()),
+      BOOL_PROP(QueryConfig::kCastMatchStructByName, c.isMatchStructByName()),
+      NUM_PROP(
+          QueryConfig::kMaxLocalExchangeBufferSize,
+          c.maxLocalExchangeBufferSize()),
+      NUM_PROP(
+          QueryConfig::kMaxPartialAggregationMemory,
+          c.maxPartialAggregationMemoryUsage()),
+      NUM_PROP(
+          QueryConfig::kMaxExtendedPartialAggregationMemory,
+          c.maxExtendedPartialAggregationMemoryUsage()),
+      NUM_PROP(
+          QueryConfig::kAbandonPartialAggregationMinRows,
+          c.abandonPartialAggregationMinRows()),
+      NUM_PROP(
+          QueryConfig::kAbandonPartialAggregationMinPct,
+          c.abandonPartialAggregationMinPct()),
+      NUM_PROP(
+          QueryConfig::kMaxPartitionedOutputBufferSize,
+          c.maxPartitionedOutputBufferSize()),
+      NUM_PROP(
+          QueryConfig::kPreferredOutputBatchBytes,
+          c.preferredOutputBatchBytes()),
+      NUM_PROP(
+          QueryConfig::kPreferredOutputBatchRows, c.preferredOutputBatchRows()),
+      NUM_PROP(QueryConfig::kMaxOutputBatchRows, c.maxOutputBatchRows()),
+      BOOL_PROP(QueryConfig::kHashAdaptivityEnabled, c.hashAdaptivityEnabled()),
+      BOOL_PROP(
+          QueryConfig::kAdaptiveFilterReorderingEnabled,
+          c.adaptiveFilterReorderingEnabled()),
+      BOOL_PROP(QueryConfig::kSpillEnabled, c.spillEnabled()),
+      BOOL_PROP(
+          QueryConfig::kAggregationSpillEnabled, c.aggregationSpillEnabled()),
+      BOOL_PROP(QueryConfig::kJoinSpillEnabled, c.joinSpillEnabled()),
+      BOOL_PROP(QueryConfig::kOrderBySpillEnabled, c.orderBySpillEnabled()),
+      NUM_PROP(
+          QueryConfig::kAggregationSpillMemoryThreshold,
+          c.aggregationSpillMemoryThreshold()),
+      NUM_PROP(
+          QueryConfig::kJoinSpillMemoryThreshold, c.joinSpillMemoryThreshold()),
+      NUM_PROP(
+          QueryConfig::kOrderBySpillMemoryThreshold,
+          c.orderBySpillMemoryThreshold()),
+      NUM_PROP(QueryConfig::kTestingSpillPct, c.testingSpillPct()),
+      NUM_PROP(QueryConfig::kMaxSpillLevel, c.maxSpillLevel()),
+      NUM_PROP(QueryConfig::kMaxSpillFileSize, c.maxSpillFileSize()),
+      NUM_PROP(QueryConfig::kMinSpillRunSize, c.minSpillRunSize()),
+      NUM_PROP(
+          QueryConfig::kSpillStartPartitionBit, c.spillStartPartitionBit()),
+      NUM_PROP(
+          QueryConfig::kJoinSpillPartitionBits, c.joinSpillPartitionBits()),
+      NUM_PROP(
+          QueryConfig::kSpillableReservationGrowthPct,
+          c.spillableReservationGrowthPct()),
+      BOOL_PROP(QueryConfig::kSparkLegacySizeOfNull, c.sparkLegacySizeOfNull()),
+      BOOL_PROP(
+          QueryConfig::kPrestoArrayAggIgnoreNulls,
+          c.prestoArrayAggIgnoreNulls()),
+      NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
+      NUM_PROP(
+          QueryConfig::kDriverCpuTimeSliceLimitMs,
+          c.driverCpuTimeSliceLimitMs()),
+      BOOL_PROP(
+          QueryConfig::kValidateOutputFromOperators,
+          c.validateOutputFromOperators()),
+      BOOL_PROP(QueryConfig::kRowNumberSpillEnabled, c.rowNumberSpillEnabled()),
+      STR_PROP(QueryConfig::kSpillCompressionKind, c.spillCompressionKind()),
+      STR_PROP(QueryConfig::kSpillFileCreateConfig, c.spillFileCreateConfig()),
+      NUM_PROP(QueryConfig::kSpillWriteBufferSize, c.spillWriteBufferSize()),
+      BOOL_PROP(
+          QueryConfig::kTopNRowNumberSpillEnabled,
+          c.topNRowNumberSpillEnabled()),
+      BOOL_PROP(QueryConfig::kWindowSpillEnabled, c.windowSpillEnabled()),
+      BOOL_PROP(QueryConfig::kWriterSpillEnabled, c.writerSpillEnabled()),
+  };
 }
 
 BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
@@ -790,6 +801,18 @@ void BaseVeloxQueryConfig::updateLoadedValues(
         << "Updated in '" << filePath_ << "' from SystemProperties:\n"
         << str;
   }
+}
+
+std::string BaseVeloxQueryConfig::getDefaultValue(
+    const std::string& propertyName) const {
+  std::string defaultValue = "";
+  auto it = registeredProps_.find(propertyName);
+  if (it != registeredProps_.end()) {
+    if (it->second.has_value()) {
+      defaultValue = it->second.value();
+    }
+  }
+  return defaultValue;
 }
 
 } // namespace facebook::presto

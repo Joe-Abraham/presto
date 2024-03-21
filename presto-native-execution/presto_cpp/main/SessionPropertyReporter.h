@@ -26,7 +26,6 @@ class SessionPropertyReporter {
   SessionPropertyReporter() = default;
   json getJsonMetaDataSessionProperty();
   std::string getSqlType(const SessionProperty& sessionPropertyType);
-  std::string getDefault(const SessionProperty& sessionPropertyType);
 };
 } // namespace facebook::presto
 

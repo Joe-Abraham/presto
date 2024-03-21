@@ -21,14 +21,17 @@ namespace facebook::presto {
     {
         SystemSessionProperties systemSessionProperties;
         json j = json::array();
-        for (const auto& sessionProperty : systemSessionProperties.getSessionProperties()) {
-            json sessionPropertyJson;
-            sessionPropertyJson["name"] = sessionProperty->getName();
-            sessionPropertyJson["description"] = sessionProperty->getDescription();
-            sessionPropertyJson["typeSignature"] = getSqlType(*sessionProperty);
-            sessionPropertyJson["defaultValue"] = getDefault(*sessionProperty);
-            sessionPropertyJson["hidden"] = sessionProperty->isHidden();
-            j.emplace_back(sessionPropertyJson);
+        for (const auto& sessionProperty :
+             systemSessionProperties.getSessionProperties()) {
+          json sessionPropertyJson;
+          sessionPropertyJson["name"] = sessionProperty.second->getName();
+          sessionPropertyJson["description"] =
+              sessionProperty.second->getDescription();
+          sessionPropertyJson["typeSignature"] = getSqlType(*sessionProperty.second);
+          sessionPropertyJson["defaultValue"] =
+              sessionProperty.second->getDefaultValue();
+          sessionPropertyJson["hidden"] = sessionProperty.second->isHidden();
+          j.emplace_back(sessionPropertyJson);
         }
         return j;
     }
@@ -36,31 +39,18 @@ namespace facebook::presto {
     std::string SessionPropertyReporter::getSqlType(const SessionProperty& sessionPropertyType)
     {
         auto result = sessionPropertyType.getType();
-
+        // TODO: Following types shall be replaced by prestissmo types.
         if (result == PropertyType::kInt) {
             return "integer";
         } else if (result == PropertyType::kBool) {
             return "boolean";
         } else if (result == PropertyType::kLong) {
             return "bigint";
+        } else if (result == PropertyType::kString) {
+            return "varchar";
         } else {
             return "UnknownType";
         }
-    }
-
-    std::string SessionPropertyReporter::getDefault(const SessionProperty& sessionPropertyType)
-    {
-        auto result = sessionPropertyType.getDefaultValue();
-
-        if (sessionPropertyType.getType() == PropertyType::kBool)
-        {
-            if (result == "0") {
-                result = "false";
-            } else {
-                result = "true";
-            } 
-        }
-        return result;
     }
 } // namespace facebook::presto
 
