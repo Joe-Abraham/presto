@@ -166,3 +166,42 @@ TEST(FunctionMetadataTest, testRadians) {
         protocol::NullCallClause::RETURNS_NULL_ON_NULL_INPUT);
   }
 }
+
+TEST(FunctionMetadataTest, testFunctionVisibility) {
+  functions::prestosql::registerGeneralFunctions("");
+  std::string functionName = "in";
+  json jsonMetadata;
+  getJsonMetadataForFunction(functionName, jsonMetadata);
+  json j = jsonMetadata.at(functionName);
+  const auto numSignatures = 3;
+  EXPECT_EQ(j.size(), numSignatures);
+
+  for (auto i = 0; i < numSignatures; i++) {
+    json jsonAtIdx = j.at(i);
+    EXPECT_EQ(jsonAtIdx.at("docString"), functionName);
+    EXPECT_EQ(jsonAtIdx.at("functionVisibility"), "HIDDEN");
+  }
+}
+
+TEST(FunctionMetadataTest, testVariableArity) {
+  functions::prestosql::registerAllScalarFunctions("");
+  std::string functionName = "array_constructor";
+  json jsonMetadata;
+  getJsonMetadataForFunction(functionName, jsonMetadata);
+  json j = jsonMetadata.at(functionName);
+  const auto numSignatures = 2;
+  EXPECT_EQ(j.size(), numSignatures);
+
+  for (auto i = 0; i < numSignatures; i++) {
+    json jsonAtIdx = j.at(i);
+    EXPECT_EQ(jsonAtIdx.at("docString"), functionName);
+    // The `array_constructor` function has two signatures: `variableArity` is
+    // set to false for no parameters, and `variableArity` is set to `true` for
+    // accepting a variable number of arguments.
+    if (jsonAtIdx.at("paramTypes").size() > 0) {
+      EXPECT_EQ(jsonAtIdx.at("variableArity"), true);
+    } else {
+      EXPECT_EQ(jsonAtIdx.at("variableArity"), false);
+    }
+  }
+}
