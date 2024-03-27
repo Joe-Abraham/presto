@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +54,10 @@ public class JsonBasedUdfFunctionMetadata
      */
     private final String schema;
     /**
+     * Optional field: Marked to indicate that the function is hidden. They are visible by default.
+     */
+    private final Optional<SqlFunctionVisibility> functionVisibility;
+    /**
      * Implement language of the function.
      */
     private final RoutineCharacteristics routineCharacteristics;
@@ -61,6 +66,10 @@ public class JsonBasedUdfFunctionMetadata
      * Optional Aggregate-specific metadata (required for aggregation functions)
      */
     private final Optional<AggregationFunctionMetadata> aggregateMetadata;
+    /**
+     * Optional field: Marked to indicate the arity of the function.
+     */
+    private final Optional<Boolean> variableArity;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -69,6 +78,8 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("outputType") TypeSignature outputType,
             @JsonProperty("paramTypes") List<TypeSignature> paramTypes,
             @JsonProperty("schema") String schema,
+            @JsonProperty("functionVisibility") Optional<SqlFunctionVisibility> functionVisibility,
+            @JsonProperty("variableArity") Optional<Boolean> variableArity,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
             @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata)
     {
@@ -77,6 +88,8 @@ public class JsonBasedUdfFunctionMetadata
         this.outputType = requireNonNull(outputType, "outputType is null");
         this.paramTypes = ImmutableList.copyOf(requireNonNull(paramTypes, "paramTypes is null"));
         this.schema = requireNonNull(schema, "schema is null");
+        this.functionVisibility = requireNonNull(functionVisibility, "functionVisibility is null");
+        this.variableArity = requireNonNull(variableArity, "variableArity is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.aggregateMetadata = requireNonNull(aggregateMetadata, "aggregateMetadata is null");
         checkArgument(
@@ -112,6 +125,16 @@ public class JsonBasedUdfFunctionMetadata
     public String getSchema()
     {
         return schema;
+    }
+
+    public Optional<SqlFunctionVisibility> getFunctionVisibility()
+    {
+        return functionVisibility;
+    }
+
+    public Optional<Boolean> getVariableArity()
+    {
+        return variableArity;
     }
 
     public RoutineCharacteristics getRoutineCharacteristics()

@@ -25,11 +25,18 @@ constexpr char const* kDefaultSchema = "default";
 
 // The keys in velox function maps are of the format
 // catalog.schema.function_name. This utility function extracts the
-// function_name from this string.
-const std::string getFunctionName(const std::string& registeredFunctionName) {
+// function_name and the function visibility from this string.
+
+// Note: A function is considered hidden if it is not found within a
+// function namespace.
+std::pair<std::string, protocol::SqlFunctionVisibility>
+getFunctionNameAndVisibility(const std::string& registeredFunctionName) {
   std::vector<std::string> pieces;
   folly::split('.', registeredFunctionName, pieces, true);
-  return pieces.back();
+  protocol::SqlFunctionVisibility functionVisibility = pieces.size() == 1
+      ? protocol::SqlFunctionVisibility::HIDDEN
+      : protocol::SqlFunctionVisibility::PUBLIC;
+  return std::make_pair(pieces.back(), functionVisibility);
 }
 
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
@@ -83,7 +90,8 @@ void updateFunctionMetadata(
   jsonBasedUdfFunctionMetadata.schema = kDefaultSchema;
   jsonBasedUdfFunctionMetadata.outputType =
       functionSignature.returnType().toString();
-
+  jsonBasedUdfFunctionMetadata.variableArity =
+      std::make_shared<protocol::Boolean>(functionSignature.variableArity());
   const std::vector<TypeSignature> argumentTypes =
       functionSignature.argumentTypes();
   std::vector<std::string> paramTypes;
@@ -195,8 +203,11 @@ void getJsonMetadataForFunction(
     const std::string& registeredFunctionName,
     nlohmann::json& jsonMetadataList) {
   auto functionMetadataList = getFunctionMetadata(registeredFunctionName);
-  auto functionName = getFunctionName(registeredFunctionName);
-  for (const auto& functionMetadata : functionMetadataList) {
+  auto [functionName, functionVisibility] =
+      getFunctionNameAndVisibility(registeredFunctionName);
+  for (auto& functionMetadata : functionMetadataList) {
+    functionMetadata.functionVisibility =
+        std::make_shared<protocol::SqlFunctionVisibility>(functionVisibility);
     jsonMetadataList[functionName].emplace_back(functionMetadata);
   }
 }

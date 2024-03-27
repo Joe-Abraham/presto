@@ -35,6 +35,7 @@ import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -141,6 +142,8 @@ public class NativeFunctionNamespaceManager
                 function.getDescription(),
                 function.getRoutineCharacteristics(),
                 function.getBody(),
+                function.getVisibility(),
+                function.getVariableArity(),
                 function.getVersion(),
                 function.getSignature().getKind(),
                 function.getAggregationMetadata());
@@ -152,7 +155,6 @@ public class NativeFunctionNamespaceManager
         QualifiedObjectName qualifiedFunctionName = QualifiedObjectName.valueOf(new CatalogSchemaName(getCatalogName(), jsonBasedUdfFunctionMetaData.getSchema()), functionName);
         List<String> parameterNameList = jsonBasedUdfFunctionMetaData.getParamNames();
         List<TypeSignature> parameterTypeList = jsonBasedUdfFunctionMetaData.getParamTypes();
-
         ImmutableList.Builder<Parameter> parameterBuilder = ImmutableList.builder();
         for (int i = 0; i < parameterNameList.size(); i++) {
             parameterBuilder.add(new Parameter(parameterNameList.get(i), parameterTypeList.get(i)));
@@ -165,6 +167,8 @@ public class NativeFunctionNamespaceManager
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),
                 "",
+                jsonBasedUdfFunctionMetaData.getFunctionVisibility().isPresent() ? jsonBasedUdfFunctionMetaData.getFunctionVisibility().get() : SqlFunctionVisibility.PUBLIC,
+                jsonBasedUdfFunctionMetaData.getVariableArity().isPresent() ? jsonBasedUdfFunctionMetaData.getVariableArity().get() : false,
                 notVersioned(),
                 jsonBasedUdfFunctionMetaData.getFunctionKind(),
                 jsonBasedUdfFunctionMetaData.getAggregateMetadata());
