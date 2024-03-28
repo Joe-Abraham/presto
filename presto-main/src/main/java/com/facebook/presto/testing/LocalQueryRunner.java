@@ -25,6 +25,7 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
@@ -128,6 +129,7 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
@@ -287,15 +289,17 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class LocalQueryRunner
         implements QueryRunner
 {
+    private static final ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
     private final FinalizerService finalizerService;
     private final ObjectMapper objectMapper;
-
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
+    private final NodeManager pluginNodeManager;
+    private final SystemSessionPropertyProviderManager sessionPropertyProviderManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
@@ -322,7 +326,6 @@ public class LocalQueryRunner
     private final SpillerFactory spillerFactory;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
-
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -331,19 +334,14 @@ public class LocalQueryRunner
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final PluginManager pluginManager;
     private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
-
     private final boolean alwaysRevokeMemory;
     private final NodeSpillConfig nodeSpillConfig;
     private final NodeSchedulerConfig nodeSchedulerConfig;
     private final FragmentStatsProvider fragmentStatsProvider;
-    private boolean printPlan;
-
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
-
-    private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
-
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private boolean printPlan;
 
     public LocalQueryRunner(Session defaultSession)
     {
@@ -380,9 +378,12 @@ public class LocalQueryRunner
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
+        // TODO : This should be changed to PluginNodeManager
+        this.pluginNodeManager = new ConnectorAwareNodeManager(nodeManager);
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
+
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
                 nodeManager,
@@ -408,6 +409,8 @@ public class LocalQueryRunner
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
+        this.sessionPropertyProviderManager = new SystemSessionPropertyProviderManager(pluginNodeManager);
+
         this.metadata = new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
@@ -423,7 +426,8 @@ public class LocalQueryRunner
                                 new NodeSpillConfig(),
                                 new TracingConfig(),
                                 new CompilerConfig(),
-                                new SecurityConfig())),
+                                new SecurityConfig()),
+                        sessionPropertyProviderManager),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -510,7 +514,7 @@ public class LocalQueryRunner
                 historyBasedPlanStatisticsManager,
                 new TracerProviderManager(new TracingConfig()),
                 new NodeStatusNotificationManager(),
-                new SystemSessionPropertyProviderManager(nodeManager));
+                sessionPropertyProviderManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -904,6 +908,12 @@ public class LocalQueryRunner
     public Lock getExclusiveLock()
     {
         return lock.writeLock();
+    }
+
+    @Override
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
     }
 
     public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)

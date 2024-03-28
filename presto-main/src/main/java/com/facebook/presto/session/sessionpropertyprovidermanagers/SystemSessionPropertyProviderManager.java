@@ -13,10 +13,7 @@
  */
 package com.facebook.presto.session.sessionpropertyprovidermanagers;
 
-import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.NodeState;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.spi.session.SystemSessionPropertyProviderFactory;
 import com.google.common.collect.ImmutableMap;
@@ -24,11 +21,8 @@ import com.google.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.util.Map;
-import java.util.Set;
 
-import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -39,10 +33,10 @@ public class SystemSessionPropertyProviderManager
     private SystemSessionPropertyProviderFactory providerFactory;
     private SystemSessionPropertyProvider provider;
     private boolean isSessionProviderAdded;
-    private final InternalNodeManager nodeManager;
+    private final NodeManager nodeManager;
 
     @Inject
-    public SystemSessionPropertyProviderManager(InternalNodeManager nodeManager)
+    public SystemSessionPropertyProviderManager(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
@@ -53,13 +47,12 @@ public class SystemSessionPropertyProviderManager
     }
 
     public void loadSessionPropertyProvider()
-            throws IOException
     {
         if (this.providerFactory == null) {
             return;
         }
         checkState(!isSessionProviderAdded, "SystemSessionPropertyProvider can only be set once");
-        this.provider = this.providerFactory.create(getConfig(), getNativeNodeUri());
+        this.provider = this.providerFactory.create(getConfig(), nodeManager);
         this.isSessionProviderAdded = true;
     }
 
@@ -69,30 +62,19 @@ public class SystemSessionPropertyProviderManager
     }
 
     private Map<String, String> getConfig()
-            throws IOException
     {
         Map<String, String> result;
         if (SESSION_PROPERTY_PROVIDER_CONFIG.exists()) {
-            result = loadProperties(SESSION_PROPERTY_PROVIDER_CONFIG);
+            try {
+                result = loadProperties(SESSION_PROPERTY_PROVIDER_CONFIG);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
         else {
             result = ImmutableMap.of();
         }
         return result;
-    }
-
-    private URI getNativeNodeUri()
-    {
-        Set<InternalNode> nodes = nodeManager.getNodes(NodeState.ACTIVE);
-
-        // TODO: Need to identity native worker.
-        // Temporary picking random worker for now.
-        InternalNode nativeNode = nodes.stream()
-                .filter(node -> !node.isCoordinator())
-                .filter(node -> !node.isCatalogServer())
-                .findFirst()
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Failed to find native node"));
-
-        return nativeNode.getInternalUri();
     }
 }

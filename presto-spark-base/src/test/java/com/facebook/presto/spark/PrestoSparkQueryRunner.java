@@ -446,6 +446,11 @@ public class PrestoSparkQueryRunner
         throw new UnsupportedOperationException();
     }
 
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public TransactionManager getTransactionManager()
     {

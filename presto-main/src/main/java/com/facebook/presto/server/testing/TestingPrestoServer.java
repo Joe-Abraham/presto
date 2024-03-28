@@ -60,6 +60,7 @@ import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
@@ -176,6 +177,7 @@ public class TestingPrestoServer
 
     private final NativeFunctionNamespaceManagerProvider nativeFunctionNamespaceManagerProvider;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
+    private final SystemSessionPropertyProviderManager sessionPropertyProviderManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -433,6 +435,7 @@ public class TestingPrestoServer
         requestBlocker = injector.getInstance(RequestBlocker.class);
         serverInfoResource = injector.getInstance(ServerInfoResource.class);
         nativeFunctionNamespaceManagerProvider = injector.getInstance(NativeFunctionNamespaceManagerProvider.class);
+        sessionPropertyProviderManager = injector.getInstance(SystemSessionPropertyProviderManager.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -513,6 +516,11 @@ public class TestingPrestoServer
     public QueryManager getQueryManager()
     {
         return queryManager;
+    }
+
+    public SystemSessionPropertyProviderManager getSessionPropertyProviderManager()
+    {
+        return sessionPropertyProviderManager;
     }
 
     public Plan getQueryPlan(QueryId queryId)

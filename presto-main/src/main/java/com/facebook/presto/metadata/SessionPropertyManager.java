@@ -26,9 +26,12 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.session.sessionpropertyprovidermanagers.SystemSessionPropertyProviderManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.spi.session.SessionPropertyMetadata;
+import com.facebook.presto.spi.session.SystemSessionPropertyProvider;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -61,16 +64,25 @@ public final class SessionPropertyManager
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
     private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private SystemSessionPropertyProviderManager providerManager;
 
     public SessionPropertyManager()
     {
         this(new SystemSessionProperties());
     }
 
-    @Inject
     public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
     {
         this(systemSessionProperties.getSessionProperties());
+        // Dummy provider manager.
+        this.providerManager = new SystemSessionPropertyProviderManager(null);
+    }
+
+    @Inject
+    public SessionPropertyManager(SystemSessionProperties systemSessionProperties, SystemSessionPropertyProviderManager providerManager)
+    {
+        this(systemSessionProperties.getSessionProperties());
+        this.providerManager = providerManager;
     }
 
     public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
@@ -161,6 +173,24 @@ public final class SessionPropertyManager
                         property.getName(),
                         property.getDescription(),
                         property.getSqlType().getDisplayName(),
+                        property.isHidden()));
+            }
+        }
+
+        SystemSessionPropertyProvider sessionPropertyProvider = providerManager.getSessionPropertyProvider();
+        // TODO: To be removed once default Java worker plugin is implemented.
+        if (sessionPropertyProvider != null) {
+            for (SessionPropertyMetadata property : sessionPropertyProvider.getSessionProperties()) {
+                String defaultValue = firstNonNull(property.getDefaultValue(), "");
+                String value = systemProperties.getOrDefault(property.getName(), defaultValue);
+                sessionPropertyValues.add(new SessionPropertyValue(
+                        value,
+                        defaultValue,
+                        property.getName(),
+                        Optional.empty(),
+                        property.getName(),
+                        property.getDescription(),
+                        property.getSqlTypeSignature().getBase(),
                         property.isHidden()));
             }
         }
