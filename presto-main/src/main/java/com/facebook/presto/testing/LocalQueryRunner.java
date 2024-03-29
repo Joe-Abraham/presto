@@ -25,7 +25,6 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
@@ -107,6 +106,7 @@ import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
@@ -378,11 +378,12 @@ public class LocalQueryRunner
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
-        // TODO : This should be changed to PluginNodeManager
-        this.pluginNodeManager = new ConnectorAwareNodeManager(nodeManager);
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
+
+        NodeInfo nodeInfo = new NodeInfo("test");
+        this.pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo);
 
         NodeScheduler nodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
@@ -455,7 +456,6 @@ public class LocalQueryRunner
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
-        NodeInfo nodeInfo = new NodeInfo("test");
         NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
                 metadata,
