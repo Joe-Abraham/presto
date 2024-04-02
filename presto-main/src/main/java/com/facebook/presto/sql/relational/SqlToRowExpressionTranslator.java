@@ -923,6 +923,9 @@ public final class SqlToRowExpressionTranslator
                 return prefixOrSuffixMatch;
             }
 
+            if (isNative) {
+                return likeFunctionCall(value, pattern);
+            }
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
@@ -968,6 +971,9 @@ public final class SqlToRowExpressionTranslator
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
+                if (isNative) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharFunction(), BOOLEAN, value, pattern);
+                }
                 return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 
