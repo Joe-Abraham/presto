@@ -13,9 +13,9 @@
  */
 #pragma once
 
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/SessionProperty.h"
 #include "presto_cpp/main/SystemSessionProperties.h"
-#include "presto_cpp/external/json/nlohmann/json.hpp"
 
 using json = nlohmann::json;
 
@@ -28,4 +28,3 @@ class SessionPropertyReporter {
   std::string getSqlType(const SessionProperty& sessionPropertyType);
 };
 } // namespace facebook::presto
-

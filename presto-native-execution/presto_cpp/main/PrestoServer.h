@@ -25,9 +25,9 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/SessionPropertyReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
-#include "presto_cpp/main/SessionPropertyReporter.h"
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;

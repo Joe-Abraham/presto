@@ -22,8 +22,8 @@ using namespace std;
 class SessionPropertyReporterTest : public testing::Test {};
 
 TEST_F(SessionPropertyReporterTest, getSessionProperties) {
-    SessionPropertyReporter propertyReporterObject;
-    std::string expectedJsonString = R"([
+  SessionPropertyReporter propertyReporterObject;
+  std::string expectedJsonString = R"([
       {
         "defaultValue":"1000",
         "description":"Native Execution only. The cpu time slice limit in ms that a driver thread.If not zero, can continuously run without yielding. If it is zero,then there is no limit.",
@@ -151,8 +151,7 @@ TEST_F(SessionPropertyReporterTest, getSessionProperties) {
         "typeSignature":"boolean"
       }
     ])";
-    json expectedJson = json::parse(expectedJsonString);
-    json actualJson = propertyReporterObject.getJsonMetaDataSessionProperty();
-    EXPECT_EQ(expectedJson, actualJson);
+  json expectedJson = json::parse(expectedJsonString);
+  json actualJson = propertyReporterObject.getJsonMetaDataSessionProperty();
+  EXPECT_EQ(expectedJson, actualJson);
 }
-
