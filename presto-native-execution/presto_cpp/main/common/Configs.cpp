@@ -224,7 +224,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
-          STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default.")};
+          STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default")};
 }
 
 SystemConfig* SystemConfig::instance() {
@@ -618,7 +618,7 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 }
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
-  return optionalProperty(kPrestoDefaultNamespacePrefix).value();
+  return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
 }
 
 NodeConfig::NodeConfig() {
