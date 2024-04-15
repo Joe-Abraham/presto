@@ -127,6 +127,9 @@ public class ClusterStatsResource
         if (!isIncludeCoordinator) {
             activeNodes -= 1;
         }
+        if (!nodeManager.getCoordinatorSidecars().isEmpty()) {
+            activeNodes -= nodeManager.getCoordinatorSidecars().size();
+        }
 
         long runningDrivers = 0;
         long runningTasks = 0;

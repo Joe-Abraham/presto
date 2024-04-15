@@ -262,7 +262,9 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<HostAddress, InternalNode> allNodesByHostAndPort = ImmutableSetMultimap.builder();
             ImmutableSetMultimap.Builder<InetAddress, InternalNode> allNodesByHost = ImmutableSetMultimap.builder();
             Predicate<Node> resourceManagerFilterPredicate = node -> !node.isResourceManager();
-            Predicate<Node> finalNodeFilterPredicate = resourceManagerFilterPredicate.and(nodeFilterPredicate.orElse(node -> true));
+            Predicate<Node> finalNodeFilterPredicate = resourceManagerFilterPredicate
+                    .and(node -> !node.isCoordinatorSidecar())
+                    .and(nodeFilterPredicate.orElse(node -> true));
             List<InternalNode> activeNodes;
             List<InternalNode> allNodes;
             if (connectorId != null) {
