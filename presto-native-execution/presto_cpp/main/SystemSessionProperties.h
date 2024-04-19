@@ -108,7 +108,8 @@ class SystemSessionProperties {
   const std::map<std::string, std::unique_ptr<SessionProperty>>&
   getSessionProperties() const;
 
-  /// Update velox config with default values from the native session properties.
+  /// Update velox config with default values from the native session
+  /// properties.
   void updateDefaultValues(
       std::unordered_map<std::string, std::string>& configStrings) const;
 

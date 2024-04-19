@@ -79,11 +79,11 @@ class SessionPropertyData : public SessionProperty {
 
   inline PropertyType getType() const {
     const std::type_info& typeinfo = typeid(T);
-    return (typeinfo == typeid(int)) ? PropertyType::kInt
-        : (typeinfo == typeid(bool)) ? PropertyType::kBool
-        : (typeinfo == typeid(long)) ? PropertyType::kLong
+    return (typeinfo == typeid(int))        ? PropertyType::kInt
+        : (typeinfo == typeid(bool))        ? PropertyType::kBool
+        : (typeinfo == typeid(long))        ? PropertyType::kLong
         : (typeinfo == typeid(std::string)) ? PropertyType::kString
-                                     : PropertyType::kUnknown;
+                                            : PropertyType::kUnknown;
   }
 
   /// Returns default value set in prestissmo worker.
@@ -107,19 +107,19 @@ class SessionPropertyData : public SessionProperty {
  private:
   template <typename U>
   std::string toString(const U& value) const {
-      return std::to_string(value);
+    return std::to_string(value);
   }
 
   /// Template specialization for bool
   template <>
   std::string toString<bool>(const bool& value) const {
-      return value ? "true" : "false";
+    return value ? "true" : "false";
   }
 
   /// Template specialization for string
   template <>
   std::string toString<std::string>(const std::string& value) const {
-      return value;
+    return value;
   }
 
  private:

@@ -46,15 +46,12 @@ std::optional<bool> getVeloxDefault(const std::string& configName) {
 
 } // namespace
 
-#define ADD_SESSION_PROPERTY(name, type, description, hidden, velox_config_name, default_value) \
-    sessionProperties_.emplace( \
-        name, \
-        std::make_unique<SessionPropertyData<type>>( \
-            name, \
-            description, \
-            hidden, \
-            velox_config_name, \
-            default_value))
+#define ADD_SESSION_PROPERTY(                                          \
+    name, type, description, hidden, velox_config_name, default_value) \
+  sessionProperties_.emplace(                                          \
+      name,                                                            \
+      std::make_unique<SessionPropertyData<type>>(                     \
+          name, description, hidden, velox_config_name, default_value))
 
 SystemSessionProperties::SystemSessionProperties() {
   using velox::core::QueryConfig;
@@ -254,7 +251,7 @@ std::string SystemSessionProperties::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
   return it == sessionProperties_.end() ? name
-                                         : it->second->getVeloxConfigName();
+                                        : it->second->getVeloxConfigName();
 }
 
 } // namespace facebook::presto

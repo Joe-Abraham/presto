@@ -12,10 +12,10 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/SystemSessionProperties.h"
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 
 #if __has_include("filesystem")
