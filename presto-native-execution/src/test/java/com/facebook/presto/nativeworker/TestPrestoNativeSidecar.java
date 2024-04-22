@@ -18,16 +18,20 @@ import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupNativeFunctionNamespaceManager;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupSessionPropertyProvider;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
@@ -35,6 +39,7 @@ public class TestPrestoNativeSidecar
         extends AbstractTestQueryFramework
 {
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
+    private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final int FUNCTION_COUNT = 1113;
 
     @Override
@@ -50,6 +55,7 @@ public class TestPrestoNativeSidecar
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunnerWithSidecar(false);
         setupNativeFunctionNamespaceManager(queryRunner, "native");
+        setupSessionPropertyProvider(queryRunner);
         return queryRunner;
     }
 
@@ -83,5 +89,41 @@ public class TestPrestoNativeSidecar
                 .filter(row -> !row.getFields().contains("is_null") &&
                         !row.getFields().contains("in"))
                 .collect(toImmutableList());
+    }
+
+    private List<MaterializedRow> excludeJavaSessionProperties(List<MaterializedRow> inputRows)
+    {
+        return inputRows.stream()
+                .filter(row -> Pattern.matches(REGEX_SESSION_NAMESPACE, row.getFields().get(4).toString()))
+                .collect(Collectors.toList());
+    }
+
+    @Test
+    public void testShowSession()
+    {
+        @Language("SQL") String sql = "SHOW SESSION";
+        MaterializedResult actualResult = computeActual(sql);
+        List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
+        List<MaterializedRow> filteredRows = excludeJavaSessionProperties(actualRows);
+        assertTrue(filteredRows.size() > 0);
+    }
+
+    @Test
+    public void testJavaWorkerProperties()
+    {
+        assertQueryFails("SET SESSION aggregation_spill_enabled=false", "line 1:1: Session property aggregation_spill_enabled does not exist");
+    }
+
+    @Test
+    public void testSetNativeSessionProperty()
+    {
+        @Language("SQL") String setSession = "SET SESSION driver_cpu_time_slice_limit_ms=500";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={driver_cpu_time_slice_limit_ms=500}, " +
+                        "resetSessionProperties=[], updateType=SET SESSION}");
     }
 }
