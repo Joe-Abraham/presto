@@ -56,7 +56,8 @@ import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastE
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
-import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSystemSessionPropertyProvider.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -496,18 +497,22 @@ public final class Session
 
     public SqlFunctionProperties getSqlFunctionProperties()
     {
-        return SqlFunctionProperties.builder()
+        SqlFunctionProperties.Builder builder = SqlFunctionProperties.builder()
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyRowFieldOrdinalAccessEnabled(isLegacyRowFieldOrdinalAccessEnabled(this))
                 .setLegacyTimestamp(isLegacyTimestamp(this))
                 .setLegacyMapSubscript(isLegacyMapSubscript(this))
-                .setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this))
                 .setSessionStartTime(getStartTime())
                 .setSessionLocale(getLocale())
                 .setSessionUser(getUser())
                 .setFieldNamesInJsonCastEnabled(isFieldNameInJsonCastEnabled(this))
-                .setExtraCredentials(identity.getExtraCredentials())
-                .build();
+                .setExtraCredentials(identity.getExtraCredentials());
+
+        // Conditionally set parse decimal literal as double only if native execution is not enabled
+        if (!isNativeExecutionEnabled(this)) {
+            builder.setParseDecimalLiteralAsDouble(isParseDecimalLiteralsAsDouble(this));
+        }
+        return builder.build();
     }
 
     public ConnectorSession toConnectorSession(ConnectorId connectorId)
