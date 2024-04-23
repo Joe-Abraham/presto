@@ -110,18 +110,6 @@ class SessionPropertyData : public SessionProperty {
     return std::to_string(value);
   }
 
-  /// Template specialization for bool
-  template <>
-  std::string toString<bool>(const bool& value) const {
-    return value ? "true" : "false";
-  }
-
-  /// Template specialization for string
-  template <>
-  std::string toString<std::string>(const std::string& value) const {
-    return value;
-  }
-
  private:
   const std::string name_;
   const std::string description_;
@@ -129,5 +117,21 @@ class SessionPropertyData : public SessionProperty {
   const bool hidden_;
   const std::string veloxConfigName_;
 };
+
+/// Template specialization for bool
+template <>
+template <>
+inline std::string SessionPropertyData<bool>::toString<bool>(
+    const bool& value) const {
+  return value ? "true" : "false";
+}
+
+/// Template specialization for string
+template <>
+template <>
+inline std::string SessionPropertyData<std::string>::toString<std::string>(
+    const std::string& value) const {
+  return value;
+}
 
 } // namespace facebook::presto
