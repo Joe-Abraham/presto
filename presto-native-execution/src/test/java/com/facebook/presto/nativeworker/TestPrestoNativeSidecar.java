@@ -40,6 +40,8 @@ public class TestPrestoNativeSidecar
 {
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
+    private static final String MISSING_FROM_CACHE_ERROR = ".*?native.default.%s.* is missing from cache";
+    private static final String UNKNOWN_TYPE_ERROR = ".*Unknown type %s";
     private static final int FUNCTION_COUNT = 1113;
 
     @Override
@@ -71,9 +73,8 @@ public class TestPrestoNativeSidecar
         String sql = "SHOW FUNCTIONS";
         MaterializedResult actualResult = computeActual(sql);
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
-        List<MaterializedRow> filteredRows = specialFunctionsToExcludeFilter(actualRows);
-        assertTrue(filteredRows.size() >= FUNCTION_COUNT);
-        filteredRows.forEach(row -> {
+        assertTrue(actualRows.size() >= FUNCTION_COUNT);
+        actualRows.forEach(row -> {
             // Iterate over all cells in the row
             for (Object cellValue : row.getFields()) {
                 if (Pattern.matches(REGEX_FUNCTION_NAMESPACE, cellValue.toString())) {
@@ -83,12 +84,36 @@ public class TestPrestoNativeSidecar
             fail(format("no namespace match found for row: %s", row));
         });
     }
-    private List<MaterializedRow> specialFunctionsToExcludeFilter(List<MaterializedRow> inputRows)
+
+    @Test
+    public void testConstantFolding()
     {
-        return inputRows.stream()
-                .filter(row -> !row.getFields().contains("is_null") &&
-                        !row.getFields().contains("in"))
-                .collect(toImmutableList());
+        @Language("SQL") String absTestCase = "SELECT abs(-1)";
+        @Language("SQL") String sumTestCase = "SELECT 1 + 2";
+        @Language("SQL") String sumAggregateTestCase = "SELECT sum(x) FILTER(WHERE x > 0) FROM (VALUES 1, 1, 0, 2, 3, 3) t(x)";
+        @Language("SQL") String avgAggregateTestCase = "SELECT avg(x) FROM (VALUES 1, 1, 0, 2, 3, 3) as t(x)";
+        @Language("SQL") String maxTestCase = "SELECT max(1,2)";
+        @Language("SQL") String minTestCase = "SELECT min(1,2)";
+        @Language("SQL") String cbrtTestCase = "SELECT cbrt(8)";
+        @Language("SQL") String ceilTestCase = "SELECT ceil(7.8)";
+        @Language("SQL") String powTestCase = "SELECT pow(2,3)";
+        @Language("SQL") String arraySumTestCase = "SELECT array_sum(array[1,2,3])";
+        @Language("SQL") String rowTestCase = "SELECT abs(CAST(ROW(-1, 2.0) AS ROW(x BIGINT, y DOUBLE))[1])";
+        @Language("SQL") String mapTestCase = "SELECT abs( map_from_entries(ARRAY[('one', -1), ('two', -2)])['one'])";
+        @Language("SQL") String arrTransformTestCase = "SELECT transform(ARRAY [1], x -> x + 1)";
+        assertQuery(absTestCase);
+        assertQuery(sumTestCase);
+        assertQuery(avgAggregateTestCase);
+        assertQueryFails(sumAggregateTestCase, format(MISSING_FROM_CACHE_ERROR,"sum"));
+        assertQueryFails(maxTestCase, format(MISSING_FROM_CACHE_ERROR,"max"));
+        assertQueryFails(minTestCase, format(MISSING_FROM_CACHE_ERROR,"min"));
+        assertQuery(cbrtTestCase);
+        assertQuery(ceilTestCase);
+        assertQuery(powTestCase);
+        assertQuery(arraySumTestCase);
+        assertQuery(rowTestCase);
+        assertQuery(mapTestCase);
+        assertQuery(arrTransformTestCase);
     }
 
     private List<MaterializedRow> excludeJavaSessionProperties(List<MaterializedRow> inputRows)
