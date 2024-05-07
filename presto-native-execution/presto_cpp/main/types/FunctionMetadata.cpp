@@ -74,7 +74,7 @@ const protocol::RoutineCharacteristics getRoutineCharacteristics(
 
   protocol::RoutineCharacteristics routineCharacteristics;
   routineCharacteristics.language =
-      std::make_shared<protocol::Language>(protocol::Language({"CPP"}));
+      std::make_shared<protocol::Language>(protocol::Language({"REST"}));
   routineCharacteristics.determinism =
       std::make_shared<protocol::Determinism>(determinism);
   routineCharacteristics.nullCallClause =

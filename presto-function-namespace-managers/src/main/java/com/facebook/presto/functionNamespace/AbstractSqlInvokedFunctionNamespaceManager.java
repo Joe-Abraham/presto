@@ -324,6 +324,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case SQL:
                 return new SqlInvokedScalarFunctionImplementation(function.getBody());
             case THRIFT:
+            case REST:
             case GRPC:
                 checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
                 return new RemoteScalarFunctionImplementation(function.getFunctionHandle().get(), function.getRoutineCharacteristics().getLanguage(), implementationType);
