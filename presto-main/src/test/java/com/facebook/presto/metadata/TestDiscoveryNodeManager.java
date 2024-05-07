@@ -23,7 +23,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.operator.TestingDriftClient;
 import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -78,7 +78,7 @@ public class TestDiscoveryNodeManager
     private InternalNode workerNode3;
     private InternalNode inActiveWorkerNode1;
     private InternalNode inActiveWorkerNode2;
-    private final FeaturesConfig featuresConfig = new FeaturesConfig().setNativeExecutionEnabled(false);
+    private final ServerConfig serverConfig = new ServerConfig().setNativeExecutionEnabled(false);
 
     @BeforeMethod
     public void setup()
@@ -147,7 +147,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetAllNodesForWorkerNode()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -181,7 +181,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetAllNodesForCoordinator()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -215,7 +215,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetAllNodesForResourceManager()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, resourceManagerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, resourceManagerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -249,7 +249,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetCurrentNode()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             assertEquals(manager.getCurrentNode(), workerNode1);
         }
@@ -261,7 +261,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetCoordinators()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, resourceManagerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, resourceManagerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
         }
@@ -273,7 +273,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetResourceManagers()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             assertEquals(manager.getResourceManagers(), ImmutableSet.of(resourceManager));
         }
@@ -285,7 +285,7 @@ public class TestDiscoveryNodeManager
     @Test
     public void testGetCatalogServers()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             assertEquals(manager.getCatalogServers(), ImmutableSet.of(catalogServer));
         }
@@ -298,14 +298,14 @@ public class TestDiscoveryNodeManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".* current node not returned .*")
     public void testGetCurrentNodeRequired()
     {
-        new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        new DiscoveryNodeManager(selector, new NodeInfo("test"), new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
     }
 
     @Test(timeOut = 60000)
     public void testNodeChangeListener()
             throws Exception
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             manager.startPollingNodeStates();
 

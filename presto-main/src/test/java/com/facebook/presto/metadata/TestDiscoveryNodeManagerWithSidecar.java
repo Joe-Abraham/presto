@@ -23,7 +23,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.operator.TestingDriftClient;
 import com.facebook.presto.server.InternalCommunicationConfig;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -69,7 +69,7 @@ public class TestDiscoveryNodeManagerWithSidecar
     private InternalNode workerNode3;
     private InternalNode inActiveWorkerNode1;
     private InternalNode inActiveWorkerNode2;
-    private final FeaturesConfig featuresConfig = new FeaturesConfig().setNativeExecutionEnabled(true);
+    private final ServerConfig serverConfig = new ServerConfig().setNativeExecutionEnabled(true);
 
     @BeforeMethod
     public void setup()
@@ -116,7 +116,7 @@ public class TestDiscoveryNodeManagerWithSidecar
     @Test
     public void testGetAllNodesForWorkerNode()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, workerNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -150,7 +150,7 @@ public class TestDiscoveryNodeManagerWithSidecar
     @Test
     public void testGetAllNodesForCoordinatorSidecar()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorSidecarNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorSidecarNodeInfo, new NoOpFailureDetector(), Optional.empty(), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
 
@@ -184,7 +184,7 @@ public class TestDiscoveryNodeManagerWithSidecar
     @Test
     public void testGetCoordinatorSidecar()
     {
-        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorSidecarNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, featuresConfig);
+        DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, coordinatorSidecarNodeInfo, new NoOpFailureDetector(), Optional.of(host -> false), expectedVersion, testHttpClient, new TestingDriftClient<>(), internalCommunicationConfig, serverConfig);
         try {
             assertEquals(manager.getCoordinatorSidecars(), ImmutableSet.of(coordinatorSidecar));
         }
