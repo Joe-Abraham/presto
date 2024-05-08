@@ -510,8 +510,8 @@ public class PrestoNativeQueryRunnerUtils
                 NativeFunctionNamespaceManagerFactory.NAME,
                 catalogName,
                 ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP"));
+                        "supported-function-languages", "REST",
+                        "function-implementation-type", "REST"));
     }
 
     public static void setupSessionPropertyProvider(QueryRunner queryRunner)
