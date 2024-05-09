@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -70,6 +71,10 @@ public class JsonBasedUdfFunctionMetadata
      * Optional field: Marked to indicate the arity of the function.
      */
     private final Optional<Boolean> variableArity;
+    /**
+     * Optional field: List of the typeVariableConstraints.
+     */
+    private final Optional<List<TypeVariableConstraint>> typeVariableConstraints;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -81,7 +86,8 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("functionVisibility") Optional<SqlFunctionVisibility> functionVisibility,
             @JsonProperty("variableArity") Optional<Boolean> variableArity,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
-            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata)
+            @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata,
+            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -95,6 +101,7 @@ public class JsonBasedUdfFunctionMetadata
         checkArgument(
                 (functionKind == AGGREGATE && aggregateMetadata.isPresent()) || (functionKind != AGGREGATE && !aggregateMetadata.isPresent()),
                 "aggregateMetadata must be present for aggregation functions and absent otherwise");
+        this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
     }
 
     public String getDocString()
@@ -145,5 +152,10 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<AggregationFunctionMetadata> getAggregateMetadata()
     {
         return aggregateMetadata;
+    }
+
+    public Optional<List<TypeVariableConstraint>> getTypeVariableConstraints()
+    {
+        return typeVariableConstraints;
     }
 }

@@ -114,22 +114,6 @@ public class SqlInvokedFunction
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
             List<Parameter> parameters,
-            TypeSignature returnType,
-            String description,
-            RoutineCharacteristics routineCharacteristics,
-            String body,
-            SqlFunctionVisibility functionVisibility,
-            boolean variableArity,
-            FunctionVersion version,
-            FunctionKind kind,
-            Optional<AggregationFunctionMetadata> aggregationMetadata)
-    {
-        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, functionVisibility, variableArity, version, kind, aggregationMetadata);
-    }
-
-    public SqlInvokedFunction(
-            QualifiedObjectName functionName,
-            List<Parameter> parameters,
             List<TypeVariableConstraint> typeVariableConstraints,
             TypeSignature returnType,
             String description,
@@ -171,6 +155,7 @@ public class SqlInvokedFunction
         return new SqlInvokedFunction(
                 signature.getName(),
                 parameters,
+                signature.getTypeVariableConstraints(),
                 signature.getReturnType(),
                 description,
                 routineCharacteristics,

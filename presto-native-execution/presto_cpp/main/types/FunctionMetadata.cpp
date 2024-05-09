@@ -82,6 +82,23 @@ const protocol::RoutineCharacteristics getRoutineCharacteristics(
   return routineCharacteristics;
 }
 
+const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
+    const FunctionSignature& functionSignature) {
+  std::vector<protocol::TypeVariableConstraint> typeVariableConstraints;
+  const auto functionVariables = functionSignature.variables();
+  for (const auto& [name, signature] : functionVariables) {
+    if (signature.isTypeParameter()) {
+      protocol::TypeVariableConstraint typeVariableConstraint;
+      typeVariableConstraint.name = signature.name();
+      typeVariableConstraint.orderableRequired = signature.orderableTypesOnly();
+      typeVariableConstraint.comparableRequired =
+          signature.comparableTypesOnly();
+      typeVariableConstraints.emplace_back(typeVariableConstraint);
+    }
+  }
+  return typeVariableConstraints;
+}
+
 void updateFunctionMetadata(
     const std::string& functionName,
     const FunctionSignature& functionSignature,
@@ -99,6 +116,9 @@ void updateFunctionMetadata(
     paramTypes.emplace_back(argumentType.toString());
   }
   jsonBasedUdfFunctionMetadata.paramTypes = paramTypes;
+  jsonBasedUdfFunctionMetadata.typeVariableConstraints =
+      std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
+          getTypeVariableConstraints(functionSignature));
 }
 
 const std::vector<protocol::JsonBasedUdfFunctionMetadata>

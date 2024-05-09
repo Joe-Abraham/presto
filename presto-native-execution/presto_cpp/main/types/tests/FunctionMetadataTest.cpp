@@ -205,3 +205,31 @@ TEST(FunctionMetadataTest, testVariableArity) {
     }
   }
 }
+
+TEST(FunctionMetadataTest, testTypeVariableConstraints) {
+  functions::prestosql::registerAllScalarFunctions("");
+  std::string functionName = "array_constructor";
+  json jsonMetadata;
+  getJsonMetadataForFunction(functionName, jsonMetadata);
+  json j = jsonMetadata.at(functionName);
+  const auto numSignatures = 2;
+  EXPECT_EQ(j.size(), numSignatures);
+
+  for (auto i = 0; i < numSignatures; i++) {
+    json jsonAtIdx = j.at(i);
+    EXPECT_EQ(jsonAtIdx.at("docString"), functionName);
+    auto typeVariableConstraints = jsonAtIdx.at("typeVariableConstraints");
+    if (typeVariableConstraints.size() > 0) {
+      EXPECT_EQ(typeVariableConstraints[0].at("comparableRequired"), false);
+      EXPECT_EQ(typeVariableConstraints[0].at("name"), "T");
+      EXPECT_EQ(typeVariableConstraints[0].at("orderableRequired"), false);
+      EXPECT_EQ(
+          typeVariableConstraints[0].at("nonDecimalNumericRequired"), false);
+      EXPECT_EQ(typeVariableConstraints[0].at("variadicBound"), "");
+    } else {
+      EXPECT_EQ(
+          typeVariableConstraints,
+          std::vector<protocol::TypeVariableConstraint>({}));
+    }
+  }
+}
