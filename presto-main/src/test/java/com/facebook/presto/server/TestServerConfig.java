@@ -49,7 +49,8 @@ public class TestServerConfig
                 .setCoordinatorSidecarEnabled(false)
                 .setPoolType(DEFAULT)
                 .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
-                .setNestedDataSerializationEnabled(true));
+                .setNestedDataSerializationEnabled(true)
+                .setNativeExecutionEnabled(false));
     }
 
     @Test
@@ -72,6 +73,7 @@ public class TestServerConfig
                 .put("pool-type", "LEAF")
                 .put("cluster-stats-expiration-duration", "10s")
                 .put("nested-data-serialization-enabled", "false")
+                .put("native-execution-enabled", "true")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -90,7 +92,8 @@ public class TestServerConfig
                 .setCoordinatorSidecarEnabled(true)
                 .setPoolType(LEAF)
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
-                .setNestedDataSerializationEnabled(false);
+                .setNestedDataSerializationEnabled(false)
+                .setNativeExecutionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

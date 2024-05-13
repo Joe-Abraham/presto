@@ -110,7 +110,6 @@ public class FeaturesConfig
     private boolean optimizeMetadataQueries;
     private boolean optimizeMetadataQueriesIgnoreStats;
     private int optimizeMetadataQueriesCallThreshold = 100;
-    private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
     private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
@@ -132,9 +131,7 @@ public class FeaturesConfig
     private boolean optimizeJoinsWithEmptySources;
     private boolean logFormattedQueryEnabled;
     private boolean logInvokedFunctionNamesEnabled;
-
     private boolean dictionaryAggregation;
-
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
@@ -143,17 +140,6 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
-    private boolean aggregationSpillEnabled = true;
-    private boolean topNSpillEnabled = true;
-    private boolean distinctAggregationSpillEnabled = true;
-    private boolean dedupBasedDistinctAggregationSpillEnabled;
-    private boolean distinctAggregationLargeBlockSpillEnabled;
-    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
-    private boolean orderByAggregationSpillEnabled = true;
-    private boolean windowSpillEnabled = true;
-    private boolean orderBySpillEnabled = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
-    private DataSize topNOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -171,7 +157,6 @@ public class FeaturesConfig
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
-    private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean exploitConstraints;
     private boolean preferPartialAggregation = true;
@@ -182,33 +167,24 @@ public class FeaturesConfig
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
-
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private Duration queryAnalyzerTimeout = new Duration(3, MINUTES);
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
     private int dynamicFilteringRangeRowLimitPerDriver;
-
     private boolean fragmentResultCachingEnabled;
-
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
     private boolean legacyUnnestArrayRows;
     private AggregationPartitioningMergingStrategy aggregationPartitioningMergingStrategy = LEGACY;
-
     private boolean jsonSerdeCodeGenerationEnabled;
     private int maxConcurrentMaterializations = 3;
     private boolean optimizedRepartitioningEnabled;
-
     private boolean pushdownSubfieldsEnabled;
     private boolean pushdownSubfieldsFromLambdaEnabled;
-
-    private boolean tableWriterMergeOperatorEnabled = true;
-
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
-
     private boolean listBuiltInFunctionsOnly = true;
     private boolean experimentalFunctionsEnabled;
     private boolean optimizeCommonSubExpressions = true;
@@ -216,7 +192,6 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean optimizePayloadJoins;
     private boolean pushdownDereferenceEnabled;
-    private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
     private boolean checkAccessControlWithSubfields;
     private boolean skipRedundantSort = true;
@@ -237,7 +212,6 @@ public class FeaturesConfig
     private double partialResultsCompletionRatioThreshold = 0.5;
     private double partialResultsMaxExecutionTimeMultiplier = 2.0;
 
-    private boolean offsetClauseEnabled;
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
@@ -258,7 +232,6 @@ public class FeaturesConfig
 
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
-    private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
@@ -1165,18 +1138,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isOptimizeHashGeneration()
-    {
-        return optimizeHashGeneration;
-    }
-
-    @Config("optimizer.optimize-hash-generation")
-    public FeaturesConfig setOptimizeHashGeneration(boolean optimizeHashGeneration)
-    {
-        this.optimizeHashGeneration = optimizeHashGeneration;
-        return this;
-    }
-
     public boolean isPushTableWriteThroughUnion()
     {
         return pushTableWriteThroughUnion;
@@ -1261,123 +1222,6 @@ public class FeaturesConfig
     {
         this.joinSpillingEnabled = joinSpillingEnabled;
         return this;
-    }
-
-    @Config("experimental.aggregation-spill-enabled")
-    @ConfigDescription("Spill aggregations if spill is enabled")
-    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
-    {
-        this.aggregationSpillEnabled = aggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isAggregationSpillEnabled()
-    {
-        return aggregationSpillEnabled;
-    }
-
-    @Config("experimental.topn-spill-enabled")
-    @ConfigDescription("Spill TopN if spill is enabled")
-    public FeaturesConfig setTopNSpillEnabled(boolean topNSpillEnabled)
-    {
-        this.topNSpillEnabled = topNSpillEnabled;
-        return this;
-    }
-
-    public boolean isTopNSpillEnabled()
-    {
-        return topNSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
-    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
-    {
-        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationSpillEnabled()
-    {
-        return distinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
-    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
-    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
-    {
-        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDedupBasedDistinctAggregationSpillEnabled()
-    {
-        return dedupBasedDistinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
-    @ConfigDescription("Spill large block to a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
-    {
-        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationLargeBlockSpillEnabled()
-    {
-        return distinctAggregationLargeBlockSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-size-threshold")
-    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
-    {
-        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
-        return this;
-    }
-
-    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
-    {
-        return distinctAggregationLargeBlockSizeThreshold;
-    }
-
-    @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
-    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
-    {
-        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderByAggregationSpillEnabled()
-    {
-        return orderByAggregationSpillEnabled;
-    }
-
-    @Config("experimental.window-spill-enabled")
-    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
-    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
-    {
-        this.windowSpillEnabled = windowSpillEnabled;
-        return this;
-    }
-
-    public boolean isWindowSpillEnabled()
-    {
-        return windowSpillEnabled;
-    }
-
-    @Config("experimental.order-by-spill-enabled")
-    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
-    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
-    {
-        this.orderBySpillEnabled = orderBySpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderBySpillEnabled()
-    {
-        return orderBySpillEnabled;
     }
 
     public boolean isIterativeOptimizerEnabled()
@@ -1516,30 +1360,6 @@ public class FeaturesConfig
     public double getDefaultWriterReplicationCoefficient()
     {
         return defaultWriterReplicationCoefficient;
-    }
-
-    public DataSize getTopNOperatorUnspillMemoryLimit()
-    {
-        return topNOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.topn-operator-unspill-memory-limit")
-    public FeaturesConfig setTopNOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.topNOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
-    }
-
-    public DataSize getAggregationOperatorUnspillMemoryLimit()
-    {
-        return aggregationOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.aggregation-operator-unspill-memory-limit")
-    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
     }
 
     public List<Path> getSpillerSpillPaths()
@@ -1741,18 +1561,6 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
-        return this;
-    }
-
-    public boolean isParseDecimalLiteralsAsDouble()
-    {
-        return parseDecimalLiteralsAsDouble;
-    }
-
-    @Config("parse-decimal-literals-as-double")
-    public FeaturesConfig setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
-    {
-        this.parseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
         return this;
     }
 
@@ -1968,18 +1776,6 @@ public class FeaturesConfig
         return pushdownDereferenceEnabled;
     }
 
-    public boolean isTableWriterMergeOperatorEnabled()
-    {
-        return tableWriterMergeOperatorEnabled;
-    }
-
-    @Config("experimental.table-writer-merge-operator-enabled")
-    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
-    {
-        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
-        return this;
-    }
-
     @Config("index-loader-timeout")
     @ConfigDescription("Time limit for loading indexes for index joins")
     public FeaturesConfig setIndexLoaderTimeout(Duration indexLoaderTimeout)
@@ -2101,18 +1897,6 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnNoTableLayoutFilter(String warnOnNoTableLayoutFilter)
     {
         this.warnOnNoTableLayoutFilter = warnOnNoTableLayoutFilter;
-        return this;
-    }
-
-    public boolean isInlineSqlFunctions()
-    {
-        return inlineSqlFunctions;
-    }
-
-    @Config("inline-sql-functions")
-    public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
-    {
-        this.inlineSqlFunctions = inlineSqlFunctions;
         return this;
     }
 
@@ -2298,19 +2082,6 @@ public class FeaturesConfig
     public FeaturesConfig setPartialResultsMaxExecutionTimeMultiplier(double partialResultsMaxExecutionTimeMultiplier)
     {
         this.partialResultsMaxExecutionTimeMultiplier = partialResultsMaxExecutionTimeMultiplier;
-        return this;
-    }
-
-    public boolean isOffsetClauseEnabled()
-    {
-        return offsetClauseEnabled;
-    }
-
-    @Config("offset-clause-enabled")
-    @ConfigDescription("Enable support for OFFSET clause")
-    public FeaturesConfig setOffsetClauseEnabled(boolean offsetClauseEnabled)
-    {
-        this.offsetClauseEnabled = offsetClauseEnabled;
         return this;
     }
 
@@ -2524,19 +2295,6 @@ public class FeaturesConfig
     {
         this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
         return this;
-    }
-
-    @Config("native-execution-enabled")
-    @ConfigDescription("Enable execution on native engine")
-    public FeaturesConfig setNativeExecutionEnabled(boolean nativeExecutionEnabled)
-    {
-        this.nativeExecutionEnabled = nativeExecutionEnabled;
-        return this;
-    }
-
-    public boolean isNativeExecutionEnabled()
-    {
-        return this.nativeExecutionEnabled;
     }
 
     @Config("native-execution-executable-path")

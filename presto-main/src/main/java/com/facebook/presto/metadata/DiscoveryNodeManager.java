@@ -25,11 +25,11 @@ import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProtocol;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.NodeState;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
@@ -103,7 +103,7 @@ public final class DiscoveryNodeManager
     private final InternalNode currentNode;
     private final CommunicationProtocol protocol;
     private final boolean isMemoizeDeadNodesEnabled;
-    private final FeaturesConfig featuresConfig;
+    private final ServerConfig serverConfig;
 
     @GuardedBy("this")
     private SetMultimap<ConnectorId, InternalNode> activeNodesByConnectorId;
@@ -145,7 +145,7 @@ public final class DiscoveryNodeManager
             @ForNodeManager HttpClient httpClient,
             @ForNodeManager DriftClient<ThriftServerInfoClient> driftClient,
             InternalCommunicationConfig internalCommunicationConfig,
-            FeaturesConfig featuresConfig)
+            ServerConfig serverConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -153,7 +153,7 @@ public final class DiscoveryNodeManager
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.driftClient = requireNonNull(driftClient, "driftClient is null");
-        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.serverConfig = requireNonNull(serverConfig, "serverConfig is null");
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(threadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
@@ -289,7 +289,7 @@ public final class DiscoveryNodeManager
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failed.contains(service))
                 .filter(filterRelevantNodes())
-                .filter(service -> featuresConfig.isNativeExecutionEnabled() || !isCoordinatorSidecar(service))
+                .filter(service -> serverConfig.isNativeExecutionEnabled() || !isCoordinatorSidecar(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSortedSet.orderedBy(comparing(InternalNode::getNodeIdentifier));
