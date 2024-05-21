@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
@@ -392,7 +393,8 @@ public class PrestoNativeQueryRunnerUtils
 
         return new NativeQueryRunnerParameters(prestoServerPath, dataDirectory, workerCount);
     }
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalProcessLauncherHelper(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, boolean isSidecar)
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalProcessLauncherHelper(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, AtomicBoolean isSidecar)
     {
         return
             Optional.of((workerIndex, discoveryUri) -> {
@@ -408,7 +410,8 @@ public class PrestoNativeQueryRunnerUtils
                     String configProperties = format("discovery.uri=%s%n" +
                             "presto.version=testversion%n" +
                             "system-memory-gb=4%n" +
-                            "http-server.http.port=%d", discoveryUri, port);
+                            "http-server.http.port=%d%n" +
+                            "presto.default-namespace=native.default", discoveryUri, port);
 
                     if (remoteFunctionServerUds.isPresent()) {
                         String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
@@ -419,10 +422,10 @@ public class PrestoNativeQueryRunnerUtils
                                 "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
                     }
 
-                    if (isSidecar) {
+                    if (isSidecar.get()) {
                         configProperties = format("%s%n" +
-                                "native.sidecar=true%n" +
-                                "presto.default-namespace=native.default.%n", configProperties);
+                                "native.sidecar=true%n", configProperties);
+                        isSidecar.compareAndSet(true, false);
                     }
                     Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
                     Files.write(tempDirectoryPath.resolve("node.properties"),
@@ -469,11 +472,11 @@ public class PrestoNativeQueryRunnerUtils
 
     public static Optional<BiFunction<Integer, URI, Process>> getSidecarLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
     {
-        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, true);
+        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(true));
     }
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds)
     {
-        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false);
+        return getExternalProcessLauncherHelper(catalogName, prestoServerPath, cacheMaxSize, remoteFunctionServerUds, new AtomicBoolean(false));
     }
 
     public static class NativeQueryRunnerParameters
