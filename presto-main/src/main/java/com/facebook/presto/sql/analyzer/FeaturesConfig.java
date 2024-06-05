@@ -61,7 +61,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "deprecated.legacy-order-by",
         "deprecated.legacy-join-using",
         "use-legacy-scheduler",
-        "max-stage-retries"})
+        "max-stage-retries",
+        "deprecated.group-by-uses-equal"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -93,16 +94,18 @@ public class FeaturesConfig
     private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
-
     private CteMaterializationStrategy cteMaterializationStrategy = CteMaterializationStrategy.NONE;
-    private boolean cteFilterAndProjectionPushdownEnabled;
+    private boolean cteFilterAndProjectionPushdownEnabled = true;
+    private int cteHeuristicReplicationThreshold = 4;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean trackHistoryStatsFromFailedQuery = true;
     private boolean usePerfectlyConsistentHistories;
     private int historyCanonicalPlanNodeLimit = 1000;
     private Duration historyBasedOptimizerTimeout = new Duration(10, SECONDS);
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
+    private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -119,7 +122,6 @@ public class FeaturesConfig
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
     private boolean useAlternativeFunctionSignatures;
-    private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
     private boolean legacyRowFieldOrdinalAccess;
@@ -158,7 +160,7 @@ public class FeaturesConfig
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
-    private boolean exploitConstraints;
+    private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
@@ -248,6 +250,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean fieldNamesInJsonCastEnabled;
+    private boolean legacyJsonCast = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
@@ -277,7 +280,9 @@ public class FeaturesConfig
     private long kHyperLogLogAggregationGroupNumberLimit;
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
     private boolean generateDomainFilters;
+    private boolean printEstimatedStatsFromCache;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
+    private boolean useHistograms;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -337,7 +342,11 @@ public class FeaturesConfig
     public enum CteMaterializationStrategy
     {
         ALL, // Materialize all CTES
-        NONE // Materialize no ctes
+        NONE, // Materialize no CTES
+
+        // HEURISTIC algorithm greedily prioritizes the earliest parent CTE that meets the heuristic criteria for materialization
+        HEURISTIC, // Materialize CTES occuring  >= CTE_HEURISTIC_REPLICATION_THRESHOLD
+        HEURISTIC_COMPLEX_QUERIES_ONLY // Materialize CTES occuring >= CTE_HEURISTIC_REPLICATION_THRESHOLD and having a join or an aggregate
     }
 
     public enum TaskSpillingStrategy
@@ -533,18 +542,6 @@ public class FeaturesConfig
         return useAlternativeFunctionSignatures;
     }
 
-    @Config("deprecated.group-by-uses-equal")
-    public FeaturesConfig setGroupByUsesEqualTo(boolean value)
-    {
-        this.groupByUsesEqualTo = value;
-        return this;
-    }
-
-    public boolean isGroupByUsesEqualTo()
-    {
-        return groupByUsesEqualTo;
-    }
-
     @Config("deprecated.legacy-timestamp")
     public FeaturesConfig setLegacyTimestamp(boolean value)
     {
@@ -570,7 +567,7 @@ public class FeaturesConfig
     }
 
     @Config("cte-materialization-strategy")
-    @ConfigDescription("Set strategy used to determine whether to materialize CTEs (ALL, NONE)")
+    @ConfigDescription("Set strategy used to determine whether to materialize ctes (ALL, NONE, HEURISTIC, HEURISTIC_COMPLEX_QUERIES_ONLY)")
     public FeaturesConfig setCteMaterializationStrategy(CteMaterializationStrategy cteMaterializationStrategy)
     {
         this.cteMaterializationStrategy = cteMaterializationStrategy;
@@ -590,6 +587,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public int getCteHeuristicReplicationThreshold()
+    {
+        return cteHeuristicReplicationThreshold;
+    }
+
+    @Config("cte-heuristic-replication-threshold")
+    @ConfigDescription("Used with CTE Materialization Strategy = Heuristic. CTES are only materialized if they are used greater than or equal to this number")
+    public FeaturesConfig setCteHeuristicReplicationThreshold(int cteHeuristicReplicationThreshold)
+    {
+        this.cteHeuristicReplicationThreshold = cteHeuristicReplicationThreshold;
+        return this;
+    }
+
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
@@ -604,6 +614,18 @@ public class FeaturesConfig
     public FeaturesConfig setFieldNamesInJsonCastEnabled(boolean fieldNamesInJsonCastEnabled)
     {
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
+        return this;
+    }
+
+    public boolean isLegacyJsonCast()
+    {
+        return legacyJsonCast;
+    }
+
+    @Config("legacy-json-cast")
+    public FeaturesConfig setLegacyJsonCast(boolean legacyJsonCast)
+    {
+        this.legacyJsonCast = legacyJsonCast;
         return this;
     }
 
@@ -877,6 +899,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isTrackHistoryStatsFromFailedQuery()
+    {
+        return trackHistoryStatsFromFailedQuery;
+    }
+
+    @Config("optimizer.track-history-stats-from-failed-queries")
+    public FeaturesConfig setTrackHistoryStatsFromFailedQuery(boolean trackHistoryStatsFromFailedQuery)
+    {
+        this.trackHistoryStatsFromFailedQuery = trackHistoryStatsFromFailedQuery;
+        return this;
+    }
+
     public boolean isUsePerfectlyConsistentHistories()
     {
         return usePerfectlyConsistentHistories;
@@ -926,6 +960,18 @@ public class FeaturesConfig
     public FeaturesConfig setHistoryBasedOptimizerPlanCanonicalizationStrategies(String historyBasedOptimizerPlanCanonicalizationStrategies)
     {
         this.historyBasedOptimizerPlanCanonicalizationStrategies = historyBasedOptimizerPlanCanonicalizationStrategies;
+        return this;
+    }
+
+    public boolean isLogPlansUsedInHistoryBasedOptimizer()
+    {
+        return logPlansUsedInHistoryBasedOptimizer;
+    }
+
+    @Config("optimizer.log-plans-used-in-history-based-optimizer")
+    public FeaturesConfig setLogPlansUsedInHistoryBasedOptimizer(boolean logPlansUsedInHistoryBasedOptimizer)
+    {
+        this.logPlansUsedInHistoryBasedOptimizer = logPlansUsedInHistoryBasedOptimizer;
         return this;
     }
 
@@ -2801,6 +2847,32 @@ public class FeaturesConfig
     public FeaturesConfig setDefaultViewSecurityMode(CreateView.Security securityMode)
     {
         this.defaultViewSecurityMode = securityMode;
+        return this;
+    }
+
+    public boolean isPrintEstimatedStatsFromCache()
+    {
+        return this.printEstimatedStatsFromCache;
+    }
+
+    @Config("optimizer.print-estimated-stats-from-cache")
+    @ConfigDescription("In the end of query optimization, print the estimation stats from cache populated during optimization instead of calculating from ground")
+    public FeaturesConfig setPrintEstimatedStatsFromCache(boolean printEstimatedStatsFromCache)
+    {
+        this.printEstimatedStatsFromCache = printEstimatedStatsFromCache;
+        return this;
+    }
+
+    public boolean isUseHistograms()
+    {
+        return useHistograms;
+    }
+
+    @Config("optimizer.use-histograms")
+    @ConfigDescription("Use histogram statistics in cost-based calculations in the optimizer")
+    public FeaturesConfig setUseHistograms(boolean useHistograms)
+    {
+        this.useHistograms = useHistograms;
         return this;
     }
 }

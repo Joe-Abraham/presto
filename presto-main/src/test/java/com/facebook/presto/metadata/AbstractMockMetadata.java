@@ -200,12 +200,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
@@ -662,7 +656,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new UnsupportedOperationException();
     }

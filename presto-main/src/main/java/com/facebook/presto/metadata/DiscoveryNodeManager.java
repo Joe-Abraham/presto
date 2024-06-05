@@ -273,6 +273,7 @@ public final class DiscoveryNodeManager
     public void stop()
     {
         nodeStateUpdateExecutor.shutdownNow();
+        nodeStateEventExecutor.shutdownNow();
     }
 
     @Override

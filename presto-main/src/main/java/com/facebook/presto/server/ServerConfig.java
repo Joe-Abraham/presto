@@ -44,6 +44,7 @@ public class ServerConfig
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
     private boolean nativeExecutionEnabled;
+    private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
 
     public boolean isResourceManager()
     {
@@ -253,6 +254,18 @@ public class ServerConfig
     public ServerConfig setNativeExecutionEnabled(boolean nativeExecutionEnabled)
     {
         this.nativeExecutionEnabled = nativeExecutionEnabled;
+        return this;
+    }
+
+    public Duration getClusterResourceGroupStateInfoExpirationDuration()
+    {
+        return clusterResourceGroupStateInfoExpirationDuration;
+    }
+
+    @Config("cluster-resource-group-state-info-expiration-duration")
+    public ServerConfig setClusterResourceGroupStateInfoExpirationDuration(Duration clusterResourceGroupStateInfoExpirationDuration)
+    {
+        this.clusterResourceGroupStateInfoExpirationDuration = clusterResourceGroupStateInfoExpirationDuration;
         return this;
     }
 }

@@ -332,10 +332,6 @@ public class BenchmarkSelectiveStreamReaders
                 return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
 
-            if (type == INTEGER) {
-                return Optional.of(BigintRange.of((long) (Integer.MIN_VALUE * selectionRateForNonNull), (long) (Integer.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
-            }
-
             if (type == SMALLINT) {
                 return Optional.of(BigintRange.of((long) (Short.MIN_VALUE * selectionRateForNonNull), (long) (Short.MAX_VALUE * selectionRateForNonNull), filterAllowNull));
             }
@@ -392,7 +388,7 @@ public class BenchmarkSelectiveStreamReaders
             }
         }
 
-        private final Object createValue(Type type, float filterRate)
+        private Object createValue(Type type, float filterRate)
         {
             if (type == BOOLEAN) {
                 // We need to specialize BOOLEAN case because we can't specify filterRate by manipulating the filter value in getFilter.

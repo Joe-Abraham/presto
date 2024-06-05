@@ -855,7 +855,7 @@ public class DistributedQueryRunner
         }
     }
 
-    private void cancelAllQueries()
+    public void cancelAllQueries()
     {
         for (TestingPrestoServer coordinator : coordinators) {
             QueryManager queryManager = coordinator.getQueryManager();
@@ -871,7 +871,7 @@ public class DistributedQueryRunner
     {
         checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
 
-        String databaseName = String.valueOf(nanoTime()) + "_" + ThreadLocalRandom.current().nextInt();
+        String databaseName = nanoTime() + "_" + ThreadLocalRandom.current().nextInt();
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("database-name", databaseName)
                 .putAll(additionalProperties)

@@ -39,9 +39,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -182,9 +182,7 @@ public class PrestoNativeQueryRunnerUtils
             throws Exception
     {
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
-        icebergPropertiesBuilder
-                .put("hive.pushdown-filter-enabled", "true")
-                .put("hive.parquet.writer.version", "PARQUET_1_0");
+        icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
 
         Optional<Path> dataDirectory = addStorageFormatToPath ? baseDataDirectory.map(path -> Paths.get(path.toString() + '/' + storageFormat)) : baseDataDirectory;
 
@@ -245,7 +243,7 @@ public class PrestoNativeQueryRunnerUtils
             throws Exception
     {
         ImmutableMap<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .putAll(getNativeWorkerHiveProperties(storageFormat))
+                .putAll(getNativeWorkerIcebergProperties())
                 .build();
 
         // Make query runner with external workers for tests
@@ -257,7 +255,7 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerSystemProperties())
                         .build(),
                 icebergProperties,
-                PARQUET,
+                FileFormat.valueOf(storageFormat),
                 false,
                 false,
                 OptionalInt.of(workerCount.orElse(4)),

@@ -20,8 +20,8 @@ import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
+import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.iceberg.IcebergResourceFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
@@ -85,7 +85,7 @@ public class TestIcebergSmokeNessie
         String dataLocation = ((DistributedQueryRunner) queryRunner).getCoordinator().getDataDirectory().toFile().toURI().toString();
         String relativeTableLocation = tempTableLocation.get().toURI().toString().replace(dataLocation, "");
 
-        return format("%s/%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
+        return format("%s%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
     }
 
     @Override
@@ -102,15 +102,15 @@ public class TestIcebergSmokeNessie
         icebergConfig.setCatalogType(NESSIE);
         icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
 
-        NessieConfig nessieConfig = new NessieConfig().setServerUri(nessieContainer.getRestApiUri());
+        IcebergNessieConfig nessieConfig = new IcebergNessieConfig().setServerUri(nessieContainer.getRestApiUri());
 
-        IcebergResourceFactory resourceFactory = new IcebergResourceFactory(icebergConfig,
-                new IcebergCatalogName(ICEBERG_CATALOG),
+        IcebergNativeCatalogFactory catalogFactory = new IcebergNessieCatalogFactory(icebergConfig,
                 nessieConfig,
+                new IcebergCatalogName(ICEBERG_CATALOG),
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()));
 
-        return IcebergUtil.getNativeIcebergTable(resourceFactory,
+        return IcebergUtil.getNativeIcebergTable(catalogFactory,
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }

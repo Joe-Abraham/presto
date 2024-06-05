@@ -41,11 +41,13 @@ import io.airlift.tpch.TpchTable;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiFunction;
 
+import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,7 +62,7 @@ public final class IcebergQueryRunner
     public static final String ICEBERG_CATALOG = "iceberg";
     public static final String TEST_DATA_DIRECTORY = "iceberg_data";
     public static final String TEST_CATALOG_DIRECTORY = "catalog";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     private IcebergQueryRunner() {}
 
@@ -142,8 +144,8 @@ public final class IcebergQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        Logging logger = Logging.initialize();
-        logger.setLevel("org.apache.iceberg", WARN);
+        setupLogging();
+
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
@@ -219,6 +221,7 @@ public final class IcebergQueryRunner
         Path testDataDirectory = icebergDataDirectory.resolve(TEST_DATA_DIRECTORY);
         switch (icebergCatalogType) {
             case HADOOP:
+            case REST:
             case NESSIE:
                 return ImmutableMap.of("iceberg.catalog.warehouse", testDataDirectory.getParent().toFile().toURI().toString());
             case HIVE:
@@ -230,10 +233,25 @@ public final class IcebergQueryRunner
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + icebergCatalogType);
     }
 
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.facebook.presto.event", WARN);
+        logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
+        logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
+        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
+        logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
+        logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);
+        logging.setLevel("org.glassfish.jersey.internal.inject.Providers", ERROR);
+        logging.setLevel("parquet.hadoop", WARN);
+        logging.setLevel("org.apache.iceberg", WARN);
+    }
+
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
+        setupLogging();
         Optional<Path> dataDirectory = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
@@ -210,7 +209,6 @@ public final class SqlToRowExpressionTranslator
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
-                SystemSessionProperties.isNativeExecutionEnabled(session),
                 context);
     }
 
@@ -223,7 +221,6 @@ public final class SqlToRowExpressionTranslator
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            boolean isNative,
             Context context)
     {
         Visitor visitor = new Visitor(
@@ -233,8 +230,7 @@ public final class SqlToRowExpressionTranslator
                 user,
                 transactionId,
                 sqlFunctionProperties,
-                sessionFunctions,
-                isNative);
+                sessionFunctions);
         RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -276,7 +272,6 @@ public final class SqlToRowExpressionTranslator
         private final SqlFunctionProperties sqlFunctionProperties;
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
-        private final boolean isNative;
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
@@ -285,8 +280,7 @@ public final class SqlToRowExpressionTranslator
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
-                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-                boolean isNative)
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
             this.types = requireNonNull(types, "types is null");
             this.layout = requireNonNull(layout);
@@ -297,7 +291,6 @@ public final class SqlToRowExpressionTranslator
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties);
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = requireNonNull(sessionFunctions);
-            this.isNative = isNative;
         }
 
         private Type getType(Expression node)
@@ -849,7 +842,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression second = process(node.getSecond(), context);
             Type returnType = getType(node);
 
-            if (isNative) {
+            if (!functionAndTypeManager.nullIfSpecialFormEnabled()) {
                 // If the first type is unknown, as per presto's NULL_IF semantics we should not infer the type using second argument.
                 // Always return a null with unknown type.
                 if (first.getType().equals(UnknownType.UNKNOWN)) {

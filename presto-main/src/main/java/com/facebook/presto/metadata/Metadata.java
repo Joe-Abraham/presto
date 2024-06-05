@@ -133,11 +133,6 @@ public interface Metadata
      */
     PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
 
-    /**
-     * Provides partitioning handle for cte Materialization.
-     */
-    PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes);
-
     Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
@@ -514,7 +509,7 @@ public interface Metadata
         return NOT_APPLICABLE;
     }
 
-    void dropConstraint(Session session, TableHandle tableHandle, String constraintName);
+    void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName);
 
     void addConstraint(Session session, TableHandle tableHandle, TableConstraint<String> tableConstraint);
 }

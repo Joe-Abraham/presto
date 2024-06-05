@@ -15,6 +15,7 @@ add_executable(
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
   MutableConfigs.cpp
+  PeriodicMemoryCheckerTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp
   QueryContextCacheTest.cpp
@@ -31,6 +32,7 @@ add_test(
 
 target_link_libraries(
   presto_server_test
+  velox_caching
   velox_exec_test_lib
   presto_server_lib
   velox_dwio_common_test_utils

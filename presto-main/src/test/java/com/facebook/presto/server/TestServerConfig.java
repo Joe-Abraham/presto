@@ -50,7 +50,8 @@ public class TestServerConfig
                 .setPoolType(DEFAULT)
                 .setClusterStatsExpirationDuration(new Duration(0, MILLISECONDS))
                 .setNestedDataSerializationEnabled(true)
-                .setNativeExecutionEnabled(false));
+                .setNativeExecutionEnabled(false)
+                .setClusterResourceGroupStateInfoExpirationDuration(new Duration(0, MILLISECONDS)));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestServerConfig
                 .put("cluster-stats-expiration-duration", "10s")
                 .put("nested-data-serialization-enabled", "false")
                 .put("native-execution-enabled", "true")
+                .put("cluster-resource-group-state-info-expiration-duration", "10s")
                 .build();
 
         ServerConfig expected = new ServerConfig()
@@ -93,7 +95,8 @@ public class TestServerConfig
                 .setPoolType(LEAF)
                 .setClusterStatsExpirationDuration(new Duration(10, SECONDS))
                 .setNestedDataSerializationEnabled(false)
-                .setNativeExecutionEnabled(true);
+                .setNativeExecutionEnabled(true)
+                .setClusterResourceGroupStateInfoExpirationDuration(new Duration(10, SECONDS));
 
         assertFullMapping(properties, expected);
     }

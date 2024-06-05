@@ -197,15 +197,15 @@ class SystemConfig : public ConfigBase {
       "http-server.https.port"};
   static constexpr std::string_view kHttpServerHttpsEnabled{
       "http-server.https.enabled"};
-  // List of comma separated ciphers the client can use.
+  /// List of comma separated ciphers the client can use.
   ///
   /// NOTE: the client needs to have at least one cipher shared with server
-  // to communicate.
+  /// to communicate.
   static constexpr std::string_view kHttpsSupportedCiphers{
       "https-supported-ciphers"};
   static constexpr std::string_view kHttpsCertPath{"https-cert-path"};
   static constexpr std::string_view kHttpsKeyPath{"https-key-path"};
-  // Path to a .PEM file with certificate and key concatenated together.
+  /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
 
@@ -244,6 +244,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
+
   /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kNativeSidecar{"native.sidecar"};
@@ -257,6 +258,18 @@ class SystemConfig : public ConfigBase {
   /// this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kQueryMemoryGb{"query-memory-gb"};
 
+  /// Specifies the amount of query memory capacity reserved to ensure that each
+  /// query has minimal memory capacity to run. A query can only allocate from
+  /// the reserved query memory if its current capacity is less than the minimal
+  /// memory capacity as specified by 'memory-pool-reserved-capacity'. The
+  /// exceeding capacity has to allocate from the non-reserved query memory.
+  ///
+  /// NOTE: the reserved query memory capacity is enforced by memory arbitrator
+  /// so that this config only applies if the memory arbitration has been
+  /// enabled.
+  static constexpr std::string_view kQueryReservedMemoryGb{
+      "query-reserved-memory-gb"};
+
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
@@ -268,6 +281,11 @@ class SystemConfig : public ConfigBase {
   /// get the server out of low memory condition. This only applies if
   /// 'system-mem-pushback-enabled' is true.
   static constexpr std::string_view kSystemMemShrinkGb{"system-mem-shrink-gb"};
+  /// If true, memory pushback will quickly abort queries with the most memory
+  /// usage under low memory condition. This only applies if
+  /// 'system-mem-pushback-enabled' is set.
+  static constexpr std::string_view kSystemMemPushbackAbortEnabled{
+      "system-mem-pushback-abort-enabled"};
 
   /// If true, memory allocated via malloc is periodically checked and a heap
   /// profile is dumped if usage exceeds 'malloc-heap-dump-gb-threshold'.
@@ -302,6 +320,14 @@ class SystemConfig : public ConfigBase {
   /// option to disable cow for cache files.
   static constexpr std::string_view kAsyncCacheSsdDisableFileCow{
       "async-cache-ssd-disable-file-cow"};
+  /// When enabled, a CRC-based checksum is calculated for each cache entry
+  /// written to SSD. The checksum is stored in the next checkpoint file.
+  static constexpr std::string_view kSsdCacheChecksumEnabled{
+      "ssd-cache-checksum-enabled"};
+  /// When enabled, the checksum is recalculated and verified against the stored
+  /// value when cache data is loaded from the SSD.
+  static constexpr std::string_view kSsdCacheReadVerificationEnabled{
+      "ssd-cache-read-verification-enabled"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
 
@@ -330,6 +356,11 @@ class SystemConfig : public ConfigBase {
   /// NOTE: this config only applies if the memory arbitration has been enabled.
   static constexpr std::string_view kMemoryPoolInitCapacity{
       "memory-pool-init-capacity"};
+
+  /// The minimal amount of memory capacity in bytes reserved for each query
+  /// memory pool.
+  static constexpr std::string_view kMemoryPoolReservedCapacity{
+      "memory-pool-reserved-capacity"};
 
   /// The minimal memory capacity in bytes transferred between memory pools
   /// during memory arbitration.
@@ -584,6 +615,8 @@ class SystemConfig : public ConfigBase {
 
   uint32_t systemMemShrinkGb() const;
 
+  bool systemMemPushBackAbortEnabled() const;
+
   bool mallocMemHeapDumpEnabled() const;
 
   uint32_t mallocHeapDumpThresholdGb() const;
@@ -604,6 +637,10 @@ class SystemConfig : public ConfigBase {
 
   bool asyncCacheSsdDisableFileCow() const;
 
+  bool ssdCacheChecksumEnabled() const;
+
+  bool ssdCacheReadVerificationEnabled() const;
+
   std::string shuffleName() const;
 
   bool enableSerializedPageChecksum() const;
@@ -618,7 +655,11 @@ class SystemConfig : public ConfigBase {
 
   int32_t queryMemoryGb() const;
 
+  int32_t queryReservedMemoryGb() const;
+
   uint64_t memoryPoolInitCapacity() const;
+
+  uint64_t memoryPoolReservedCapacity() const;
 
   uint64_t memoryPoolTransferCapacity() const;
 

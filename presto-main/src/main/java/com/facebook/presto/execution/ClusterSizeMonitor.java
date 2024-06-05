@@ -148,6 +148,7 @@ public class ClusterSizeMonitor
     public void stop()
     {
         nodeManager.removeNodeChangeListener(listener);
+        executor.shutdownNow();
     }
 
     /**

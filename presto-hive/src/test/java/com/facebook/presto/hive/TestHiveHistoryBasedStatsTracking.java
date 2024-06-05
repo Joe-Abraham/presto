@@ -32,10 +32,13 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
@@ -71,6 +74,19 @@ public class TestHiveHistoryBasedStatsTracking
             }
         });
         return queryRunner;
+    }
+
+    @BeforeMethod(alwaysRun = true)
+    public void setUp()
+    {
+        getHistoryProvider().clearCache();
+    }
+
+    private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
+    {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
+        return (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
     }
 
     @Test
@@ -244,6 +260,23 @@ public class TestHiveHistoryBasedStatsTracking
         }
     }
 
+    @Test
+    public void testHistoryBasedStatsCalculatorCTE()
+    {
+        String sql = "with t1 as (select orderkey, orderstatus from orders where totalprice > 100), t2 as (select orderkey, totalprice from orders where custkey > 100) " +
+                "select orderstatus, sum(totalprice) from t1 join t2 on t1.orderkey=t2.orderkey group by orderstatus";
+        Session cteMaterialization = Session.builder(defaultSession())
+                .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
+                .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
+                .build();
+        // CBO Statistics
+        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+
+        // HBO Statistics
+        executeAndTrackHistory(sql, cteMaterialization);
+        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3)));
+    }
+
     @Override
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
@@ -252,12 +285,8 @@ public class TestHiveHistoryBasedStatsTracking
 
     private void executeAndTrackHistory(String sql, Session session)
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
-        InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
-
-        queryRunner.execute(session, sql);
-        provider.waitProcessQueryEvents();
+        getQueryRunner().execute(session, sql);
+        getHistoryProvider().waitProcessQueryEvents();
     }
 
     private Session defaultSession()

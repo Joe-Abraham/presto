@@ -17,6 +17,8 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.cost.PlanCostEstimate;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
@@ -25,6 +27,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
@@ -52,6 +55,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_JSON_CAST;
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
@@ -99,6 +103,8 @@ public final class Session
     private final OptimizerInformationCollector optimizerInformationCollector = new OptimizerInformationCollector();
     private final OptimizerResultCollector optimizerResultCollector = new OptimizerResultCollector();
     private final CTEInformationCollector cteInformationCollector = new CTEInformationCollector();
+    private final Map<PlanNodeId, PlanNodeStatsEstimate> planNodeStatsMap = new HashMap<>();
+    private final Map<PlanNodeId, PlanCostEstimate> planNodeCostMap = new HashMap<>();
 
     public Session(
             QueryId queryId,
@@ -166,7 +172,7 @@ public final class Session
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
-        this.context = new AccessControlContext(queryId, clientInfo, source, warningCollector, runtimeStats);
+        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats);
     }
 
     public QueryId getQueryId()
@@ -335,6 +341,16 @@ public final class Session
     public CTEInformationCollector getCteInformationCollector()
     {
         return cteInformationCollector;
+    }
+
+    public Map<PlanNodeId, PlanNodeStatsEstimate> getPlanNodeStatsMap()
+    {
+        return planNodeStatsMap;
+    }
+
+    public Map<PlanNodeId, PlanCostEstimate> getPlanNodeCostMap()
+    {
+        return planNodeCostMap;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)

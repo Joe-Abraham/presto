@@ -155,12 +155,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
-    {
-        return delegate.getPartitioningHandleForCteMaterialization(session, catalogName, partitionCount, partitionTypes);
-    }
-
-    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         return delegate.getInfo(session, handle);
@@ -638,9 +632,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public void dropConstraint(Session session, TableHandle tableHandle, String constraintName)
+    public void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
-        delegate.dropConstraint(session, tableHandle, constraintName);
+        delegate.dropConstraint(session, tableHandle, constraintName, columnName);
     }
 
     @Override

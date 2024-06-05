@@ -92,3 +92,20 @@ target_link_libraries(
   presto_type_converter
   velox_window
   ${ANTLR4_RUNTIME})
+add_executable(presto_to_velox_connector_test PrestoToVeloxConnectorTest.cpp)
+
+add_test(
+  NAME presto_to_velox_connector_test
+  COMMAND presto_to_velox_connector_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_to_velox_connector_test
+  presto_protocol
+  presto_operators
+  presto_type_converter
+  presto_types
+  velox_hive_connector
+  velox_tpch_connector
+  gtest
+  gtest_main)

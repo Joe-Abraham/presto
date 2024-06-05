@@ -87,11 +87,11 @@ public interface ConnectorMetadata
     ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
 
     /**
-     * Returns an error for connectors which do not support table version AS OF expression.
+     * Returns an error for connectors which do not support table version AS OF/BEFORE expression.
      */
     default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> tableVersion)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF expression");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table version AS OF/BEFORE expression");
     }
 
     /**
@@ -118,12 +118,39 @@ public interface ConnectorMetadata
      * Return a list of table layouts that satisfy the given constraint.
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     *
+     * @deprecated replaced by {@link ConnectorMetadata#getTableLayoutForConstraint(ConnectorSession, ConnectorTableHandle, Constraint, Optional)}
      */
-    List<ConnectorTableLayoutResult> getTableLayouts(
+    @Deprecated
+    default List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns);
+            Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        return emptyList();
+    }
+
+    /**
+     * Return a table layout result that satisfy the given constraint.
+     * <p>
+     * Connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
+     */
+    default ConnectorTableLayoutResult getTableLayoutForConstraint(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            Constraint<ColumnHandle> constraint,
+            Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        List<ConnectorTableLayoutResult> layouts = getTableLayouts(session, table, constraint, desiredColumns);
+        if (layouts.isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Connector hasn't implemented either getTableLayoutForConstraint() or getTableLayouts()");
+        }
+        else if (layouts.size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Connector returned multiple layouts for table " + table);
+        }
+        return layouts.get(0);
+    }
 
     ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
 
@@ -202,15 +229,6 @@ public interface ConnectorMetadata
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support custom partitioning");
     }
-
-    /**
-     * Provides partitioning handle for CTE Materialization.
-     */
-    default ConnectorPartitioningHandle getPartitioningHandleForCteMaterialization(ConnectorSession session, int partitionCount, List<Type> partitionTypes)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support custom partitioning");
-    }
-
     /**
      * Return the metadata for the specified table handle.
      *
@@ -408,21 +426,13 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
-                .stream()
-                .map(ConnectorTableLayoutResult::getTableLayout)
-                .filter(layout -> layout.getTablePartitioning().isPresent())
-                .collect(toList());
+        ConnectorTableLayout layout = getTableLayoutForConstraint(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
+                .getTableLayout();
 
-        if (layouts.isEmpty()) {
+        if (!layout.getTablePartitioning().isPresent()) {
             return Optional.empty();
         }
 
-        if (layouts.size() > 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
-        }
-
-        ConnectorTableLayout layout = layouts.get(0);
         ConnectorPartitioningHandle partitioningHandle = layout.getTablePartitioning().get().getPartitioningHandle();
         Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
@@ -830,7 +840,7 @@ public interface ConnectorMetadata
     /**
      * Drop the specified constraint
      */
-    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, String constraintName)
+    default void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping table constraints");
     }

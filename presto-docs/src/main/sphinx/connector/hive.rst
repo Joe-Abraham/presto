@@ -153,6 +153,9 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
+``hive.dynamic-split-sizes-enabled``               Enable dynamic sizing of splits based on data scanned by     ``false``
+                                                   the query.
+
 ``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
@@ -379,6 +382,90 @@ IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
+
+AWS Security Mapping
+^^^^^^^^^^^^^^^^^^^^
+
+Presto supports flexible mapping for AWS Lake Formation and AWS S3 API calls, allowing for separate
+credentials or IAM roles for specific users.
+
+The mappings can be of two types: ``S3`` or ``LAKEFORMATION``.
+
+The mapping entries are processed in the order listed in the configuration
+file. More specific mappings should be specified before less specific mappings.
+You can set default configuration by not including any match criteria for the last
+entry in the list.
+
+Each mapping entry when mapping type is ``S3`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one or more configuration settings:
+
+* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for s3:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "accessKey": "AKIAxxxaccess",
+          "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "user": "analyst|scientist",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_and_scientist_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+      ]
+    }
+
+Each mapping entry when mapping type is ``LAKEFORMATION`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one configuration setting:
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for lakeformation:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "iamRole": "arn:aws:iam::123456789101:role/admin_role"
+        },
+        {
+          "user": "analyst",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default_role"
+        }
+      ]
+    }
+
+======================================================= =================================================================
+Property Name                                           Description
+======================================================= =================================================================
+``hive.aws.security-mapping.type``                      AWS Security Mapping Type. Possible values: S3 or LAKEFORMATION
+
+``hive.aws.security-mapping.config-file``               JSON configuration file containing AWS IAM Security mappings
+
+``hive.aws.security-mapping.refresh-period``            Time interval after which AWS IAM security mapping configuration
+                                                        will be refreshed
+======================================================= =================================================================
 
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
@@ -655,7 +742,7 @@ This query will collect statistics for 2 partitions with keys:
 * ``partition2_value1, partition2_value2``
 
 Quick Stats
---------------------------------------
+-----------
 
 The Hive connector can build basic statistics for partitions with missing statistics
 by examining file or table metadata. For example, Parquet footers can be used to infer
@@ -837,33 +924,41 @@ The following procedures are available:
 
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
-    Create an empty partition in the specified table.
+  Create an empty partition in the specified table.
 
 * ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
 
-    Check and update partitions list in metastore. There are three modes available:
+  Check and update partitions list in metastore. There are three modes available:
 
-    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
-    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
-    * ``FULL``: perform both ``ADD`` and ``DROP``.
+  * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+  * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+  * ``FULL``: perform both ``ADD`` and ``DROP``.
 
-    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
-    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
-    not conforming to this convention are ignored, unless the argument is set to ``false``.
+  The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  not conforming to this convention are ignored, unless the argument is set to ``false``.
+
+* ``system.invalidate_directory_list_cache()``
+
+  Flush full directory list cache.
+
+* ``system.invalidate_directory_list_cache(directory_path)``
+
+  Invalidate directory list cache for specified directory_path.
 
 Extra Hidden Columns
 --------------------
 
-The Hive connector exposes extra hidden metadata columns in Hive tables. You can query these
-columns as a part of SQL query like any other columns of the table.
+The Hive connector exposes extra hidden metadata columns in Hive tables. Query these
+columns as a part of the query like any other columns of the table.
 
 * ``$path`` : Filepath for the given row data
-* ``$file_size`` : Filesize for the given row
-* ``$file_modified_time`` : Last file modified time for the given row
+* ``$file_size`` : Filesize for the given row (int64_t)
+* ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
 
 How to invalidate metastore cache?
----------------------------------
+----------------------------------
 
 The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
 You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.
