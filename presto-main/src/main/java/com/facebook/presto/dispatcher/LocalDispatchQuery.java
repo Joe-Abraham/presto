@@ -185,7 +185,7 @@ public class LocalDispatchQuery
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
+            waitForMinimumCoordinatorSidecarsAndWorkers();
         }
     }
 
@@ -200,6 +200,15 @@ public class LocalDispatchQuery
         });
 
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
+    }
+
+    private void waitForMinimumCoordinatorSidecarsAndWorkers()
+    {
+        ListenableFuture<?> minimumCoordinatorSidecarFuture = clusterSizeMonitor.waitForMinimumCoordinatorSidecars();
+        // when coordinator sidecar requirement is met, start checking for the worker requirement
+        addSuccessCallback(minimumCoordinatorSidecarFuture, this::waitForMinimumWorkers);
+
+        addExceptionCallback(minimumCoordinatorSidecarFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution, boolean isDispatching)

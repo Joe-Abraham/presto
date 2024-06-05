@@ -29,9 +29,11 @@ add_library(
   QueryContextManager.cpp
   ServerOperation.cpp
   SignalHandler.cpp
+  SystemSessionProperties.cpp
   SystemConnector.cpp
   TaskManager.cpp
   TaskResource.cpp
+  SessionPropertyReporter.cpp
   PeriodicHeartbeatManager.cpp
   PeriodicServiceInventoryManager.cpp)
 
@@ -48,10 +50,12 @@ target_link_libraries(
   presto_exception
   presto_http
   presto_operators
+  presto_function_metadata
   velox_aggregates
   velox_caching
   velox_common_base
   velox_core
+  velox_coverage_util
   velox_dwio_common_exception
   velox_encode
   velox_exec

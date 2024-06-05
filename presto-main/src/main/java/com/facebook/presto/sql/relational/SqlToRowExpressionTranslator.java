@@ -129,7 +129,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -520,7 +519,7 @@ public final class SqlToRowExpressionTranslator
                     functionAndTypeResolver.resolveFunction(
                             Optional.of(sessionFunctions),
                             transactionId,
-                            qualifyObjectName(node.getName()),
+                            functionAndTypeManager.qualifyObjectName(node.getName()),
                             argumentTypes),
                     getType(node),
                     arguments);
@@ -917,6 +916,9 @@ public final class SqlToRowExpressionTranslator
                 return prefixOrSuffixMatch;
             }
 
+            if (isNative) {
+                return likeFunctionCall(value, pattern);
+            }
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
         }
 
@@ -962,6 +964,9 @@ public final class SqlToRowExpressionTranslator
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
+                if (isNative) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharFunction(), BOOLEAN, value, pattern);
+                }
                 return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 

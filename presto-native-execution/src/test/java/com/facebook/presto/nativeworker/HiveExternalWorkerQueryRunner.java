@@ -18,6 +18,9 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupNativeFunctionNamespaceManager;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.setupSessionPropertyProvider;
+
 public class HiveExternalWorkerQueryRunner
 {
     private HiveExternalWorkerQueryRunner() {}
@@ -35,6 +38,8 @@ public class HiveExternalWorkerQueryRunner
 
         // Launch distributed runner.
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(false);
+        setupNativeFunctionNamespaceManager(queryRunner, "native");
+        setupSessionPropertyProvider(queryRunner);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");

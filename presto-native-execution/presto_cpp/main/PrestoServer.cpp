@@ -36,6 +36,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/common/base/Counters.h"
@@ -205,6 +206,7 @@ void PrestoServer::run() {
     }
 
     nodeVersion_ = systemConfig->prestoVersion();
+    sideCar_ = systemConfig->prestoNativeSidecar();
     environment_ = nodeConfig->nodeEnvironment();
     nodeId_ = nodeConfig->nodeId();
     address_ = nodeConfig->nodeInternalAddress(
@@ -214,6 +216,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
+    prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
   } catch (const VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -280,6 +283,7 @@ void PrestoServer::run() {
         environment_,
         nodeId_,
         nodeLocation_,
+        sideCar_,
         catalogNames,
         systemConfig->announcementMaxFrequencyMs(),
         sslContext_);
@@ -319,52 +323,8 @@ void PrestoServer::run() {
   httpServer_ = std::make_unique<http::HttpServer>(
       httpSrvIOExecutor_, std::move(httpConfig), std::move(httpsConfig));
 
-  httpServer_->registerPost(
-      "/v1/memory",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportMemoryInfo(downstream);
-      });
-  httpServer_->registerGet(
-      "/v1/info",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportServerInfo(downstream);
-      });
-  httpServer_->registerGet(
-      "/v1/info/state",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        json infoStateJson = convertNodeState(server->nodeState());
-        http::sendOkResponse(downstream, infoStateJson);
-      });
-  httpServer_->registerGet(
-      "/v1/status",
-      [server = this](
-          proxygen::HTTPMessage* /*message*/,
-          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-          proxygen::ResponseHandler* downstream) {
-        server->reportNodeStatus(downstream);
-      });
-  httpServer_->registerHead(
-      "/v1/status",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        proxygen::ResponseBuilder(downstream)
-            .status(http::kHttpOk, "OK")
-            .header(
-                proxygen::HTTP_HEADER_CONTENT_TYPE,
-                http::kMimeTypeApplicationJson)
-            .sendWithEOM();
-      });
-
+  // Registering endpoints based on the sideCar configuration.
+  registerEndpoints();
   registerFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
@@ -782,6 +742,93 @@ void PrestoServer::stop() {
   }
 }
 
+void PrestoServer::registerEndpoints() {
+  if (sideCar_) {
+    registerSidecarEndpoints();
+  } else {
+    registerWorkerEndpoints();
+  }
+}
+
+void PrestoServer::registerSidecarEndpoints() {
+  httpServer_->registerGet(
+      "/v1/sessionProperties",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportSessionProperties(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/workerFunctionSignatures",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->getFunctionSignatures(downstream);
+      });
+}
+
+void PrestoServer::registerWorkerEndpoints() {
+  httpServer_->registerPost(
+      "/v1/memory",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportMemoryInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportServerInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/state",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        json infoStateJson = convertNodeState(server->nodeState());
+        http::sendOkResponse(downstream, infoStateJson);
+      });
+  httpServer_->registerGet(
+      "/v1/status",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportNodeStatus(downstream);
+      });
+  httpServer_->registerHead(
+      "/v1/status",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        proxygen::ResponseBuilder(downstream)
+            .status(http::kHttpOk, "OK")
+            .header(
+                proxygen::HTTP_HEADER_CONTENT_TYPE,
+                http::kMimeTypeApplicationJson)
+            .sendWithEOM();
+      });
+
+  prestoServerOperations_ =
+      std::make_unique<PrestoServerOperations>(taskManager_.get(), this);
+
+  // The endpoint used by operation in production.
+  httpServer_->registerGet(
+      "/v1/operation/.*",
+      [this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        prestoServerOperations_->runOperation(message, downstream);
+      });
+}
 size_t PrestoServer::numDriverThreads() const {
   VELOX_CHECK(
       driverExecutor_ != nullptr,
@@ -1024,11 +1071,12 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::functions::prestosql::registerAllScalarFunctions(
+      prestoBuiltinFunctionPrefix_);
   velox::aggregate::prestosql::registerAllAggregateFunctions(
-      kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+      prestoBuiltinFunctionPrefix_);
+  velox::window::prestosql::registerAllWindowFunctions(
+      prestoBuiltinFunctionPrefix_);
   if (SystemConfig::instance()->registerTestFunctions()) {
     velox::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
@@ -1175,8 +1223,21 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(serverInfo));
 }
 
+void PrestoServer::reportSessionProperties(
+    proxygen::ResponseHandler* downstream) {
+  SessionPropertyReporter sessionPropertyReporterObject;
+  http::sendOkResponse(
+      downstream,
+      sessionPropertyReporterObject.getJsonMetaDataSessionProperty());
+}
+
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::getFunctionSignatures(
+    proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, getJsonFunctionMetadata());
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

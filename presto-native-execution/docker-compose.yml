@@ -18,6 +18,8 @@ services:
     #   podman compose build ubuntu-native-dependency
     image: presto/prestissimo-dependency:amd64-ubuntu-22.04
     build:
+      args:
+        - BUILD_TYPE=Release
       context: .
       dockerfile: scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile
 
@@ -28,12 +30,11 @@ services:
     image: presto/prestissimo-runtime:amd64-ubuntu-22.04
     build:
       args:
+        - BUILD_TYPE=Release
         - DEPENDENCY_IMAGE=presto/prestissimo-dependency:amd64-ubuntu-22.04
         - BASE_IMAGE=amd64/ubuntu:22.04
         - OSNAME=ubuntu
-        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF \
-                            -DPRESTO_ENABLE_PARQUET=ON \
-                            -DPRESTO_ENABLE_S3=ON
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
     environment:
@@ -45,6 +46,8 @@ services:
     #   podman compose build centos-native-dependency
     image: presto/prestissimo-dependency:centos8
     build:
+      args:
+        - BUILD_TYPE=Release
       context: .
       dockerfile: scripts/dockerfiles/centos-8-stream-dependency.dockerfile
 
@@ -55,9 +58,8 @@ services:
     image: presto/prestissimo-runtime:centos8
     build:
       args:
-        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF \
-                            -DPRESTO_ENABLE_PARQUET=ON \
-                            -DPRESTO_ENABLE_S3=ON
+        - BUILD_TYPE=Release
+        - EXTRA_CMAKE_FLAGS=-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
     environment:

@@ -170,8 +170,8 @@ AbstractClasses:
     FunctionHandle:
       super: JsonEncodedSubclass
       subclasses:
-        - { name: BuiltInFunctionHandle,      key: $static }
-        - { name: SqlFunctionHandle,          key: json_file }
+        - { name: BuiltInFunctionHandle,       key: $static }
+        - { name: SqlFunctionHandle,           key: json_file }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java

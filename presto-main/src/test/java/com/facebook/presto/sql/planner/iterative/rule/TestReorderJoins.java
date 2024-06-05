@@ -50,7 +50,6 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -384,7 +383,7 @@ public class TestReorderJoins
                                         tester.getMetadata().getFunctionAndTypeManager().resolveFunction(
                                                 Optional.empty(),
                                                 Optional.empty(),
-                                                qualifyObjectName(RANDOM),
+                                                tester.getMetadata().getFunctionAndTypeManager().qualifyObjectName(RANDOM),
                                                 ImmutableList.of()),
                                         BIGINT,
                                         ImmutableList.of())))))

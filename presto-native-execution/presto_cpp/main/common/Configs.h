@@ -247,7 +247,7 @@ class SystemConfig : public ConfigBase {
 
   /// Memory allocation limit enforced via internal memory allocator.
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
-
+  static constexpr std::string_view kNativeSidecar{"native.sidecar"};
   /// Specifies the total memory capacity that can be used by query execution in
   /// GB. The query memory capacity should be configured less than the system
   /// memory capacity ('system-memory-gb') to reserve memory for system usage
@@ -524,6 +524,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSinkMaxBufferSize{"sink.max-buffer-size"};
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
+  static constexpr std::string_view kPrestoDefaultNamespacePrefix{
+      "presto.default-namespace"};
 
   SystemConfig();
 
@@ -604,6 +606,8 @@ class SystemConfig : public ConfigBase {
   int32_t shutdownOnsetSec() const;
 
   uint32_t systemMemoryGb() const;
+
+  bool prestoNativeSidecar() const;
 
   bool systemMemPushbackEnabled() const;
 
@@ -722,6 +726,8 @@ class SystemConfig : public ConfigBase {
   std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
 
   bool enableRuntimeMetricsCollection() const;
+
+  std::string prestoDefaultNamespacePrefix() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
@@ -764,6 +770,8 @@ class BaseVeloxQueryConfig : public ConfigBase {
       std::unordered_map<std::string, std::string>& values) const override;
 
   static BaseVeloxQueryConfig* instance();
+
+  std::string getDefaultValue(const std::string& propertyName) const;
 };
 
 } // namespace facebook::presto

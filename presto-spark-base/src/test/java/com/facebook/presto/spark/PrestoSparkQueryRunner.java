@@ -442,6 +442,17 @@ public class PrestoSparkQueryRunner
     }
 
     @Override
+    public void loadNativeFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public void loadSystemSessionPropertyProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public TransactionManager getTransactionManager()
     {
         return transactionManager;
@@ -662,7 +673,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, Optional.empty());
     }
 
     @Override

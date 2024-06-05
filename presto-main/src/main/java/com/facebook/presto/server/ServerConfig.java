@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.presto.spi.NodePoolType;
 import io.airlift.units.Duration;
 
@@ -29,6 +30,8 @@ public class ServerConfig
     private boolean resourceManager;
     private boolean resourceManagerEnabled;
     private boolean catalogServer;
+    private boolean coordinatorSidecar;
+    private boolean coordinatorSidecarEnabled;
     private boolean catalogServerEnabled;
     private boolean coordinator = true;
     private String prestoVersion = getClass().getPackage().getImplementationVersion();
@@ -40,6 +43,7 @@ public class ServerConfig
     private NodePoolType poolType = DEFAULT;
     private Duration clusterStatsExpirationDuration = new Duration(0, MILLISECONDS);
     private boolean nestedDataSerializationEnabled = true;
+    private boolean nativeExecutionEnabled;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
 
     public boolean isResourceManager()
@@ -87,6 +91,30 @@ public class ServerConfig
     public ServerConfig setCatalogServerEnabled(boolean catalogServerEnabled)
     {
         this.catalogServerEnabled = catalogServerEnabled;
+        return this;
+    }
+
+    public boolean isCoordinatorSidecar()
+    {
+        return coordinatorSidecar;
+    }
+
+    @Config("coordinator-sidecar")
+    public ServerConfig setCoordinatorSidecar(boolean coordinatorSidecar)
+    {
+        this.coordinatorSidecar = coordinatorSidecar;
+        return this;
+    }
+
+    public boolean isCoordinatorSidecarEnabled()
+    {
+        return coordinatorSidecarEnabled;
+    }
+
+    @Config("coordinator-sidecar-enabled")
+    public ServerConfig setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+    {
+        this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
         return this;
     }
 
@@ -213,6 +241,19 @@ public class ServerConfig
     public ServerConfig setNestedDataSerializationEnabled(boolean nestedDataSerializationEnabled)
     {
         this.nestedDataSerializationEnabled = nestedDataSerializationEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionEnabled()
+    {
+        return this.nativeExecutionEnabled;
+    }
+
+    @Config("native-execution-enabled")
+    @ConfigDescription("Enable execution on native engine")
+    public ServerConfig setNativeExecutionEnabled(boolean nativeExecutionEnabled)
+    {
+        this.nativeExecutionEnabled = nativeExecutionEnabled;
         return this;
     }
 
