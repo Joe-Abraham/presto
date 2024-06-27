@@ -436,8 +436,8 @@ public class PrestoNativeQueryRunnerUtils
                                     "remote-function-server.serde=presto_page%n" +
                                     "remote-function-server.signature.files.directory.path=%s%n", configProperties, REMOTE_FUNCTION_CATALOG_NAME, remoteFunctionServerUds.get(), jsonSignaturesPath);
                         }
-                        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-                        Files.write(tempDirectoryPath.resolve("node.properties"),
+                        Files.write(tempDirectoryPath.resolve("config3.properties"), configProperties.getBytes());
+                        Files.write(tempDirectoryPath.resolve("node2.properties"),
                                 format("node.id=%s%n" +
                                         "node.internal-address=127.0.0.1%n" +
                                         "node.environment=testing%n" +
