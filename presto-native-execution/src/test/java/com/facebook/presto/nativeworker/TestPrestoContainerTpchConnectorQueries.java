@@ -13,26 +13,16 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.tests.AbstractTestQueryFramework;
-import org.testng.annotations.Test;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.AbstractTestNativeTpchConnectorQueries;
 
-import static org.testng.Assert.assertTrue;
-
-public class TestPrestoContainerBasicQueries
-        extends AbstractTestQueryFramework
+public class TestPrestoContainerTpchConnectorQueries
+        extends AbstractTestNativeTpchConnectorQueries
 {
     @Override
-    protected ContainerQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return new ContainerQueryRunner();
-    }
-
-    @Test
-    public void testNativeWorkerPresence()
-    {
-        assertTrue(
-                computeActual("SELECT * FROM system.runtime.nodes").toString().contains("native-worker-1"),
-                "Native worker is not present.");
     }
 }

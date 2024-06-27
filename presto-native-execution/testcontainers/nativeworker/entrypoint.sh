@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Add a new line to /opt/presto-server/etc/node.properties using the environment variable
+if [ -n "$NODE_ID" ]; then
+    echo "$NODE_ID" >> /opt/presto-server/etc/node.properties
+fi
+
 GLOG_logtostderr=1 presto_server \
     --etc-dir=/opt/presto-server/etc
-
