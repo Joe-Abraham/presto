@@ -18,9 +18,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -45,6 +50,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.fail;
 
 public class ContainerQueryRunner
@@ -63,9 +70,10 @@ public class ContainerQueryRunner
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
     private final int coordinatorPort;
-    private final String catalog;
-    private final String schema;
     private final int numberOfWorkers;
+    private final Session session;
+    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+
     Logger logger = Logger.getLogger(ContainerQueryRunner.class.getName());
 
     public ContainerQueryRunner()
@@ -76,9 +84,8 @@ public class ContainerQueryRunner
     public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers)
     {
         this.coordinatorPort = coordinatorPort;
-        this.catalog = catalog;
-        this.schema = schema;
         this.numberOfWorkers = numberOfWorkers;
+        this.session = createSession(catalog, schema);
 
         // TODO: This framework is tested only in Ubuntu x86_64, as there is no support to run the native docker images in ARM based system,
         // Once this is fixed, the container details can be added as properties in VM options for testing in IntelliJ.
@@ -99,6 +106,16 @@ public class ContainerQueryRunner
         catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Session createSession(String catalog, String schema) {
+        Identity identity = new Identity("user", Optional.empty());
+        return testSessionBuilder()
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setIdentity(identity)
+                .setSource("ContainerQueryRunner")
+                .build();
     }
 
     private GenericContainer<?> createCoordinator()
@@ -208,7 +225,7 @@ public class ContainerQueryRunner
     @Override
     public MaterializedResult execute(String sql)
     {
-        throw new UnsupportedOperationException();
+        return this.execute(session, sql);
     }
 
     @Override
@@ -265,17 +282,17 @@ public class ContainerQueryRunner
         return null;
     }
 
-    @Override
-    public MaterializedResult execute(Session session, String sql)
-    {
+    public MaterializedResult execute(Session session, String sql) {
         String[] command = {
                 "/opt/presto-cli",
                 "--server",
                 "presto-coordinator:" + coordinatorPort,
                 "--catalog",
-                catalog,
+                session.getCatalog().orElse("tpch"),
                 "--schema",
-                schema,
+                session.getSchema().orElse("tiny"),
+                "--user",
+                session.getIdentity().getUser(),
                 "--execute",
                 sql
         };
