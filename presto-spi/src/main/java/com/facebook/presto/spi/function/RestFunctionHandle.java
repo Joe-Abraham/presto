@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.api.Experimental;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static java.util.Objects.requireNonNull;
@@ -24,7 +25,11 @@ public class RestFunctionHandle
 {
     private final Signature signature;
 
-    public RestFunctionHandle(SqlFunctionId functionId, String version, Signature signature)
+    @JsonCreator
+    public RestFunctionHandle(
+            @JsonProperty("functionId") SqlFunctionId functionId,
+            @JsonProperty("version") String version,
+            @JsonProperty("signature") Signature signature)
     {
         super(functionId, version);
         this.signature = requireNonNull(signature, "signature is null");
