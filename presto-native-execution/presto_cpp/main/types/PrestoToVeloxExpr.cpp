@@ -505,7 +505,6 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto returnType = typeParser_->parse(pexpr.returnType);
 
     auto* systemConfig = SystemConfig::instance();
-    const auto serdeName = systemConfig->remoteFunctionServerSerde();
 
     velox::functions::RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat =
