@@ -22,6 +22,7 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/JsonSignatureParser.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/remote/client/Remote.h"
 #endif
@@ -431,18 +432,6 @@ PageFormat fromSerdeString(const std::string_view& serdeName) {
         "Unknown serde name for remote function server: '{}'", serdeName);
   }
 }
-
-auto convertToVeloxSignature(const protocol::Signature& signature) {
-  auto functionSignatureBuilder = velox::exec::FunctionSignatureBuilder();
-  functionSignatureBuilder.returnType(signature.returnType);
-  for (const auto& argType : signature.argumentTypes) {
-    functionSignatureBuilder.argumentType(argType);
-  }
-  if (signature.variableArity) {
-    functionSignatureBuilder.variableArity();
-  }
-  return functionSignatureBuilder.build();
-}
 #endif
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
@@ -504,7 +493,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto args = toVeloxExpr(pexpr.arguments);
     auto returnType = typeParser_->parse(pexpr.returnType);
 
-    auto* systemConfig = SystemConfig::instance();
+    const auto* systemConfig = SystemConfig::instance();
 
     velox::functions::RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat =
@@ -512,12 +501,18 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     proxygen::URL url(systemConfig->kRemoteFunctionServerRestURL);
     metadata.location = url;
 
-    std::vector<velox::exec::FunctionSignaturePtr> signatures = {
-        convertToVeloxSignature(RestFunctionHandle->signature)};
+    json signatureJson;
+    to_json(signatureJson, RestFunctionHandle->signature);
 
-    velox::functions::registerRemoteFunction(
-        getFunctionName(RestFunctionHandle->functionId), signatures, metadata);
-
+    JsonSignatureParser parser(signatureJson.dump());
+    for (const auto& [functionName, signatureItems] : parser) {
+      for (const auto& item : signatureItems) {
+        velox::functions::registerRemoteFunction(
+            getFunctionName(RestFunctionHandle->functionId),
+            {item.signature},
+            metadata);
+      }
+    }
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(RestFunctionHandle->functionId));
   }

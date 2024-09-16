@@ -26,8 +26,10 @@ target_link_libraries(presto_types presto_type_converter velox_type_fbhive
                       velox_hive_partition_function velox_tpch_gen)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_dependencies(presto_types velox_expression velox_functions_remote)
-  target_link_libraries(presto_types velox_functions_remote)
+  add_dependencies(presto_types velox_expression presto_server_remote_function
+                   velox_functions_remote)
+  target_link_libraries(presto_types presto_server_remote_function
+                        velox_functions_remote ${FOLLY_WITH_DEPENDENCIES})
 endif()
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
