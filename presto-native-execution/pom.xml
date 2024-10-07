@@ -371,6 +371,12 @@
                                             </includes>
                                         </resource>
                                         <resource>
+                                            <directory>${project.parent.basedir}/presto-function-server/target</directory>
+                                            <includes>
+                                                <include>presto-function-server-executable.jar</include>
+                                            </includes>
+                                        </resource>
+                                        <resource>
                                             <directory>${project.parent.basedir}/presto-server/target</directory>
                                             <includes>
                                                 <include>presto-server-*.tar.gz</include>
@@ -402,51 +408,6 @@
                                                 <args>
                                                     <PRESTO_VERSION>${project.version}</PRESTO_VERSION>
                                                 </args>
-                                            </build>
-                                        </image>
-                                    </images>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>dependency</id>
-                                <phase>install</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                                <configuration>
-                                    <images>
-                                        <image>
-                                            <name>presto-native-dependency:latest</name>
-                                            <build>
-                                                <dockerFile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerFile>
-                                                <contextDir>${project.basedir}</contextDir>
-                                            </build>
-                                        </image>
-                                    </images>
-                                </configuration>
-                            </execution>
-                            <execution>
-                                <id>worker</id>
-                                <phase>install</phase>
-                                <goals>
-                                    <goal>build</goal>
-                                </goals>
-                                <configuration>
-                                    <images>
-                                        <image>
-                                            <name>presto-worker:latest</name>
-                                            <build>
-                                                <dockerFile>${project.basedir}/scripts/dockerfiles/prestissimo-runtime.dockerfile</dockerFile>
-                                                <contextDir>${project.basedir}</contextDir>
-                                                <args>
-                                                    <BUILD_TYPE>Release</BUILD_TYPE>
-                                                    <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
-                                                    <EXTRA_CMAKE_FLAGS>-DPRESTO_ENABLE_TESTING=OFF</EXTRA_CMAKE_FLAGS>
-                                                    <NUM_THREADS>2</NUM_THREADS>
-                                                    <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
-                                                    <OSNAME>ubuntu</OSNAME>
-                                                </args>
-                                                <imagePullPolicy>IfNotPresent</imagePullPolicy>
                                             </build>
                                         </image>
                                     </images>
