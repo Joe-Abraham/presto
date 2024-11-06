@@ -497,8 +497,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     velox::functions::RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat =
         fromSerdeString(systemConfig->remoteFunctionServerSerde());
-    proxygen::URL url(systemConfig->remoteFunctionRestUrl());
-    metadata.location = url;
+    metadata.location = systemConfig->remoteFunctionRestUrl();
     metadata.functionId = restFunctionHandle->functionId;
     metadata.version = restFunctionHandle->version;
 
