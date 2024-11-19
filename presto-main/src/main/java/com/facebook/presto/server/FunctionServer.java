@@ -22,9 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
@@ -49,23 +47,16 @@ public class FunctionServer
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
-        Map<String, String> configMap = new HashMap<>();
-        configMap.put("http-server.http.enabled", "true");
-        configMap.put("http-server.http.port", "8085");
-
         List<Module> modules = ImmutableList.of(
                 new FunctionServerModule(),
                 new HttpServerModule(),
                 new JaxrsModule());
 
         try {
-            Bootstrap app = new Bootstrap(modules)
-                    .setRequiredConfigurationProperties(configMap);
+            Bootstrap app = new Bootstrap(modules);
             Injector injector = app.initialize();
 
             HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
-            String httpUrl = serverInfo.getHttpUri().toString();
-            System.out.println(httpUrl);
             log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
 
             Thread.currentThread().join();

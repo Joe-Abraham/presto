@@ -34,6 +34,25 @@ public class TestPrestoContainerRemoteFunction
     @Test
     public void testPresenceAndBasicFunctionality()
     {
-        assertEquals(computeActual("select remote.default.abs(-10)").getMaterializedRows().get(0).getField(0).toString(), "10");
+        assertEquals(
+                computeActual("select remote.default.abs(-10)")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "10");
+        assertEquals(
+                computeActual("select remote.default.abs(-1230)")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "1230");
+        assertEquals(
+                computeActual("select remote.default.second(CAST('2001-01-02 03:04:05' as timestamp))")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "5");
+        assertEquals(
+                computeActual("select remote.default.length(CAST('AB' AS VARBINARY))")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "2");
+        assertEquals(
+                computeActual("select remote.default.floor(100000.99)")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "100000.0");
     }
 }

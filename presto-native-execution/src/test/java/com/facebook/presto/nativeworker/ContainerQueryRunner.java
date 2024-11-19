@@ -59,9 +59,10 @@ public class ContainerQueryRunner
     private static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     private static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
     private static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
+    private static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     private static final String BASE_DIR = System.getProperty("user.dir");
     private static final int DEFAULT_COORDINATOR_PORT = 8080;
+    private static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
     private static final String TPCH_CATALOG = "tpch";
     private static final String TINY_SCHEMA = "tiny";
     private static final int DEFAULT_NUMBER_OF_WORKERS = 4;
@@ -69,25 +70,24 @@ public class ContainerQueryRunner
     private final GenericContainer<?> coordinator;
     private final List<GenericContainer<?>> workers = new ArrayList<>();
     private final int coordinatorPort;
+    private final int functionServerPort;
     private final String catalog;
     private final String schema;
-    private final int numberOfWorkers;
-    private Connection connection;
     private Statement statement;
 
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
+        this(DEFAULT_COORDINATOR_PORT, DEFAULT_FUNCTION_SERVER_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers)
+    public ContainerQueryRunner(int coordinatorPort, int functionServerPort, String catalog, String schema, int numberOfWorkers)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
+        this.functionServerPort = functionServerPort;
         this.catalog = catalog;
         this.schema = schema;
-        this.numberOfWorkers = numberOfWorkers;
 
         // The container details can be added as properties in VM options for testing in IntelliJ.
         coordinator = createCoordinator();
@@ -133,12 +133,14 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
-        ContainerQueryRunnerUtils.createFunctionNamespaceRemoteProperties();
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemoteProperties(functionServerPort);
+        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
                 .withNetwork(network).withNetworkAliases("presto-coordinator")
                 .withFileSystemBind(BASE_DIR + "/testcontainers/coordinator/etc", "/opt/presto-server/etc", BindMode.READ_WRITE)
+                .withFileSystemBind(BASE_DIR + "/testcontainers/coordinator/etc/function-server", "/opt/function-server/etc", BindMode.READ_ONLY)
                 .withFileSystemBind(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh", "/opt/entrypoint.sh", BindMode.READ_ONLY)
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
@@ -147,7 +149,7 @@ public class ContainerQueryRunner
     private GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, functionServerPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
