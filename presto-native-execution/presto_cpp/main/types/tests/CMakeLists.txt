@@ -22,6 +22,8 @@ target_link_libraries(
   GTest::gtest_main
   presto_operators
   presto_protocol
+  velox_dwio_common
+  velox_dwio_orc_reader
   velox_hive_connector
   velox_tpch_connector
   velox_exec
@@ -72,6 +74,16 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread)
 
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_dependencies(presto_expressions_test presto_server_remote_function
+                   velox_expression velox_functions_remote)
+
+  target_link_libraries(
+    presto_expressions_test GTest::gmock GTest::gmock_main
+    presto_server_remote_function velox_expression velox_functions_remote)
+
+endif()
+
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
 
@@ -88,6 +100,7 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_types
+  velox_dwio_common
   velox_hive_connector
   velox_tpch_connector
   GTest::gtest
@@ -124,6 +137,7 @@ target_link_libraries(
   presto_protocol
   presto_type_converter
   presto_types
+  velox_dwio_common
   velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)

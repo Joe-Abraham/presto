@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.215</dep.airlift.version>
+        <dep.airlift.version>0.216</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -85,6 +85,7 @@
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
         <dep.netty.version>4.1.115.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -209,6 +210,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <version>${dep.jetty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
@@ -2243,6 +2252,13 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>${dep.snakeyaml.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-dbcp2</artifactId>
+                <version>2.12.0</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
