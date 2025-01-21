@@ -22,7 +22,6 @@
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
-#include "presto_cpp/main/JsonSignatureParser.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/remote/client/Remote.h"
 #endif
