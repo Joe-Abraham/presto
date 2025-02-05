@@ -73,6 +73,7 @@ public class ContainerQueryRunner
     protected final List<GenericContainer<?>> workers = new ArrayList<>();
 
     protected final int coordinatorPort;
+    protected Integer functionServerPort;
     protected final String catalog;
     protected final String schema;
 
@@ -81,15 +82,16 @@ public class ContainerQueryRunner
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, null);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, Integer functionServerPort)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
         this.catalog = catalog;
         this.schema = schema;
+        this.functionServerPort = functionServerPort;
 
         this.coordinator = createCoordinator();
         for (int i = 0; i < numberOfWorkers; i++) {

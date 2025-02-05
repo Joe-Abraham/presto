@@ -28,24 +28,21 @@ public class ContainerQueryRunnerWithFunctionServer
 {
     private static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
 
-    private final int functionServerPort;
-
     public ContainerQueryRunnerWithFunctionServer()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, DEFAULT_FUNCTION_SERVER_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT );
     }
 
     public ContainerQueryRunnerWithFunctionServer(
             int coordinatorPort,
-            int functionServerPort,
             String catalog,
             String schema,
-            int numberOfWorkers)
+            int numberOfWorkers,
+            int functionServerPort)
             throws InterruptedException, IOException
     {
-        super(coordinatorPort, catalog, schema, numberOfWorkers);
-        this.functionServerPort = functionServerPort;
+        super(coordinatorPort, catalog, schema, numberOfWorkers, functionServerPort);
     }
 
     @Override
@@ -80,7 +77,7 @@ public class ContainerQueryRunnerWithFunctionServer
                 .withNetwork(network)
                 .withNetworkAliases("presto-coordinator")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc/function-server"), "/opt/function-server/etc")
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/etc"), "/opt/function-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofSeconds(Long.parseLong(CONTAINER_TIMEOUT)));
