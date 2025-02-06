@@ -77,7 +77,8 @@ target_link_libraries(
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_dependencies(presto_expressions_test presto_server_remote_function
                    velox_expression velox_functions_remote)
-
+  target_link_libraries(presto_expressions_test presto_thrift-cpp2 presto_thrift_extra
+                   ${THRIFT_LIBRARY})
   target_link_libraries(
     presto_expressions_test GTest::gmock GTest::gmock_main
     presto_server_remote_function velox_expression velox_functions_remote)

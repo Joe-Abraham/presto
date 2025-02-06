@@ -133,6 +133,29 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
                                       : functionId;
 }
 
+std::string extractFunctionName(const std::string& input) {
+  size_t lastDot = input.find_last_of('.');
+  if (lastDot != std::string::npos) {
+    return input.substr(lastDot + 1);
+  }
+  return input;
+}
+
+std::string urlEncode(const std::string& value) {
+  std::ostringstream escaped;
+  escaped.fill('0');
+  escaped << std::hex;
+  for (char c : value) {
+    if (isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' ||
+        c == '.' || c == '~') {
+      escaped << c;
+    } else {
+      escaped << '%' << std::setw(2) << int(static_cast<unsigned char>(c));
+    }
+  }
+  return escaped.str();
+}
+
 } // namespace
 
 velox::variant VeloxExprConverter::getConstantValue(
@@ -542,7 +565,6 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     velox::functions::RemoteVectorFunctionMetadata metadata;
     metadata.serdeFormat =
         fromSerdeString(systemConfig->remoteFunctionServerSerde());
-    metadata.location = systemConfig->remoteFunctionRestUrl();
     metadata.functionId = restFunctionHandle->functionId;
     metadata.version = restFunctionHandle->version;
 
@@ -575,6 +597,15 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto signature = signatureBuilder.build();
     std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
         signature};
+
+    const std::string location = fmt::format(
+        "{}/v1/functions/{}/{}/{}/{}",
+        systemConfig->remoteFunctionRestUrl(),
+        metadata.schema.value_or("default"),
+        extractFunctionName(getFunctionName(restFunctionHandle->functionId)),
+        urlEncode(restFunctionHandle->functionId),
+        restFunctionHandle->version);
+    metadata.location = location;
 
     velox::functions::registerRemoteFunction(
         getFunctionName(restFunctionHandle->functionId),

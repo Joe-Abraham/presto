@@ -22,8 +22,9 @@ add_library(
 add_dependencies(presto_types presto_operators presto_type_converter velox_type
                  velox_type_fbhive)
 
-target_link_libraries(presto_types presto_type_converter velox_type_fbhive
-                      velox_hive_partition_function velox_tpch_gen velox_functions_json)
+target_link_libraries(
+  presto_types presto_type_converter velox_type_fbhive
+  velox_hive_partition_function velox_tpch_gen velox_functions_json)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_dependencies(presto_types velox_expression presto_server_remote_function
