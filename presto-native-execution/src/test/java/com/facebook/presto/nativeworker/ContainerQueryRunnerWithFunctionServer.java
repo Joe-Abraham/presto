@@ -69,8 +69,8 @@ public class ContainerQueryRunnerWithFunctionServer
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
-        ContainerQueryRunnerUtils.createFunctionNamespaceRemotePropertiesWithFunctionServer(functionServerPort);
-        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemotePropertiesWithFunctionServer(DEFAULT_FUNCTION_SERVER_PORT);
+        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(DEFAULT_FUNCTION_SERVER_PORT);
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
@@ -87,7 +87,7 @@ public class ContainerQueryRunnerWithFunctionServer
     protected GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, DEFAULT_FUNCTION_SERVER_PORT, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);

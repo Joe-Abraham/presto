@@ -133,6 +133,21 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
                                       : functionId;
 }
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+std::string getSchemaName(const protocol::SqlFunctionId& functionId) {
+  // Example: "json.x4.eq;INTEGER;INTEGER".
+    const auto nameEnd = functionId.find(';');
+    std::string functionName = (nameEnd != std::string::npos) ? functionId.substr(0, nameEnd) : functionId;
+
+    const auto firstDot = functionName.find('.');
+    const auto secondDot = functionName.find('.', firstDot + 1);
+    if (firstDot != std::string::npos && secondDot != std::string::npos) {
+        return functionName.substr(firstDot + 1, secondDot - firstDot - 1);
+    }
+
+    return "";
+}
+
 std::string extractFunctionName(const std::string& input) {
   size_t lastDot = input.find_last_of('.');
   if (lastDot != std::string::npos) {
@@ -155,6 +170,7 @@ std::string urlEncode(const std::string& value) {
   }
   return escaped.str();
 }
+#endif
 
 } // namespace
 
@@ -567,6 +583,16 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
         fromSerdeString(systemConfig->remoteFunctionServerSerde());
     metadata.functionId = restFunctionHandle->functionId;
     metadata.version = restFunctionHandle->version;
+    metadata.schema = getSchemaName(restFunctionHandle->functionId);
+
+    const std::string location = fmt::format(
+    "{}/v1/functions/{}/{}/{}/{}",
+    systemConfig->remoteFunctionRestUrl(),
+    metadata.schema.value_or("default"),
+    extractFunctionName(getFunctionName(restFunctionHandle->functionId)),
+    urlEncode(restFunctionHandle->functionId),
+    restFunctionHandle->version);
+    metadata.location = location;
 
     const auto& prestoSignature = restFunctionHandle->signature;
     // parseTypeSignature
@@ -597,15 +623,6 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     auto signature = signatureBuilder.build();
     std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
         signature};
-
-    const std::string location = fmt::format(
-        "{}/v1/functions/{}/{}/{}/{}",
-        systemConfig->remoteFunctionRestUrl(),
-        metadata.schema.value_or("default"),
-        extractFunctionName(getFunctionName(restFunctionHandle->functionId)),
-        urlEncode(restFunctionHandle->functionId),
-        restFunctionHandle->version);
-    metadata.location = location;
 
     velox::functions::registerRemoteFunction(
         getFunctionName(restFunctionHandle->functionId),
