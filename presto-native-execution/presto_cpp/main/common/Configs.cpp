@@ -205,6 +205,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kShuffleName, ""),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
+          NONE_PROP(kRemoteFunctionServerRestURL),
           BOOL_PROP(kHttpEnableAccessLog, false),
           BOOL_PROP(kHttpEnableStatsFilter, false),
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
