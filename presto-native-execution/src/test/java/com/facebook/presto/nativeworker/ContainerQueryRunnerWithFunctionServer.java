@@ -31,7 +31,7 @@ public class ContainerQueryRunnerWithFunctionServer
     public ContainerQueryRunnerWithFunctionServer()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT );
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, DEFAULT_FUNCTION_SERVER_PORT);
     }
 
     public ContainerQueryRunnerWithFunctionServer(

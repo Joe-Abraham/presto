@@ -151,7 +151,6 @@ public class ContainerQueryRunnerUtils
 
     public static void createCoordinatorJvmConfig()
             throws IOException
-
     {
         String jvmConfig = "-server\n" +
                 "-Xmx1G\n" +
@@ -269,7 +268,7 @@ public class ContainerQueryRunnerUtils
         }
 
         try (OutputStream output = new FileOutputStream(file);
-             OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+                OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
             writer.write(scriptContent);
         }
 
