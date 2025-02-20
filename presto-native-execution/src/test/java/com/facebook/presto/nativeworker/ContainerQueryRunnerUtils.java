@@ -146,7 +146,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("regex-library", "RE2J");
         properties.setProperty("parse-decimal-literals-as-double", "true");
 
-        createPropertiesFile("testcontainers/coordinator/etc/function-server/config.properties", properties);
+        createPropertiesFile("testcontainers/coordinator/etc/function-server/etc/config.properties", properties);
     }
 
     public static void createCoordinatorJvmConfig()
