@@ -26,8 +26,6 @@ import java.time.Duration;
 public class ContainerQueryRunnerWithFunctionServer
         extends ContainerQueryRunner
 {
-    private static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
-
     public ContainerQueryRunnerWithFunctionServer()
             throws InterruptedException, IOException
     {
@@ -69,8 +67,8 @@ public class ContainerQueryRunnerWithFunctionServer
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
         ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
-        ContainerQueryRunnerUtils.createFunctionNamespaceRemotePropertiesWithFunctionServer(DEFAULT_FUNCTION_SERVER_PORT);
-        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(DEFAULT_FUNCTION_SERVER_PORT);
+        ContainerQueryRunnerUtils.createFunctionNamespaceRemotePropertiesWithFunctionServer(functionServerPort);
+        ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
 
         return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withExposedPorts(coordinatorPort)
@@ -87,7 +85,7 @@ public class ContainerQueryRunnerWithFunctionServer
     protected GenericContainer<?> createNativeWorker(int port, String nodeId)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, DEFAULT_FUNCTION_SERVER_PORT, nodeId);
+        ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);

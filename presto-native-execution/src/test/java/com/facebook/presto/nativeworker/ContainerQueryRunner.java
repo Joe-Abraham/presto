@@ -63,6 +63,7 @@ public class ContainerQueryRunner
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
     protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;
@@ -73,7 +74,7 @@ public class ContainerQueryRunner
     protected final List<GenericContainer<?>> workers = new ArrayList<>();
 
     protected final int coordinatorPort;
-    protected Integer functionServerPort;
+    protected int functionServerPort;
     protected final String catalog;
     protected final String schema;
 
@@ -82,10 +83,10 @@ public class ContainerQueryRunner
     public ContainerQueryRunner()
             throws InterruptedException, IOException
     {
-        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, null);
+        this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS,DEFAULT_FUNCTION_SERVER_PORT);
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, Integer functionServerPort)
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort)
             throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
