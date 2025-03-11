@@ -158,6 +158,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 
   target_link_libraries(
     presto_to_velox_expr_test
+          presto_common
     presto_protocol
     presto_operators
     presto_type_converter
