@@ -79,6 +79,6 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
     GTest::gmock
     GTest::gtest
     GTest::gtest_main)
-  target_link_libraries(presto_server_test presto_thrift-cpp2 presto_thrift_extra
-    ${THRIFT_LIBRARY})
+  target_link_libraries(presto_server_test presto_thrift-cpp2
+                        presto_thrift_extra ${THRIFT_LIBRARY})
 endif()
