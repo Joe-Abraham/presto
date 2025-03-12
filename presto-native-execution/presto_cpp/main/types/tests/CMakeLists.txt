@@ -74,6 +74,17 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread)
 
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_dependencies(presto_expressions_test presto_server_remote_function
+                   velox_expression velox_functions_remote)
+  target_link_libraries(presto_expressions_test presto_thrift-cpp2
+                        presto_thrift_extra ${THRIFT_LIBRARY})
+  target_link_libraries(
+    presto_expressions_test GTest::gmock GTest::gmock_main
+    presto_server_remote_function velox_expression velox_functions_remote)
+
+endif()
+
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
 
@@ -131,3 +142,30 @@ target_link_libraries(
   velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)
+
+# PrestoToVeloxExprTest.cpp only contains tests cases related to
+# RestFunctionHandle, therefore it is only enabled when remote functions are
+# enabled.
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_executable(presto_to_velox_expr_test PrestoToVeloxExprTest.cpp)
+
+  add_test(
+    NAME presto_to_velox_expr_test
+    COMMAND presto_to_velox_expr_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  add_dependencies(presto_to_velox_expr_test presto_server_test)
+
+  target_link_libraries(
+    presto_to_velox_expr_test
+    presto_common
+    presto_protocol
+    presto_operators
+    presto_type_converter
+    presto_types
+    velox_dwio_common
+    velox_hive_connector
+    velox_tpch_connector
+    GTest::gtest
+    GTest::gtest_main)
+endif()
