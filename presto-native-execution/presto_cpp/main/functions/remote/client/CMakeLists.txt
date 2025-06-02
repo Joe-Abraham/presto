@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+find_package(CURL REQUIRED)
+
 add_library(presto_functions_remote_client RestRemoteClient.cpp)
 target_link_libraries(
   presto_functions_remote_client PUBLIC velox_functions_remote_get_serde
-                                        presto_http Folly::folly)
+                                        presto_http Folly::folly CURL::libcurl)
 
 add_library(presto_functions_remote Remote.cpp)
 target_link_libraries(

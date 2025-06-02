@@ -25,14 +25,40 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/functions/remote/if/GetSerde.h"
 
-using namespace facebook::velox;
+#include <curl/curl.h>
 
+using namespace folly;
+using namespace facebook::velox;
 namespace facebook::presto::functions {
 namespace {
 inline std::string getContentType(velox::functions::remote::PageFormat fmt) {
   return fmt == velox::functions::remote::PageFormat::SPARK_UNSAFE_ROW
       ? remote::CONTENT_TYPE_SPARK_UNSAFE_ROW
       : remote::CONTENT_TYPE_PRESTO_PAGE;
+}
+size_t readCallback(char* dest, size_t size, size_t nmemb, void* userp) {
+  auto* inputBufQueue = static_cast<IOBufQueue*>(userp);
+  size_t bufferSize = size * nmemb;
+  size_t totalCopied = 0;
+
+  while (totalCopied < bufferSize && !inputBufQueue->empty()) {
+    auto buf = inputBufQueue->front();
+    size_t remainingSize = bufferSize - totalCopied;
+    size_t copySize = std::min(remainingSize, buf->length());
+    std::memcpy(dest + totalCopied, buf->data(), copySize);
+    totalCopied += copySize;
+    inputBufQueue->pop_front();
+  }
+
+  return totalCopied;
+}
+
+size_t writeCallback(char* ptr, size_t size, size_t nmemb, void* userData) {
+  auto* outputBuf = static_cast<IOBufQueue*>(userData);
+  size_t totalSize = size * nmemb;
+  auto buf = IOBuf::copyBuffer(ptr, totalSize);
+  outputBuf->append(std::move(buf));
+  return totalSize;
 }
 } // namespace
 
@@ -113,49 +139,82 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
     std::unique_ptr<folly::IOBuf> requestPayload,
     velox::functions::remote::PageFormat serdeFormat) const {
   try {
-    folly::Uri uri(url_);
-    const std::string contentType = getContentType(serdeFormat);
+    IOBufQueue inputBufQueue(IOBufQueue::cacheChainLength());
+    inputBufQueue.append(std::move(requestPayload));
 
-    http::RequestBuilder builder;
-    builder.method(proxygen::HTTPMethod::POST)
-        .url(uri.path())
-        .header("Content-Type", contentType)
-        .header("Accept", contentType);
-
-    requestPayload->coalesce();
-    std::string requestBody = requestPayload->moveToFbString().toStdString();
-
-    std::unique_ptr<http::HttpResponse> resp;
-    try {
-      auto sendFuture =
-          builder.send(httpClient_.get(), requestBody);
-      resp = std::move(sendFuture).get();
-    } catch (const std::exception& ex) {
+    CURL* curl = curl_easy_init();
+    if (!curl) {
       VELOX_FAIL(
-          "Error communicating with server: ({}:{}) - {}.",
-          uri.host(),
-          uri.port(),
-          ex.what());
+          fmt::format(
+              "Error initializing CURL: {}",
+              curl_easy_strerror(CURLE_FAILED_INIT)));
     }
 
-    if (resp->hasError()) {
-      VELOX_FAIL("HTTP error: {}", resp->error());
-    }
+    curl_easy_setopt(curl, CURLOPT_URL, fullUrl.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, readCallback);
+    curl_easy_setopt(curl, CURLOPT_READDATA, &inputBufQueue);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
 
-    int status = resp->headers()->getStatusCode();
-    if (status < 200 || status >= 300) {
+    IOBufQueue outputBuf(IOBufQueue::cacheChainLength());
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &outputBuf);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+
+    std::string contentType = getContentType(serdeFormat);
+
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(
+        headers, fmt::format("Content-Type: {}", contentType).c_str());
+    headers = curl_slist_append(
+        headers, fmt::format("Accept: {}", contentType).c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    curl_easy_setopt(
+        curl,
+        CURLOPT_POSTFIELDSIZE,
+        static_cast<long>(inputBufQueue.chainLength()));
+
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+      curl_slist_free_all(headers);
+      curl_easy_cleanup(curl);
       VELOX_FAIL(
-          "Server responded with status {}. Body: '{}'. URL: {}",
-          status,
-          resp->dumpBodyChain(),
-          fullUrl);
+          fmt::format(
+              "Error communicating with server: {}\nURL: {}\nCURL Error: {}",
+              curl_easy_strerror(res),
+              fullUrl.c_str(),
+              curl_easy_strerror(res)));
+    }
+    long responseCode;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
+
+    if (responseCode < 200 || responseCode >= 300) {
+      std::string responseMessage;
+      if (!outputBuf.empty()) {
+        auto responseData = outputBuf.move();
+        responseMessage = responseData->moveToFbString().toStdString();
+      } else {
+        responseMessage = "No response body received";
+      }
+
+      curl_slist_free_all(headers);
+      curl_easy_cleanup(curl);
+      VELOX_FAIL(
+          fmt::format(
+              "Server responded with status {}. Message: '{}'. URL: {}",
+              responseCode,
+              responseMessage,
+              fullUrl));
     }
 
-    return folly::IOBuf::copyBuffer(resp->dumpBodyChain());
-  } catch (const std::exception& ex) {
-    VELOX_FAIL("Exception during HTTP request: {}", ex.what());
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    return outputBuf.move();
+
+  } catch (const std::exception& e) {
+    VELOX_FAIL(fmt::format("Exception during CURL request: {}", e.what()));
   }
-  return nullptr;
 }
 
 } // namespace facebook::presto::functions
