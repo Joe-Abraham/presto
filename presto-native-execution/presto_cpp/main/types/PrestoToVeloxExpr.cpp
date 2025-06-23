@@ -13,9 +13,9 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -195,6 +195,10 @@ TypedExprPtr registerRestRemoteFunction(
         serdeName);
   }
 
+  VELOX_CHECK_NOT_NULL(
+      *restFunctionHandle.executionEndpoint,
+      "Execution Endpoint could not be null");
+
   const auto location = fmt::format(
       "{}/v1/functions/{}/{}/{}/{}",
       *restFunctionHandle.executionEndpoint,
@@ -313,7 +317,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   if (nullOnFailure) {
-    VELOX_UNSUPPORTED("TRY_CAST of varchar to {} is not supported.", returnType);
+    VELOX_UNSUPPORTED(
+        "TRY_CAST of varchar to {} is not supported.", returnType);
   }
 
   // Parse the max length from the return type string in the format of
