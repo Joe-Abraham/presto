@@ -38,6 +38,7 @@ class RemoteFunctionTest : public ::testing::Test {
           "@type": "RestFunctionHandle",
           "functionId": "remote.testSchema.testFunction;BIGINT;BIGINT",
           "version": "v1",
+          "executionEndpoint": "http://localhost:8080",
           "signature": {
             "name": "testFunction",
             "kind": "SCALAR",
@@ -73,9 +74,7 @@ class RemoteFunctionTest : public ::testing::Test {
       const std::unordered_map<std::string, std::string>& configOverride = {}) {
     std::unordered_map<std::string, std::string> systemConfig{
         {std::string(SystemConfig::kRemoteFunctionServerSerde),
-         std::string("presto_page")},
-        {std::string(SystemConfig::kRemoteFunctionServerRestURL),
-         std::string("http://localhost:8080")}};
+         std::string("presto_page")}};
 
     for (const auto& [configName, configValue] : configOverride) {
       systemConfig[configName] = configValue;

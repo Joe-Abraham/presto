@@ -195,9 +195,9 @@ TypedExprPtr registerRestRemoteFunction(
         serdeName);
   }
 
-  const std::string location = fmt::format(
+  const auto location = fmt::format(
       "{}/v1/functions/{}/{}/{}/{}",
-      systemConfig->remoteFunctionServerRestURL(),
+      *restFunctionHandle.executionEndpoint,
       getSchemaName(restFunctionHandle.functionId),
       extractFunctionName(getFunctionName(restFunctionHandle.functionId)),
       urlEncode(restFunctionHandle.functionId),
