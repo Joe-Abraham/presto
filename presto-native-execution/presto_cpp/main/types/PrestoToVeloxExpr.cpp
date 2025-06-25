@@ -13,17 +13,24 @@
  */
 
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/common/Utils.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/functions/remote/client/Remote.h"
+#include "velox/expression/FunctionSignature.h"
+#endif
 
 using namespace facebook::velox::core;
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+using facebook::velox::functions::remote::PageFormat;
+#endif
 using facebook::velox::TypeKind;
 
 namespace facebook::presto {
@@ -132,6 +139,114 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
                                       : functionId;
 }
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+std::string getSchemaName(const protocol::SqlFunctionId& functionId) {
+  // Example: "json.x4.eq;INTEGER;INTEGER".
+  const auto nameEnd = functionId.find(';');
+  std::string functionName = (nameEnd != std::string::npos)
+      ? functionId.substr(0, nameEnd)
+      : functionId;
+
+  const auto firstDot = functionName.find('.');
+  const auto secondDot = functionName.find('.', firstDot + 1);
+  if (firstDot != std::string::npos && secondDot != std::string::npos) {
+    return functionName.substr(firstDot + 1, secondDot - firstDot - 1);
+  }
+
+  return "default";
+}
+
+std::string extractFunctionName(const std::string& input) {
+  size_t lastDot = input.find_last_of('.');
+  if (lastDot != std::string::npos) {
+    return input.substr(lastDot + 1);
+  }
+  return input;
+}
+
+std::string urlEncode(const std::string& value) {
+  std::ostringstream escaped;
+  escaped.fill('0');
+  escaped << std::hex;
+  for (char c : value) {
+    if (isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' ||
+        c == '.' || c == '~') {
+      escaped << c;
+    } else {
+      escaped << '%' << std::setw(2) << int(static_cast<unsigned char>(c));
+    }
+  }
+  return escaped.str();
+}
+
+TypedExprPtr registerRestRemoteFunction(
+    const protocol::RestFunctionHandle& restFunctionHandle,
+    const std::vector<TypedExprPtr>& args,
+    const velox::TypePtr& returnType) {
+  const auto* systemConfig = SystemConfig::instance();
+
+  functions::PrestoRemoteFunctionsMetadata metadata;
+  const auto& serdeName = systemConfig->remoteFunctionServerSerde();
+  if (serdeName == "presto_page") {
+    metadata.serdeFormat = PageFormat::PRESTO_PAGE;
+  } else {
+    VELOX_FAIL(
+        "presto_page serde is expected by remote function server but got : '{}'",
+        serdeName);
+  }
+
+  VELOX_CHECK_NOT_NULL(
+      *restFunctionHandle.executionEndpoint,
+      "Execution Endpoint could not be null");
+
+  const auto location = fmt::format(
+      "{}/v1/functions/{}/{}/{}/{}",
+      *restFunctionHandle.executionEndpoint,
+      getSchemaName(restFunctionHandle.functionId),
+      extractFunctionName(getFunctionName(restFunctionHandle.functionId)),
+      urlEncode(restFunctionHandle.functionId),
+      restFunctionHandle.version);
+  metadata.location = location;
+
+  const auto& prestoSignature = restFunctionHandle.signature;
+  // parseTypeSignature
+  velox::exec::FunctionSignatureBuilder signatureBuilder;
+  // Handle type variable constraints
+  for (const auto& typeVar : prestoSignature.typeVariableConstraints) {
+    signatureBuilder.typeVariable(typeVar.name);
+  }
+
+  // Handle long variable constraints (for integer variables)
+  for (const auto& longVar : prestoSignature.longVariableConstraints) {
+    signatureBuilder.integerVariable(longVar.name);
+  }
+
+  // Handle return type
+  signatureBuilder.returnType(prestoSignature.returnType);
+
+  // Handle argument types
+  for (const auto& argType : prestoSignature.argumentTypes) {
+    signatureBuilder.argumentType(argType);
+  }
+
+  // Handle variable arity
+  if (prestoSignature.variableArity) {
+    signatureBuilder.variableArity();
+  }
+
+  auto signature = signatureBuilder.build();
+  std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {signature};
+
+  functions::registerPrestoRemoteFunction(
+      getFunctionName(restFunctionHandle.functionId),
+      veloxSignatures,
+      metadata);
+
+  return std::make_shared<CallTypedExpr>(
+      returnType, args, getFunctionName(restFunctionHandle.functionId));
+}
+#endif
+
 } // namespace
 
 velox::variant VeloxExprConverter::getConstantValue(
@@ -202,7 +317,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   if (nullOnFailure) {
-    VELOX_UNSUPPORTED("TRY_CAST of varchar to {} is not supported.", returnType);
+    VELOX_UNSUPPORTED(
+        "TRY_CAST of varchar to {} is not supported.", returnType);
   }
 
   // Parse the max length from the return type string in the format of
@@ -514,6 +630,17 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (
+      auto restFunctionHandle =
+          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+              pexpr.functionHandle)) {
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = typeParser_->parse(pexpr.returnType);
+
+    return registerRestRemoteFunction(*restFunctionHandle, args, returnType);
+  }
+#endif
 
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
