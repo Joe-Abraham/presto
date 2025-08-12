@@ -18,3 +18,23 @@ paths:
             application/json:
               schema:
                 $ref: './schemas.yaml/#/components/schemas/JsonBasedUdfFunctionMetadata'
+  /v1/functions/{catalog}:
+    get:
+      summary: Returns the list of function signatures for a specific catalog.
+      description: This endpoint retrieves the supported function signatures from a Prestissimo cluster filtered by catalog.
+      parameters:
+        - name: catalog
+          in: path
+          required: true
+          description: The catalog name to filter functions by
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of function signatures for the specified catalog.
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/JsonBasedUdfFunctionMetadata'
+        '400':
+          description: Bad request - Invalid catalog parameter

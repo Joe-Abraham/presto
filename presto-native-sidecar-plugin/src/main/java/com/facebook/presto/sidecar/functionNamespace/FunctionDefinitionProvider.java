@@ -17,7 +17,14 @@ package com.facebook.presto.sidecar.functionNamespace;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.spi.NodeManager;
 
+import java.util.Optional;
+
 public interface FunctionDefinitionProvider
 {
     UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager);
+
+    default UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager, Optional<String> catalog)
+    {
+        return getUdfDefinition(nodeManager);
+    }
 }
