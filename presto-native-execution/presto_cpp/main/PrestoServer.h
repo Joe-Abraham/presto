@@ -312,6 +312,7 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
+  std::vector<std::string> prestoAdditionalFunctionPrefixes_;
 };
 
 } // namespace facebook::presto
