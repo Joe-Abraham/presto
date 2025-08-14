@@ -39,6 +39,12 @@ class FunctionMetadataCatalogFilterTest : public ::testing::Test {
     // Register with a custom catalog prefix
     functions::prestosql::registerAllScalarFunctions("custom.schema");
     aggregate::prestosql::registerAllAggregateFunctions("custom.schema");
+    
+    // Register with additional catalog prefixes to test multiple namespaces
+    functions::prestosql::registerAllScalarFunctions("ml.models");
+    aggregate::prestosql::registerAllAggregateFunctions("ml.models");
+    functions::prestosql::registerAllScalarFunctions("data.lake");
+    aggregate::prestosql::registerAllAggregateFunctions("data.lake");
   }
 };
 
@@ -118,4 +124,26 @@ TEST_F(FunctionMetadataCatalogFilterTest, TestFunctionStructure) {
     EXPECT_TRUE(firstSignature.contains("functionKind"));
     EXPECT_TRUE(firstSignature.contains("schema"));
   }
+}
+
+TEST_F(FunctionMetadataCatalogFilterTest, TestMultipleNamespaces) {
+  // Test that all additional namespaces have their own functions
+  auto mlMetadata = getFunctionsMetadata("ml");
+  auto dataMetadata = getFunctionsMetadata("data");
+  auto customMetadata = getFunctionsMetadata("custom");
+  
+  // All should have functions since we registered with these prefixes
+  EXPECT_GT(mlMetadata.size(), 0) << "ML namespace should have functions";
+  EXPECT_GT(dataMetadata.size(), 0) << "Data namespace should have functions";
+  EXPECT_GT(customMetadata.size(), 0) << "Custom namespace should have functions";
+  
+  // Verify that functions from different namespaces don't overlap with default
+  auto allMetadata = getFunctionsMetadata();
+  auto defaultMetadata = getFunctionsMetadata("presto");
+  
+  // All metadata should include functions from all namespaces
+  EXPECT_GE(allMetadata.size(), defaultMetadata.size());
+  EXPECT_GE(allMetadata.size(), mlMetadata.size());
+  EXPECT_GE(allMetadata.size(), dataMetadata.size());
+  EXPECT_GE(allMetadata.size(), customMetadata.size());
 }

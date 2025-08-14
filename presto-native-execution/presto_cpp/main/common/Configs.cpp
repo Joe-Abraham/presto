@@ -18,6 +18,7 @@
 #include "velox/core/QueryConfig.h"
 
 #include <boost/lexical_cast.hpp>
+#include <sstream>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #if __has_include("filesystem")
@@ -249,6 +250,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
+          STR_PROP(kPrestoAdditionalNamespacePrefixes, ""),
           STR_PROP(kPoolType, "DEFAULT"),
           BOOL_PROP(kSpillEnabled, false),
           BOOL_PROP(kJoinSpillEnabled, true),
@@ -903,6 +905,28 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
   return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
+}
+
+std::vector<std::string> SystemConfig::prestoAdditionalNamespacePrefixes() const {
+  std::vector<std::string> prefixes;
+  auto prefixesStr = optionalProperty(kPrestoAdditionalNamespacePrefixes).value();
+  
+  if (!prefixesStr.empty()) {
+    std::stringstream ss(prefixesStr);
+    std::string prefix;
+    
+    while (std::getline(ss, prefix, ',')) {
+      // Trim whitespace
+      prefix.erase(0, prefix.find_first_not_of(" \t"));
+      prefix.erase(prefix.find_last_not_of(" \t") + 1);
+      
+      if (!prefix.empty()) {
+        prefixes.push_back(prefix + ".");
+      }
+    }
+  }
+  
+  return prefixes;
 }
 
 std::string SystemConfig::pluginDir() const {
