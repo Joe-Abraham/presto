@@ -125,7 +125,8 @@ public class NativeFunctionNamespaceManager
     private synchronized Map<SqlFunctionId, SqlInvokedFunction> bootstrapNamespace()
     {
         functions.clear();
-        UdfFunctionSignatureMap nativeFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(nodeManager);
+        // Use catalog filtering to only get functions for this specific catalog
+        UdfFunctionSignatureMap nativeFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(nodeManager, Optional.of(getCatalogName()));
         if (nativeFunctionSignatureMap == null || nativeFunctionSignatureMap.isEmpty()) {
             return ImmutableMap.of();
         }

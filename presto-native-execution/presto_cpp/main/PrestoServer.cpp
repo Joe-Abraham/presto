@@ -42,6 +42,7 @@
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "presto_cpp/presto_protocol/connector/hive/HiveInitcapFunction.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -50,6 +51,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
@@ -61,6 +63,7 @@
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -270,6 +273,7 @@ void PrestoServer::run() {
     nodeLocation_ = nodeConfig->nodeLocation();
     nodePoolType_ = systemConfig->poolType();
     prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
+    prestoAdditionalFunctionPrefixes_ = systemConfig->prestoAdditionalNamespacePrefixes();
   } catch (const velox::VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -1324,12 +1328,63 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
+  // Register functions with the default prefix
   velox::functions::prestosql::registerAllScalarFunctions(
       prestoBuiltinFunctionPrefix_);
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+
+  // Register functions with additional prefixes for multiple namespaces
+  for (const auto& prefix : prestoAdditionalFunctionPrefixes_) {
+    PRESTO_STARTUP_LOG(INFO) << "Registering functions with additional prefix: " << prefix;
+    velox::functions::prestosql::registerAllScalarFunctions(prefix);
+    velox::aggregate::prestosql::registerAllAggregateFunctions(prefix);
+    velox::window::prestosql::registerAllWindowFunctions(prefix);
+  }
+
+  // Register Hive connector functions only if Hive connectors are present
+  registerHiveConnectorFunctions();
+}
+
+void PrestoServer::registerHiveConnectorFunctions() {
+  // Check if any Hive connectors are registered
+  auto connectors = velox::connector::getAllConnectors();
+  bool hasHiveConnector = false;
+
+  for (const auto& [catalogName, connector] : connectors) {
+    // Check if this connector is a Hive connector by checking its factory name
+    if (connector->connectorId() ==
+            velox::connector::hive::HiveConnectorFactory::kHiveConnectorName ||
+        connector->connectorId() == "hive-hadoop2") {
+      hasHiveConnector = true;
+      PRESTO_STARTUP_LOG(INFO) << "Found Hive catalog: " << catalogName
+                               << ", registering Hive-specific functions";
+      break;
+    }
+  }
+
+  if (hasHiveConnector) {
+    // Register Hive-specific functions with the default prefix
+    velox::registerFunction<
+        velox::functions::prestosql::HiveInitCapFunction,
+        velox::Varchar,
+        velox::Varchar>({prestoBuiltinFunctionPrefix_ + ".initcap"});
+    PRESTO_STARTUP_LOG(INFO) << "Registered Hive-specific initcap function with prefix: " << prestoBuiltinFunctionPrefix_;
+    
+    // Also register with additional prefixes for multiple namespaces
+    for (const auto& prefix : prestoAdditionalFunctionPrefixes_) {
+      velox::registerFunction<
+          velox::functions::prestosql::HiveInitCapFunction,
+          velox::Varchar,
+          velox::Varchar>({prefix + ".initcap"});
+      PRESTO_STARTUP_LOG(INFO) << "Registered Hive-specific initcap function with additional prefix: " << prefix;
+    }
+  } else {
+    PRESTO_STARTUP_LOG(INFO)
+        << "No Hive connectors found, skipping Hive-specific function registration";
+  }
 }
 
 void PrestoServer::registerRemoteFunctions() {
@@ -1661,6 +1716,28 @@ void PrestoServer::registerSidecarEndpoints() {
          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
+  httpServer_->registerGet(
+      R"(/v1/functions/([^/]+))",
+      [](proxygen::HTTPMessage* message,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        auto path = message->getURL();
+        // Extract catalog from URL path /v1/functions/{catalog}
+        auto pathStart = path.find("/v1/functions/");
+        if (pathStart != std::string::npos) {
+          std::string catalog =
+              path.substr(pathStart + 14); // 14 = length of "/v1/functions/"
+          // Remove any query parameters
+          auto queryStart = catalog.find('?');
+          if (queryStart != std::string::npos) {
+            catalog = catalog.substr(0, queryStart);
+          }
+          http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
+        } else {
+          http::sendErrorResponse(
+              downstream, "Invalid path", http::kHttpBadRequest);
+        }
       });
   httpServer_->registerPost(
       "/v1/velox/plan",

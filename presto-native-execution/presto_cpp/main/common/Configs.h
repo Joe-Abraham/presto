@@ -741,6 +741,8 @@ class SystemConfig : public ConfigBase {
   // Specifies the default Presto namespace prefix.
   static constexpr std::string_view kPrestoDefaultNamespacePrefix{
       "presto.default-namespace"};
+  static constexpr std::string_view kPrestoAdditionalNamespacePrefixes{
+      "presto.additional-namespace-prefixes"};
 
   // Specifies the type of worker pool
   static constexpr std::string_view kPoolType{"pool-type"};
@@ -1037,6 +1039,8 @@ class SystemConfig : public ConfigBase {
   bool prestoNativeSidecar() const;
 
   std::string prestoDefaultNamespacePrefix() const;
+  
+  std::vector<std::string> prestoAdditionalNamespacePrefixes() const;
 
   std::string poolType() const;
 
