@@ -1366,21 +1366,11 @@ void PrestoServer::registerHiveConnectorFunctions() {
   }
 
   if (hasHiveConnector) {
-    // Register Hive-specific functions with the default prefix
     velox::registerFunction<
         velox::functions::prestosql::HiveInitCapFunction,
         velox::Varchar,
-        velox::Varchar>({prestoBuiltinFunctionPrefix_ + ".initcap"});
-    PRESTO_STARTUP_LOG(INFO) << "Registered Hive-specific initcap function with prefix: " << prestoBuiltinFunctionPrefix_;
-    
-    // Also register with additional prefixes for multiple namespaces
-    for (const auto& prefix : prestoAdditionalFunctionPrefixes_) {
-      velox::registerFunction<
-          velox::functions::prestosql::HiveInitCapFunction,
-          velox::Varchar,
-          velox::Varchar>({prefix + ".initcap"});
-      PRESTO_STARTUP_LOG(INFO) << "Registered Hive-specific initcap function with additional prefix: " << prefix;
-    }
+        velox::Varchar>({"hive.default.initcap"});
+    PRESTO_STARTUP_LOG(INFO) << "Registered Hive-specific initcap function";
   } else {
     PRESTO_STARTUP_LOG(INFO)
         << "No Hive connectors found, skipping Hive-specific function registration";
