@@ -155,6 +155,8 @@ class PrestoServer {
 
   virtual void registerFunctions();
 
+  virtual void registerHiveConnectorFunctions();
+
   virtual void registerRemoteFunctions();
 
   virtual void registerVectorSerdes();
@@ -310,6 +312,7 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
+  std::vector<std::string> prestoAdditionalFunctionPrefixes_;
 };
 
 } // namespace facebook::presto

@@ -267,6 +267,10 @@ json buildWindowMetadata(
 } // namespace
 
 json getFunctionsMetadata() {
+  return getFunctionsMetadata("");
+}
+
+json getFunctionsMetadata(const std::string& catalog) {
   json j;
 
   // Get metadata for all registered scalar functions in velox.
@@ -286,8 +290,15 @@ json getFunctionsMetadata() {
     }
 
     const auto parts = getFunctionNameParts(name);
+    const auto functionCatalog = parts[0];
     const auto schema = parts[1];
     const auto function = parts[2];
+
+    // Filter by catalog if specified
+    if (!catalog.empty() && functionCatalog != catalog) {
+      continue;
+    }
+
     j[function] = buildScalarMetadata(name, schema, entry.second);
   }
 
@@ -296,8 +307,15 @@ json getFunctionsMetadata() {
     if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(name);
+      const auto functionCatalog = parts[0];
       const auto schema = parts[1];
       const auto function = parts[2];
+
+      // Filter by catalog if specified
+      if (!catalog.empty() && functionCatalog != catalog) {
+        continue;
+      }
+
       j[function] =
           buildAggregateMetadata(name, schema, entry.second.signatures);
     }
@@ -310,8 +328,15 @@ json getFunctionsMetadata() {
     if (aggregateFunctions.count(entry.first) == 0) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(entry.first);
+      const auto functionCatalog = parts[0];
       const auto schema = parts[1];
       const auto function = parts[2];
+
+      // Filter by catalog if specified
+      if (!catalog.empty() && functionCatalog != catalog) {
+        continue;
+      }
+
       j[function] = buildWindowMetadata(name, schema, entry.second.signatures);
     }
   }

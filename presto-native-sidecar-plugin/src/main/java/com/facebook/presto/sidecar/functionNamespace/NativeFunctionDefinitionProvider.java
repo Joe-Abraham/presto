@@ -31,6 +31,7 @@ import com.google.inject.Inject;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
@@ -41,10 +42,11 @@ public class NativeFunctionDefinitionProvider
         implements FunctionDefinitionProvider
 {
     private static final Logger log = Logger.get(NativeFunctionDefinitionProvider.class);
+    private static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions";
+    private static final String CATALOG_FILTERED_FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions/%s";
     private final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> nativeFunctionSignatureMapJsonCodec;
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions";
 
     @Inject
     public NativeFunctionDefinitionProvider(
@@ -61,8 +63,15 @@ public class NativeFunctionDefinitionProvider
     @Override
     public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager)
     {
+        return getUdfDefinition(nodeManager, Optional.empty());
+    }
+
+    @Override
+    public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager, Optional<String> catalog)
+    {
         try {
-            Request request = prepareGet().setUri(getSidecarLocation()).build();
+            URI requestUri = catalog.isPresent() ? getSidecarLocationForCatalog(catalog.get()) : getSidecarLocation();
+            Request request = prepareGet().setUri(requestUri).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
@@ -77,6 +86,15 @@ public class NativeFunctionDefinitionProvider
         return HttpUriBuilder
                 .uriBuilderFrom(sidecarNode.getHttpUri())
                 .appendPath(FUNCTION_SIGNATURES_ENDPOINT)
+                .build();
+    }
+
+    private URI getSidecarLocationForCatalog(String catalog)
+    {
+        Node sidecarNode = nodeManager.getSidecarNode();
+        return HttpUriBuilder
+                .uriBuilderFrom(sidecarNode.getHttpUri())
+                .appendPath(String.format(CATALOG_FILTERED_FUNCTION_SIGNATURES_ENDPOINT, catalog))
                 .build();
     }
 
