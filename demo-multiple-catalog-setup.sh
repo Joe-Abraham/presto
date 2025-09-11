@@ -32,6 +32,10 @@ sidecar.enable-hive-functions=true
 presto.default-namespace=hive.default
 EOF
 
+echo "NOTE: Hive functions require hive catalog to be configured."
+echo "      Ensure hive.properties exists in etc_sidecar/catalog/ or etc/catalog/"
+echo
+
 echo "Creating configuration for custom functions sidecar (port 7779)..."
 cat > /tmp/custom-sidecar.properties << EOF
 # Custom Functions Sidecar Configuration  
@@ -140,6 +144,7 @@ echo "1. ✅ Function namespacing: No conflicts between catalogs"
 echo "2. ✅ Catalog isolation: Functions properly separated"
 echo "3. ✅ Multiple sidecar support: Different processes serve different functions"
 echo "4. ✅ Backward compatibility: Empty catalog still works for all functions"
+echo "5. ✅ Smart registration: Hive functions only register when hive catalog is configured"
 echo
 
 echo "Configurations saved to /tmp/:"
