@@ -1671,6 +1671,20 @@ void PrestoServer::registerSidecarEndpoints() {
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
+  httpServer_->registerGet(
+      R"(/v1/functions/(.+))",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::string>& pathMatch) {
+        VELOX_CHECK_EQ(pathMatch.size(), 2); // Full match + catalog
+        const std::string& catalog = pathMatch[1];
+        return new http::CallbackRequestHandler(
+            [catalog](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+                proxygen::ResponseHandler* downstream) {
+              http::sendOkResponse(downstream, getFunctionsMetadataForCatalog(catalog));
+            });
+      });
   httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
