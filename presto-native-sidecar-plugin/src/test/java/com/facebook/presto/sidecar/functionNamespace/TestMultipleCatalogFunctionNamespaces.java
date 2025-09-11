@@ -23,6 +23,7 @@ import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -58,7 +59,8 @@ public class TestMultipleCatalogFunctionNamespaces
 
     private static final URI REST_SERVER_URI = URI.create("http://localhost:8080");
 
-    private InMemoryNodeManager nodeManager;
+    private PluginNodeManager nodeManager;
+    private InMemoryNodeManager inMemoryNodeManager;
     private TestingHttpClient httpClient;
 
     @Path("/v1/functions")
@@ -148,7 +150,8 @@ public class TestMultipleCatalogFunctionNamespaces
     @BeforeMethod
     public void setUp()
     {
-        nodeManager = new InMemoryNodeManager();
+        inMemoryNodeManager = new InMemoryNodeManager();
+        nodeManager = new PluginNodeManager(inMemoryNodeManager, "test-env");
         
         MockFunctionResource resource = new MockFunctionResource();
         ObjectMapper mapper = new ObjectMapper();
@@ -167,7 +170,7 @@ public class TestMultipleCatalogFunctionNamespaces
     {
         // Simulate a sidecar node
         InternalNode sidecarNode = new InternalNode("sidecar-1", URI.create("http://localhost:8080"), new NodeVersion("1"), false, false, false, true);
-        nodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
+        inMemoryNodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
 
         // Test Hive catalog functions
         NativeFunctionNamespaceManagerConfig hiveConfig = new NativeFunctionNamespaceManagerConfig()
@@ -201,7 +204,7 @@ public class TestMultipleCatalogFunctionNamespaces
     {
         // Test that empty catalog fetches from /v1/functions endpoint (all functions)
         InternalNode sidecarNode = new InternalNode("sidecar-1", URI.create("http://localhost:8080"), new NodeVersion("1"), false, false, false, true);
-        nodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
+        inMemoryNodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
 
         NativeFunctionNamespaceManagerConfig config = new NativeFunctionNamespaceManagerConfig()
                 .setCatalog(""); // Empty catalog
