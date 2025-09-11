@@ -14,7 +14,8 @@
 package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
-import com.facebook.airlift.http.client.testing.TestingResponse;
+import com.facebook.airlift.jaxrs.JsonMapper;
+import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
@@ -22,7 +23,16 @@ import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorId;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableMap;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -30,7 +40,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -41,14 +50,88 @@ public class TestMultipleCatalogFunctionNamespaces
     private static final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> FUNCTION_MAP_CODEC =
             mapJsonCodec(String.class, JsonCodec.listJsonCodec(JsonBasedUdfFunctionMetadata.class));
 
+    private static final URI REST_SERVER_URI = URI.create("http://localhost:8080");
+
     private InMemoryNodeManager nodeManager;
     private TestingHttpClient httpClient;
+
+    @Path("/v1/functions")
+    public static class MockFunctionResource
+    {
+        private final Map<String, List<JsonBasedUdfFunctionMetadata>> hiveFunctions;
+        private final Map<String, List<JsonBasedUdfFunctionMetadata>> builtinFunctions;
+        private final Map<String, List<JsonBasedUdfFunctionMetadata>> allFunctions;
+
+        public MockFunctionResource()
+        {
+            this.hiveFunctions = ImmutableMap.of(
+                    "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")));
+            
+            this.builtinFunctions = ImmutableMap.of(
+                    "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default")));
+                    
+            this.allFunctions = ImmutableMap.<String, List<JsonBasedUdfFunctionMetadata>>builder()
+                    .putAll(hiveFunctions)
+                    .putAll(builtinFunctions)
+                    .build();
+        }
+
+        @GET
+        @Produces(MediaType.APPLICATION_JSON)
+        public Map<String, List<JsonBasedUdfFunctionMetadata>> getAllFunctions()
+        {
+            return allFunctions;
+        }
+
+        @GET
+        @Path("/{catalog}")
+        @Produces(MediaType.APPLICATION_JSON)
+        public Map<String, List<JsonBasedUdfFunctionMetadata>> getFunctionsByCatalog(@PathParam("catalog") String catalog)
+        {
+            if ("hive".equals(catalog)) {
+                return hiveFunctions;
+            } else if ("presto.default".equals(catalog)) {
+                return builtinFunctions;
+            }
+            return ImmutableMap.of();
+        }
+        
+        private static JsonBasedUdfFunctionMetadata createMockHiveFunctionMetadata(String name, String catalog, String schema)
+        {
+            JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
+            metadata.setDocString(name);
+            metadata.setSchema(schema);
+            metadata.setOutputType("varchar");
+            metadata.setParamTypes(List.of("varchar"));
+            return metadata;
+        }
+
+        private static JsonBasedUdfFunctionMetadata createMockBuiltinFunctionMetadata(String name, String catalog, String schema)
+        {
+            JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
+            metadata.setDocString(name);
+            metadata.setSchema(schema);
+            metadata.setOutputType("bigint");
+            metadata.setParamTypes(List.of("bigint"));
+            return metadata;
+        }
+    }
 
     @BeforeMethod
     public void setUp()
     {
         nodeManager = new InMemoryNodeManager();
-        httpClient = new TestingHttpClient();
+        
+        MockFunctionResource resource = new MockFunctionResource();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new Jdk8Module());
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
+
+        JaxrsTestingHttpProcessor httpProcessor = new JaxrsTestingHttpProcessor(
+                UriBuilder.fromUri(REST_SERVER_URI).path("/").build(),
+                resource,
+                new JsonMapper(mapper));
+        httpClient = new TestingHttpClient(httpProcessor);
     }
 
     @Test
@@ -57,24 +140,6 @@ public class TestMultipleCatalogFunctionNamespaces
         // Simulate a sidecar node
         InternalNode sidecarNode = new InternalNode("sidecar-1", URI.create("http://localhost:8080"), new NodeVersion("1"), false, false, false, true);
         nodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
-
-        // Mock responses for different catalog endpoints
-        Map<String, List<JsonBasedUdfFunctionMetadata>> hiveFunctions = ImmutableMap.of(
-                "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")));
-
-        Map<String, List<JsonBasedUdfFunctionMetadata>> builtinFunctions = ImmutableMap.of(
-                "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default")));
-
-        // Set up HTTP client responses for different catalog endpoints
-        httpClient.expectCall()
-                .method("GET")
-                .url("http://localhost:8080/v1/functions/hive")
-                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(hiveFunctions)));
-
-        httpClient.expectCall()
-                .method("GET")
-                .url("http://localhost:8080/v1/functions/presto.default")
-                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(builtinFunctions)));
 
         // Test Hive catalog functions
         NativeFunctionNamespaceManagerConfig hiveConfig = new NativeFunctionNamespaceManagerConfig()
@@ -110,15 +175,6 @@ public class TestMultipleCatalogFunctionNamespaces
         InternalNode sidecarNode = new InternalNode("sidecar-1", URI.create("http://localhost:8080"), new NodeVersion("1"), false, false, false, true);
         nodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
 
-        Map<String, List<JsonBasedUdfFunctionMetadata>> allFunctions = ImmutableMap.of(
-                "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")),
-                "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default")));
-
-        httpClient.expectCall()
-                .method("GET")
-                .url("http://localhost:8080/v1/functions")
-                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(allFunctions)));
-
         NativeFunctionNamespaceManagerConfig config = new NativeFunctionNamespaceManagerConfig()
                 .setCatalog(""); // Empty catalog
 
@@ -130,25 +186,5 @@ public class TestMultipleCatalogFunctionNamespaces
         assertNotNull(signatures);
         assertTrue(signatures.getUDFSignatureMap().containsKey("initcap"));
         assertTrue(signatures.getUDFSignatureMap().containsKey("abs"));
-    }
-
-    private JsonBasedUdfFunctionMetadata createMockHiveFunctionMetadata(String name, String catalog, String schema)
-    {
-        JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
-        metadata.setDocString(name);
-        metadata.setSchema(schema);
-        metadata.setOutputType("varchar");
-        metadata.setParamTypes(List.of("varchar"));
-        return metadata;
-    }
-
-    private JsonBasedUdfFunctionMetadata createMockBuiltinFunctionMetadata(String name, String catalog, String schema)
-    {
-        JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
-        metadata.setDocString(name);
-        metadata.setSchema(schema);
-        metadata.setOutputType("bigint");
-        metadata.setParamTypes(List.of("bigint"));
-        return metadata;
     }
 }
