@@ -1351,33 +1351,34 @@ bool PrestoServer::isHiveCatalogConfigured() {
   // in the catalog directory. This ensures Hive functions are only registered
   // when the hive catalog is actually configured.
   std::filesystem::path hiveCatalogFile = "etc_sidecar/catalog/hive.properties";
-  
+
   // Also check the standard location
   std::filesystem::path stdHiveCatalogFile = "etc/catalog/hive.properties";
-  
-  return std::filesystem::exists(hiveCatalogFile) || 
-         std::filesystem::exists(stdHiveCatalogFile);
+
+  return std::filesystem::exists(hiveCatalogFile) ||
+      std::filesystem::exists(stdHiveCatalogFile);
 }
 
 void PrestoServer::registerHiveFunctions() {
   auto* systemConfig = SystemConfig::instance();
-  
+
   if (systemConfig->prestoNativeSidecar()) {
     // Only register Hive functions if hive catalog is actually configured
     if (!isHiveCatalogConfigured()) {
-      PRESTO_STARTUP_LOG(INFO) 
+      PRESTO_STARTUP_LOG(INFO)
           << "Hive catalog not configured - skipping Hive function registration. "
           << "To register Hive functions, ensure hive.properties exists in etc/catalog/ "
           << "or etc_sidecar/catalog/ directory.";
       return;
     }
-    
+
     PRESTO_STARTUP_LOG(INFO) << "Registering Hive functions for sidecar...";
-    
+
     size_t registeredCount = presto::registerHiveFunctions();
-    
-    PRESTO_STARTUP_LOG(INFO) 
-        << registeredCount << " Hive functions registered in the 'hive' catalog.";
+
+    PRESTO_STARTUP_LOG(INFO)
+        << registeredCount
+        << " Hive functions registered in the 'hive' catalog.";
   }
 }
 
@@ -1722,7 +1723,8 @@ void PrestoServer::registerSidecarEndpoints() {
                 proxygen::HTTPMessage* /*message*/,
                 std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
                 proxygen::ResponseHandler* downstream) {
-              http::sendOkResponse(downstream, getFunctionsMetadataForCatalog(catalog));
+              http::sendOkResponse(
+                  downstream, getFunctionsMetadataForCatalog(catalog));
             });
       });
   httpServer_->registerPost(

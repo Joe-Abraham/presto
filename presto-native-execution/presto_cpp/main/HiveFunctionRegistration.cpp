@@ -14,82 +14,60 @@
 
 #include "presto_cpp/main/HiveFunctionRegistration.h"
 #include <glog/logging.h>
+#include <algorithm>
+#include <cctype>
+#include <cstring>
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/FunctionRegistry.h"
+#include "velox/functions/Macros.h"
+#include "velox/functions/Registerer.h"
+#include "velox/functions/lib/string/StringImpl.h"
 
+using namespace facebook::velox;
 namespace facebook::presto {
 
-namespace {
+/// The InitCapFunction capitalizes the first character of each word in a
+/// string, and lowercases the rest, following Spark SQL semantics. Word
+/// boundaries are determined by whitespace.
+template <typename T>
+struct InitCapFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
 
-// Simple initcap function implementation for Hive compatibility
-// This demonstrates how Hive-specific functions can be registered
-// with proper catalog namespacing
-class InitCapFunction : public velox::exec::VectorFunction {
- public:
-  void apply(
-      const velox::SelectivityVector& rows,
-      std::vector<velox::VectorPtr>& args,
-      const velox::TypePtr& outputType,
-      velox::exec::EvalCtx& context,
-      velox::VectorPtr& result) const override {
-    // For demonstration purposes, we'll provide a basic implementation
-    // that shows how this would work. In practice, this would implement
-    // the full initcap logic (capitalizing first letter of each word).
-    
-    VELOX_CHECK_EQ(args.size(), 1, "initcap expects exactly 1 argument");
-    
-    auto input = args[0]->as<velox::SimpleVector<velox::StringView>>();
-    auto output = std::dynamic_pointer_cast<velox::FlatVector<velox::StringView>>(
-        velox::BaseVector::create(outputType, rows.size(), context.pool()));
-    
-    rows.applyToSelected([&](int32_t row) {
-      if (input->isNullAt(row)) {
-        output->setNull(row, true);
-      } else {
-        // For demonstration, just return the input string
-        // A full implementation would capitalize the first letter of each word
-        auto inputValue = input->valueAt(row);
-        output->set(row, inputValue);
-      }
-    });
-    
-    result = output;
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input) {
+    functions::stringImpl::initcap<false, false, false, false>(result, input);
   }
-  
-  static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
-  signatures() {
-    return {velox::exec::FunctionSignatureBuilder()
-                .returnType("varchar")
-                .argumentType("varchar")
-                .build()};
+
+  FOLLY_ALWAYS_INLINE void callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input) {
+    functions::stringImpl::initcap<false, true, false, false>(result, input);
   }
 };
 
-} // namespace
-
 size_t registerHiveFunctions() {
   size_t registeredCount = 0;
-  
+
   try {
     // Register initcap function with hive.default namespace
     // This demonstrates proper catalog namespacing for Hive functions
-    velox::exec::registerVectorFunction(
-        "hive.default.initcap",
-        InitCapFunction::signatures(),
-        std::make_unique<InitCapFunction>());
-    registeredCount++;
-    
+
+    registerFunction<InitCapFunction, Varchar, Varchar>(
+        {"hive.default.initcap"});
     LOG(INFO) << "Registered Hive function: hive.default.initcap";
-    
+
     // Additional Hive functions could be registered here
     // For example: hive.default.concat_ws, hive.default.regexp_extract, etc.
-    
+
   } catch (const std::exception& e) {
     LOG(WARNING) << "Failed to register some Hive functions: " << e.what();
   }
-  
-  return registeredCount;
+
+  // return registeredCount;
 }
 
 } // namespace facebook::presto

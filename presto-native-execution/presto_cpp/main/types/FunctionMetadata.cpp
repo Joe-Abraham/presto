@@ -342,7 +342,7 @@ json getFunctionsMetadataForCatalog(const std::string& catalog) {
     const auto functionCatalog = parts[0];
     const auto schema = parts[1];
     const auto function = parts[2];
-    
+
     // Only include functions from the specified catalog
     if (functionCatalog == catalog) {
       j[function] = buildScalarMetadata(name, schema, entry.second);
@@ -357,7 +357,7 @@ json getFunctionsMetadataForCatalog(const std::string& catalog) {
       const auto functionCatalog = parts[0];
       const auto schema = parts[1];
       const auto function = parts[2];
-      
+
       // Only include functions from the specified catalog
       if (functionCatalog == catalog) {
         j[function] =
@@ -376,10 +376,11 @@ json getFunctionsMetadataForCatalog(const std::string& catalog) {
       const auto functionCatalog = parts[0];
       const auto schema = parts[1];
       const auto function = parts[2];
-      
+
       // Only include functions from the specified catalog
       if (functionCatalog == catalog) {
-        j[function] = buildWindowMetadata(name, schema, entry.second.signatures);
+        j[function] =
+            buildWindowMetadata(name, schema, entry.second.signatures);
       }
     }
   }

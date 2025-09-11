@@ -13,8 +13,8 @@
  */
 
 #include "presto_cpp/main/HiveFunctionRegistration.h"
-#include "presto_cpp/main/types/FunctionMetadata.h"
 #include <gtest/gtest.h>
+#include "presto_cpp/main/types/FunctionMetadata.h"
 
 namespace facebook::presto {
 
@@ -23,7 +23,7 @@ class HiveFunctionRegistrationTest : public ::testing::Test {
   void SetUp() override {
     // Clean any previously registered functions
   }
-  
+
   void TearDown() override {
     // Clean up after test
   }
@@ -32,7 +32,7 @@ class HiveFunctionRegistrationTest : public ::testing::Test {
 TEST_F(HiveFunctionRegistrationTest, testHiveFunctionRegistration) {
   // Test that Hive functions can be registered
   size_t registeredCount = registerHiveFunctions();
-  
+
   // Should register at least the initcap function
   EXPECT_GT(registeredCount, 0);
 }
@@ -40,12 +40,12 @@ TEST_F(HiveFunctionRegistrationTest, testHiveFunctionRegistration) {
 TEST_F(HiveFunctionRegistrationTest, testCatalogBasedRegistration) {
   // This test verifies that the PrestoServer only registers Hive functions
   // when the hive catalog is actually configured (i.e., hive.properties exists)
-  
+
   // Note: This test assumes the test is run from an environment where
   // hive.properties exists in etc_sidecar/catalog/ or etc/catalog/
   // In real deployment, Hive functions should only be available when
   // the hive catalog is properly configured.
-  
+
   // The actual catalog detection logic is tested in the PrestoServer
   // integration tests where the filesystem state can be controlled.
   EXPECT_TRUE(true); // Placeholder for integration test validation
@@ -54,16 +54,17 @@ TEST_F(HiveFunctionRegistrationTest, testCatalogBasedRegistration) {
 TEST_F(HiveFunctionRegistrationTest, testCatalogFiltering) {
   // Register some Hive functions
   registerHiveFunctions();
-  
-  // Test that getFunctionsMetadataForCatalog returns functions for "hive" catalog
+
+  // Test that getFunctionsMetadataForCatalog returns functions for "hive"
+  // catalog
   auto hiveMetadata = getFunctionsMetadataForCatalog("hive");
-  
+
   // Should contain at least the initcap function
   EXPECT_FALSE(hiveMetadata.empty());
-  
+
   // Test that built-in catalog doesn't include Hive functions
   auto builtinMetadata = getFunctionsMetadataForCatalog("presto.default");
-  
+
   // Should not contain Hive functions
   // This verifies proper catalog separation
   if (!hiveMetadata.empty() && !builtinMetadata.empty()) {
@@ -75,14 +76,14 @@ TEST_F(HiveFunctionRegistrationTest, testCatalogFiltering) {
 TEST_F(HiveFunctionRegistrationTest, testMultipleNamespaces) {
   // Test that multiple catalogs can coexist
   registerHiveFunctions();
-  
+
   // Get metadata for different catalogs
   auto hiveMetadata = getFunctionsMetadataForCatalog("hive");
   auto allMetadata = getFunctionsMetadata();
-  
+
   // All metadata should include functions from all catalogs
   EXPECT_FALSE(allMetadata.empty());
-  
+
   // Hive metadata should be a subset of all metadata
   if (!hiveMetadata.empty()) {
     // This demonstrates that catalog filtering works correctly

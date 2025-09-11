@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 namespace facebook::presto {
 
 /// Register Hive-specific functions with the "hive" catalog prefix.
