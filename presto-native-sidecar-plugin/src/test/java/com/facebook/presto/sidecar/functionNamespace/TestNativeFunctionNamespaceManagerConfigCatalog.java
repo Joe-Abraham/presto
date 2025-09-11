@@ -23,14 +23,14 @@ public class TestNativeFunctionNamespaceManagerConfigCatalog
     public void testCatalogConfiguration()
     {
         NativeFunctionNamespaceManagerConfig config = new NativeFunctionNamespaceManagerConfig();
-        
+
         // Test default value
         assertEquals(config.getCatalog(), "");
-        
+
         // Test setting catalog
         config.setCatalog("test_catalog");
         assertEquals(config.getCatalog(), "test_catalog");
-        
+
         // Test fluent interface
         NativeFunctionNamespaceManagerConfig result = config.setCatalog("another_catalog");
         assertEquals(result, config);

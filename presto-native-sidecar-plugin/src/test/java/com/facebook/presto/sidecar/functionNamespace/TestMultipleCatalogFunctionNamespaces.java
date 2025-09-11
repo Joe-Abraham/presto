@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.sidecar.functionNamespace;
 
-import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
@@ -39,8 +38,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMultipleCatalogFunctionNamespaces
 {
-    private static final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> FUNCTION_MAP_CODEC = 
-        mapJsonCodec(String.class, JsonCodec.listJsonCodec(JsonBasedUdfFunctionMetadata.class));
+    private static final JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>> FUNCTION_MAP_CODEC =
+            mapJsonCodec(String.class, JsonCodec.listJsonCodec(JsonBasedUdfFunctionMetadata.class));
 
     private InMemoryNodeManager nodeManager;
     private TestingHttpClient httpClient;
@@ -61,52 +60,50 @@ public class TestMultipleCatalogFunctionNamespaces
 
         // Mock responses for different catalog endpoints
         Map<String, List<JsonBasedUdfFunctionMetadata>> hiveFunctions = ImmutableMap.of(
-            "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default"))
-        );
-        
+                "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")));
+
         Map<String, List<JsonBasedUdfFunctionMetadata>> builtinFunctions = ImmutableMap.of(
-            "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default"))
-        );
+                "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default")));
 
         // Set up HTTP client responses for different catalog endpoints
         httpClient.expectCall()
-            .method("GET")
-            .url("http://localhost:8080/v1/functions/hive")
-            .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(hiveFunctions)));
+                .method("GET")
+                .url("http://localhost:8080/v1/functions/hive")
+                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(hiveFunctions)));
 
         httpClient.expectCall()
-            .method("GET")
-            .url("http://localhost:8080/v1/functions/presto.default")
-            .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(builtinFunctions)));
+                .method("GET")
+                .url("http://localhost:8080/v1/functions/presto.default")
+                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(builtinFunctions)));
 
         // Test Hive catalog functions
         NativeFunctionNamespaceManagerConfig hiveConfig = new NativeFunctionNamespaceManagerConfig()
-            .setCatalog("hive");
-        
+                .setCatalog("hive");
+
         NativeFunctionDefinitionProvider hiveProvider = new NativeFunctionDefinitionProvider(
-            httpClient, FUNCTION_MAP_CODEC, hiveConfig);
-        
+                httpClient, FUNCTION_MAP_CODEC, hiveConfig);
+
         UdfFunctionSignatureMap hiveSignatures = hiveProvider.getUdfDefinition(nodeManager);
-        
+
         assertNotNull(hiveSignatures);
         assertTrue(hiveSignatures.getUDFSignatureMap().containsKey("initcap"));
         assertEquals(hiveSignatures.getUDFSignatureMap().get("initcap").size(), 1);
 
         // Test built-in catalog functions
         NativeFunctionNamespaceManagerConfig builtinConfig = new NativeFunctionNamespaceManagerConfig()
-            .setCatalog("presto.default");
-        
+                .setCatalog("presto.default");
+
         NativeFunctionDefinitionProvider builtinProvider = new NativeFunctionDefinitionProvider(
-            httpClient, FUNCTION_MAP_CODEC, builtinConfig);
-        
+                httpClient, FUNCTION_MAP_CODEC, builtinConfig);
+
         UdfFunctionSignatureMap builtinSignatures = builtinProvider.getUdfDefinition(nodeManager);
-        
+
         assertNotNull(builtinSignatures);
         assertTrue(builtinSignatures.getUDFSignatureMap().containsKey("abs"));
         assertEquals(builtinSignatures.getUDFSignatureMap().get("abs").size(), 1);
     }
 
-    @Test 
+    @Test
     public void testEmptyCatalogFetchesAllFunctions()
     {
         // Test that empty catalog fetches from /v1/functions endpoint (all functions)
@@ -114,23 +111,22 @@ public class TestMultipleCatalogFunctionNamespaces
         nodeManager.addNode(new ConnectorId("sidecar"), sidecarNode);
 
         Map<String, List<JsonBasedUdfFunctionMetadata>> allFunctions = ImmutableMap.of(
-            "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")),
-            "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default"))
-        );
+                "initcap", List.of(createMockHiveFunctionMetadata("initcap", "hive", "default")),
+                "abs", List.of(createMockBuiltinFunctionMetadata("abs", "presto", "default")));
 
         httpClient.expectCall()
-            .method("GET")
-            .url("http://localhost:8080/v1/functions")
-            .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(allFunctions)));
+                .method("GET")
+                .url("http://localhost:8080/v1/functions")
+                .andReturn(new TestingResponse(OK, ImmutableMap.of(), FUNCTION_MAP_CODEC.toJsonBytes(allFunctions)));
 
         NativeFunctionNamespaceManagerConfig config = new NativeFunctionNamespaceManagerConfig()
-            .setCatalog(""); // Empty catalog
-        
+                .setCatalog(""); // Empty catalog
+
         NativeFunctionDefinitionProvider provider = new NativeFunctionDefinitionProvider(
-            httpClient, FUNCTION_MAP_CODEC, config);
-        
+                httpClient, FUNCTION_MAP_CODEC, config);
+
         UdfFunctionSignatureMap signatures = provider.getUdfDefinition(nodeManager);
-        
+
         assertNotNull(signatures);
         assertTrue(signatures.getUDFSignatureMap().containsKey("initcap"));
         assertTrue(signatures.getUDFSignatureMap().containsKey("abs"));
