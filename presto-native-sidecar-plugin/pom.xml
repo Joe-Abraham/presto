@@ -280,6 +280,20 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- JAX-RS API for test annotations -->
+        <dependency>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Jackson JDK8 module for test ObjectMapper setup -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
