@@ -14,8 +14,9 @@
 
 #include "presto_cpp/main/HiveFunctionRegistration.h"
 #include <glog/logging.h>
-#include "velox/expression/SimpleFunctionRegistry.h"
-#include "velox/functions/prestosql/StringFunctions.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/expression/VectorFunction.h"
+#include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::presto {
 
