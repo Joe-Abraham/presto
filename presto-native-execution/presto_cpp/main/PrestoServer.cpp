@@ -76,6 +76,8 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #endif
 
+#include "presto_cpp/main/HiveFunctionRegistration.h"
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -408,6 +410,7 @@ void PrestoServer::run() {
   }
   registerVeloxCudf();
   registerFunctions();
+  registerHiveFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
@@ -1339,6 +1342,20 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+}
+
+void PrestoServer::registerHiveFunctions() {
+  auto* systemConfig = SystemConfig::instance();
+  
+  if (systemConfig->prestoNativeSidecar() && 
+      systemConfig->sidecarEnableHiveFunctions()) {
+    PRESTO_STARTUP_LOG(INFO) << "Registering Hive functions for sidecar...";
+    
+    size_t registeredCount = presto::registerHiveFunctions();
+    
+    PRESTO_STARTUP_LOG(INFO) 
+        << registeredCount << " Hive functions registered in the 'hive' catalog.";
+  }
 }
 
 void PrestoServer::registerRemoteFunctions() {

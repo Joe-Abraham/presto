@@ -155,6 +155,8 @@ class PrestoServer {
 
   virtual void registerFunctions();
 
+  virtual void registerHiveFunctions();
+
   virtual void registerRemoteFunctions();
 
   virtual void registerVectorSerdes();
