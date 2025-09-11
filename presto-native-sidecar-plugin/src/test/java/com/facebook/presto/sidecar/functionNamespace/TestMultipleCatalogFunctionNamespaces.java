@@ -18,11 +18,14 @@ import com.facebook.airlift.jaxrs.JsonMapper;
 import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -39,8 +42,11 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -98,22 +104,44 @@ public class TestMultipleCatalogFunctionNamespaces
         
         private static JsonBasedUdfFunctionMetadata createMockHiveFunctionMetadata(String name, String catalog, String schema)
         {
-            JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
-            metadata.setDocString(name);
-            metadata.setSchema(schema);
-            metadata.setOutputType("varchar");
-            metadata.setParamTypes(List.of("varchar"));
-            return metadata;
+            return new JsonBasedUdfFunctionMetadata(
+                    name + " function description",
+                    FunctionKind.SCALAR,
+                    parseTypeSignature("varchar"),
+                    List.of(parseTypeSignature("varchar")),
+                    schema,
+                    false,
+                    new RoutineCharacteristics(
+                            RoutineCharacteristics.Language.CPP, 
+                            RoutineCharacteristics.Determinism.DETERMINISTIC, 
+                            RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of("1"),
+                    Optional.of(emptyList()),
+                    Optional.of(emptyList()),
+                    Optional.empty());
         }
 
         private static JsonBasedUdfFunctionMetadata createMockBuiltinFunctionMetadata(String name, String catalog, String schema)
         {
-            JsonBasedUdfFunctionMetadata metadata = new JsonBasedUdfFunctionMetadata();
-            metadata.setDocString(name);
-            metadata.setSchema(schema);
-            metadata.setOutputType("bigint");
-            metadata.setParamTypes(List.of("bigint"));
-            return metadata;
+            return new JsonBasedUdfFunctionMetadata(
+                    name + " function description",
+                    FunctionKind.SCALAR,
+                    parseTypeSignature("bigint"),
+                    List.of(parseTypeSignature("bigint")),
+                    schema,
+                    false,
+                    new RoutineCharacteristics(
+                            RoutineCharacteristics.Language.CPP, 
+                            RoutineCharacteristics.Determinism.DETERMINISTIC, 
+                            RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of("1"),
+                    Optional.of(emptyList()),
+                    Optional.of(emptyList()),
+                    Optional.empty());
         }
     }
 
