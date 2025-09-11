@@ -227,6 +227,9 @@ class PrestoServer {
 
   void registerSidecarEndpoints();
 
+  /// Check if hive catalog is configured by looking for hive.properties file
+  bool isHiveCatalogConfigured();
+
   std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
 
   void checkOverload();
