@@ -29,7 +29,7 @@ namespace facebook::presto {
 
 /// The InitCapFunction capitalizes the first character of each word in a
 /// string, and lowercases the rest, following Spark SQL semantics. Word
-/// boundaries are determined by whitespace.
+/// boundaries are determined by whitespace and punctuation.
 template <typename T>
 struct InitCapFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -39,13 +39,41 @@ struct InitCapFunction {
   FOLLY_ALWAYS_INLINE void call(
       out_type<Varchar>& result,
       const arg_type<Varchar>& input) {
-    functions::stringImpl::initcap<false, false, false, false>(result, input);
+    const auto inputSize = input.size();
+    result.resize(inputSize);
+
+    if (inputSize == 0) {
+      return;
+    }
+
+    bool capitalizeNext = true;
+    char* resultData = result.data();
+    const char* inputData = input.data();
+
+    for (size_t i = 0; i < inputSize; ++i) {
+      char ch = inputData[i];
+      
+      if (std::isalpha(ch)) {
+        if (capitalizeNext) {
+          resultData[i] = std::toupper(ch);
+          capitalizeNext = false;
+        } else {
+          resultData[i] = std::tolower(ch);
+        }
+      } else {
+        resultData[i] = ch;
+        // Set flag to capitalize next alphabetic character after non-alpha
+        if (std::isspace(ch) || std::ispunct(ch) || std::isdigit(ch)) {
+          capitalizeNext = true;
+        }
+      }
+    }
   }
 
   FOLLY_ALWAYS_INLINE void callAscii(
       out_type<Varchar>& result,
       const arg_type<Varchar>& input) {
-    functions::stringImpl::initcap<false, true, false, false>(result, input);
+    call(result, input);
   }
 };
 
@@ -58,6 +86,7 @@ size_t registerHiveFunctions() {
 
     registerFunction<InitCapFunction, Varchar, Varchar>(
         {"hive.default.initcap"});
+    registeredCount++;
     LOG(INFO) << "Registered Hive function: hive.default.initcap";
 
     // Additional Hive functions could be registered here
@@ -67,7 +96,7 @@ size_t registerHiveFunctions() {
     LOG(WARNING) << "Failed to register some Hive functions: " << e.what();
   }
 
-  // return registeredCount;
+  return registeredCount;
 }
 
 } // namespace facebook::presto
