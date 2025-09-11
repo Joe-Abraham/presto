@@ -1362,9 +1362,7 @@ bool PrestoServer::isHiveCatalogConfigured() {
 void PrestoServer::registerHiveFunctions() {
   auto* systemConfig = SystemConfig::instance();
   
-  if (systemConfig->prestoNativeSidecar() && 
-      systemConfig->sidecarEnableHiveFunctions()) {
-    
+  if (systemConfig->prestoNativeSidecar()) {
     // Only register Hive functions if hive catalog is actually configured
     if (!isHiveCatalogConfigured()) {
       PRESTO_STARTUP_LOG(INFO) 

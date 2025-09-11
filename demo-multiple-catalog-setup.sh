@@ -28,7 +28,6 @@ http-server.http.port=7778
 shutdown-onset-sec=1
 runtime-metrics-collection-enabled=true
 native-sidecar=true
-sidecar.enable-hive-functions=true
 presto.default-namespace=hive.default
 EOF
 

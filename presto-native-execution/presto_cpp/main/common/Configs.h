@@ -292,10 +292,6 @@ class SystemConfig : public ConfigBase {
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
 
-  /// Enable Hive-specific functions when sidecar is enabled.
-  static constexpr std::string_view kSidecarEnableHiveFunctions{
-      "sidecar.enable-hive-functions"};
-
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
@@ -1042,8 +1038,6 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
-
-  bool sidecarEnableHiveFunctions() const;
 
   std::string prestoDefaultNamespacePrefix() const;
 
