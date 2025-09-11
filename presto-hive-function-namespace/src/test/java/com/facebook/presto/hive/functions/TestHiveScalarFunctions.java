@@ -78,6 +78,14 @@ public class TestHiveScalarFunctions
         check(selectF("upper", "c_varchar"), VARCHAR, "VARCHAR");
         check(selectF("upper", "c_varchar_10"), VARCHAR, "VARCHAR10");
         check(selectF("upper", "c_char_10"), VARCHAR, "CHAR10");
+        
+        // Hive initcap function tests
+        check(select("initcap", "'hello world'"), VARCHAR, "Hello World");
+        check(select("initcap", "'HELLO WORLD'"), VARCHAR, "Hello World");
+        check(select("initcap", "'hello_world'"), VARCHAR, "Hello_World");
+        check(select("initcap", "'hello123world'"), VARCHAR, "Hello123World");
+        check(select("initcap", "''"), VARCHAR, "");
+        check(select("initcap", "'a'"), VARCHAR, "A");
 
         // non-generic UDFs
         check(select("asin", "0"), DOUBLE, 0.0);
@@ -145,6 +153,37 @@ public class TestHiveScalarFunctions
                 ImmutableMap.of("a", "1", "b", "2"));
 
         check(select("struct", "'a'", "1"), typeOf("row(col1 varchar,col2 integer)"), asList("a", 1));
+    }
+    
+    @Test
+    public void testInitCapFunction()
+    {
+        // Basic tests for Hive initcap function
+        check(select("initcap", "'hello world'"), VARCHAR, "Hello World");
+        check(select("initcap", "'HELLO WORLD'"), VARCHAR, "Hello World");
+        check(select("initcap", "'hello_world'"), VARCHAR, "Hello_World");
+        check(select("initcap", "'hello123world'"), VARCHAR, "Hello123World");
+        check(select("initcap", "'hello-world'"), VARCHAR, "Hello-World");
+        check(select("initcap", "'hello.world'"), VARCHAR, "Hello.World");
+        check(select("initcap", "'a'"), VARCHAR, "A");
+        check(select("initcap", "'A'"), VARCHAR, "A");
+        check(select("initcap", "''"), VARCHAR, "");
+        
+        // Test with special characters and numbers
+        check(select("initcap", "'123hello'"), VARCHAR, "123Hello");
+        check(select("initcap", "'hello123'"), VARCHAR, "Hello123");
+        check(select("initcap", "'hello world 123'"), VARCHAR, "Hello World 123");
+        check(select("initcap", "'   hello   world   '"), VARCHAR, "   Hello   World   ");
+        
+        // Test with punctuation as word separators
+        check(select("initcap", "'hello,world'"), VARCHAR, "Hello,World");
+        check(select("initcap", "'hello;world'"), VARCHAR, "Hello;World");
+        check(select("initcap", "'hello:world'"), VARCHAR, "Hello:World");
+        check(select("initcap", "'hello/world'"), VARCHAR, "Hello/World");
+        check(select("initcap", "'hello\\world'"), VARCHAR, "Hello\\World");
+        
+        // Test null handling
+        check(select("initcap", "null"), VARCHAR, null);
     }
 
     public void check(@Language("SQL") String query, Type expectedType, Object expectedValue)
