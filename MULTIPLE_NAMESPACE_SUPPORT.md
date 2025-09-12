@@ -8,19 +8,7 @@ The native sidecar now supports multiple function namespaces, allowing functions
 
 ### Function Namespace Configuration
 
-Function namespaces are configured using properties files in the `etc_sidecar/function-namespace/` directory. Each file represents a separate namespace.
-
-#### Example: Native Namespace (`native.properties`)
-```properties
-function-namespace-manager.name=native
-catalog=native
-```
-
-#### Example: Hive Namespace (`hive.properties`) 
-```properties
-function-namespace-manager.name=native
-catalog=hive
-```
+Function namespaces are configured directly in the main configuration file using the standard Presto namespace manager pattern.
 
 ### Main Configuration
 
@@ -30,8 +18,13 @@ The main configuration file (`etc_sidecar/config.properties`) specifies:
 # Default namespace for unqualified function calls
 presto.default-namespace=native.default
 
-# Directory containing function namespace configurations
-function-namespace.config-dir=etc_sidecar/function-namespace/
+# Native functions namespace (built-in Presto functions)
+function-namespace-manager.native.name=native
+function-namespace-manager.native.catalog=native
+
+# Hive functions namespace (Hive-specific functions)
+function-namespace-manager.hive.name=native
+function-namespace-manager.hive.catalog=hive
 ```
 
 ## Default Namespace Behavior
@@ -55,17 +48,42 @@ Function resolution follows this precedence:
 2. Schema qualified: `schema.function()` → looks in default namespace 
 3. Unqualified: `function()` → looks in default namespace (`native.default`)
 
+## Function Namespaces Created
+
+With the above configuration, the following namespaces are created:
+- **native.default**: Contains native Presto functions (abs, substring, etc.)
+- **hive.default**: Contains Hive-specific functions (initcap, etc.)
+
+## Usage Examples
+
+```sql
+-- Unqualified function call (resolves to native.default)
+SELECT abs(-5);
+
+-- Qualified function call to hive namespace
+SELECT hive.default.initcap('hello world');
+
+-- Schema-qualified call (resolves to default namespace)  
+SELECT default.abs(-10);
+```
+
 ## Adding New Namespaces
 
 To add a new namespace:
 
-1. Create a properties file in `etc_sidecar/function-namespace/`
-2. Set the `function-namespace-manager.name=native` 
-3. Set the `catalog=<catalog_name>` to filter functions from sidecar
-4. The namespace will be automatically loaded as `<filename>.default`
+1. Add a new function namespace manager configuration in `etc_sidecar/config.properties`
+2. Set the appropriate factory name and catalog filter
+3. The namespace will be automatically loaded as `<namespace_name>.default`
+
+Example for adding a custom catalog:
+```properties
+function-namespace-manager.mycatalog.name=native
+function-namespace-manager.mycatalog.catalog=mycatalog
+```
 
 ## Constraints and Considerations
 
 - The single `presto.default-namespace=native.default` means unqualified functions always resolve to the default namespace
-- For true multi-catalog default resolution, you would need multiple default namespace configurations
+- Each namespace manager uses the same factory (`native`) but filters functions by catalog
 - The current design maintains backward compatibility while enabling multiple qualified namespaces
+- Functions must be registered in the sidecar with the appropriate catalog prefix (e.g., `hive.default.initcap`)
