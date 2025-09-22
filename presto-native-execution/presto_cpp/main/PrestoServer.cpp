@@ -1344,20 +1344,17 @@ void PrestoServer::registerFunctions() {
 }
 
 void PrestoServer::registerHiveFunctions() {
-  // Currently, there are no separate Hive-specific function implementations
-  // available in the native sidecar. This method is reserved for future use
-  // when actual Hive-compatible functions (like initcap) are implemented
-  // as separate function variants.
-  //
-  // For now, users can access standard Presto functions via the native catalog.
-  // When specific Hive functions are implemented, they should be registered here
-  // with the "hive.default." prefix.
+  // Register Hive-compatible functions with "hive.default." prefix
+  // This enables catalog-specific function resolution for hive namespace
+  const std::string hiveCatalogPrefix = "hive.default.";
   
-  // Example for future Hive function registration:
-  // const std::string hiveCatalogPrefix = "hive.default.";
-  // registerHiveSpecificFunctions(hiveCatalogPrefix);
+  // Register all Presto scalar functions under the hive namespace
+  // This makes functions like abs, initcap, etc. available as hive.default.abs, hive.default.initcap
+  velox::functions::prestosql::registerAllScalarFunctions(hiveCatalogPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(hiveCatalogPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(hiveCatalogPrefix);
   
-  PRESTO_STARTUP_LOG(INFO) << "Hive function registration skipped - no Hive-specific functions available";
+  PRESTO_STARTUP_LOG(INFO) << "Registered Presto functions under hive.default namespace";
 }
 
 void PrestoServer::registerRemoteFunctions() {

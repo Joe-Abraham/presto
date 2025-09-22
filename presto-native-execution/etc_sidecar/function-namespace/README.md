@@ -9,10 +9,10 @@ This directory contains configuration files for different native sidecar functio
 - **Usage**: Default configuration that returns functions from all catalogs
 - **Catalog Filtering**: Disabled (empty sidecar.catalog-name)
 
-### native-custom.properties  
-- **Purpose**: Provides access only to functions from a custom catalog
-- **Usage**: Template for custom catalog filtering (will be empty unless custom functions are registered)
-- **Catalog Filtering**: Enabled for custom catalog (as example)
+### native-hive.properties  
+- **Purpose**: Provides access only to functions from the hive catalog
+- **Usage**: Use when you want to filter functions to only those with "hive.default.*" namespace
+- **Catalog Filtering**: Enabled for "hive" catalog
 
 ### native-presto.properties
 - **Purpose**: Provides access only to functions from the presto catalog  
@@ -46,12 +46,12 @@ supported-function-languages=CPP
 function-implementation-type=CPP
 ```
 
-### Presto/Native Functions Only
+### Hive Functions Only
 ```properties  
 function-namespace-manager.name=native
 supported-function-languages=CPP
 function-implementation-type=CPP
-sidecar.catalog-name=presto
+sidecar.catalog-name=hive
 ```
 
 ### Custom Catalog Functions
@@ -81,5 +81,5 @@ To register multiple native sidecar function namespaces with different catalogs:
 
 Example:
 - `etc/function-namespace/native-all.properties` (no catalog filtering)
+- `etc/function-namespace/native-hive.properties` (hive catalog only)
 - `etc/function-namespace/native-presto.properties` (presto catalog only)
-- `etc/function-namespace/native-custom.properties` (custom catalog only)
