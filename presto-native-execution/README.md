@@ -335,5 +335,52 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 ## Functional test using containers
 To build container images and do functional tests, see [Prestissimo: Functional Testing Using Containers](testcontainers/README.md).
 
+## Native Sidecar Function Registry Catalog Support
+
+The native sidecar supports catalog-filtered function endpoints to enable proper namespace separation for custom C++ functions.
+
+### Configuration
+
+To configure catalog-specific function filtering in the native sidecar plugin:
+
+```properties
+# In your function namespace manager configuration
+sidecar.catalog-name=hive
+```
+
+### Endpoints
+
+The sidecar exposes two endpoints for function metadata:
+
+- `/v1/functions` - Returns all registered functions (backward compatible)
+- `/v1/functions/{catalog}` - Returns functions registered under the specified catalog
+
+### Usage Examples
+
+**All Functions (Default):**
+```properties
+# No catalog filtering - returns all functions
+sidecar.catalog-name=
+```
+
+**Hive Catalog Only:**
+```properties
+# Returns only functions registered with "hive" catalog prefix
+sidecar.catalog-name=hive
+```
+
+**Multiple Catalogs:**
+You can register multiple native sidecar endpoints with different catalog configurations by configuring separate function namespace managers, each with a different catalog name.
+
+### Function Registration
+
+Functions are registered with catalog prefixes in the format `{catalog}.{schema}.{function_name}`:
+
+- Built-in Presto functions: `presto.default.{function_name}`
+- Hive-compatible functions: `hive.default.{function_name}`
+- Custom catalog functions: `{custom_catalog}.{schema}.{function_name}`
+
+This allows users to namespace their custom C++ functions separately from built-in functions, similar to how the function namespace manager works for other connectors.
+
 ## Troubleshooting
 For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).
