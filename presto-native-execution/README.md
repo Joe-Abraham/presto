@@ -372,6 +372,20 @@ sidecar.catalog-name=hive
 **Multiple Catalogs:**
 You can register multiple native sidecar endpoints with different catalog configurations by configuring separate function namespace managers, each with a different catalog name.
 
+### Configuration Files
+
+The `etc_sidecar` directory includes ready-to-use configuration files for different catalog scenarios:
+
+- `etc_sidecar/function-namespace/native.properties` - All functions (default)
+- `etc_sidecar/function-namespace/native-hive.properties` - Hive catalog only  
+- `etc_sidecar/function-namespace/native-presto.properties` - Presto catalog only
+- `etc_sidecar/function-namespace/native-custom-example.properties` - Custom catalog example
+
+To use these configurations:
+1. Copy the desired `.properties` files to your coordinator's `etc/function-namespace/` directory
+2. Rename them as needed (e.g., `native-functions.properties`)
+3. Restart the coordinator
+
 ### Function Registration
 
 Functions are registered with catalog prefixes in the format `{catalog}.{schema}.{function_name}`:
