@@ -1,0 +1,38 @@
+# Example Coordinator Configuration for Multiple Native Sidecar Catalogs
+#
+# This file demonstrates how to configure a Presto coordinator to use
+# multiple native sidecar function namespace managers with different catalog filtering.
+#
+# To use this configuration:
+# 1. Copy the function namespace configuration files to coordinator's etc/function-namespace/
+# 2. Ensure the native sidecar is running and accessible
+# 3. Restart the coordinator
+
+# === Copy these files to coordinator's etc/function-namespace/ directory ===
+
+# File: etc/function-namespace/native-all.properties
+# function-namespace-manager.name=native
+# supported-function-languages=CPP
+# function-implementation-type=CPP
+# # No sidecar.catalog-name = all functions
+
+# File: etc/function-namespace/native-hive.properties  
+# function-namespace-manager.name=native
+# supported-function-languages=CPP
+# function-implementation-type=CPP
+# sidecar.catalog-name=hive
+
+# File: etc/function-namespace/native-presto.properties
+# function-namespace-manager.name=native
+# supported-function-languages=CPP  
+# function-implementation-type=CPP
+# sidecar.catalog-name=presto
+
+# === Verification ===
+# After starting the coordinator, connect with CLI and run:
+# SHOW FUNCTIONS;
+# 
+# You should see functions with different namespace prefixes:
+# - Functions from native-all: all available functions
+# - Functions from native-hive: hive.default.* functions only  
+# - Functions from native-presto: presto.default.* functions only

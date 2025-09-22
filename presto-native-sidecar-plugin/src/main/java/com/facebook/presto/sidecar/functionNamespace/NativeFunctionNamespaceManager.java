@@ -82,7 +82,7 @@ public class NativeFunctionNamespaceManager
     private final FunctionDefinitionProvider functionDefinitionProvider;
     private final NodeManager nodeManager;
     private final Map<SqlFunctionId, SqlInvokedFunction> functions = new ConcurrentHashMap<>();
-    private final Supplier<Map<SqlFunctionId, SqlInvokedFunction>> memoizedFunctionsSupplier;
+    private volatile Supplier<Map<SqlFunctionId, SqlInvokedFunction>> memoizedFunctionsSupplier;
     private final FunctionMetadataManager functionMetadataManager;
     private final LoadingCache<Signature, SqlFunctionSupplier> specializedFunctionKeyCache;
 
@@ -106,6 +106,26 @@ public class NativeFunctionNamespaceManager
                 .build(CacheLoader.from(this::doGetSpecializedFunctionKey));
     }
 
+    /**
+     * Refreshes the function cache by invalidating the memoized supplier and clearing related caches.
+     * This is useful when the sidecar function definitions change or when catalog configuration is updated.
+     */
+    public synchronized void refreshFunctionCache()
+    {
+        log.info("Refreshing function cache for catalog: %s", getCatalogName());
+        
+        // Invalidate the memoized supplier by creating a new one
+        this.memoizedFunctionsSupplier = Suppliers.memoize(this::bootstrapNamespace);
+        
+        // Clear aggregation implementation cache as it depends on function definitions
+        aggregationImplementationByHandle.clear();
+        
+        // Clear specialized function cache
+        specializedFunctionKeyCache.invalidateAll();
+        
+        log.info("Function cache refreshed successfully");
+    }
+
     private SqlFunctionSupplier doGetSpecializedFunctionKey(Signature signature)
     {
         return functionMetadataManager.getSpecializedFunctionKey(signature);
@@ -113,23 +133,68 @@ public class NativeFunctionNamespaceManager
 
     private synchronized Map<SqlFunctionId, SqlInvokedFunction> bootstrapNamespace()
     {
+        log.info("Bootstrapping function namespace for catalog: %s", getCatalogName());
+        
         functions.clear();
-        UdfFunctionSignatureMap nativeFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(nodeManager);
-        if (nativeFunctionSignatureMap == null || nativeFunctionSignatureMap.isEmpty()) {
-            return ImmutableMap.of();
+        
+        try {
+            UdfFunctionSignatureMap nativeFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(nodeManager);
+            
+            if (nativeFunctionSignatureMap == null) {
+                log.warn("Function definition provider returned null for catalog: %s", getCatalogName());
+                return ImmutableMap.of();
+            }
+            
+            if (nativeFunctionSignatureMap.isEmpty()) {
+                log.warn("Function definition provider returned empty map for catalog: %s", getCatalogName());
+                return ImmutableMap.of();
+            }
+            
+            log.info("Retrieved %d function groups from sidecar for catalog: %s", 
+                    nativeFunctionSignatureMap.getUDFSignatureMap().size(), getCatalogName());
+            
+            populateNamespaceManager(nativeFunctionSignatureMap);
+            
+            checkArgument(!functions.isEmpty(), "functions map is empty after population for catalog: %s", getCatalogName());
+            
+            log.info("Successfully bootstrapped %d functions for catalog: %s", functions.size(), getCatalogName());
+            return unmodifiableMap(functions);
         }
-        populateNamespaceManager(nativeFunctionSignatureMap);
-        checkArgument(!functions.isEmpty(), "functions map is empty !");
-        return unmodifiableMap(functions);
+        catch (Exception e) {
+            log.error(e, "Failed to bootstrap function namespace for catalog: %s", getCatalogName());
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, 
+                    format("Failed to bootstrap function namespace for catalog '%s': %s", getCatalogName(), e.getMessage()), e);
+        }
     }
 
     private synchronized void populateNamespaceManager(UdfFunctionSignatureMap udfFunctionSignatureMap)
     {
         Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
+        log.debug("Populating namespace manager with %d function groups for catalog: %s", 
+                udfSignatureMap.size(), getCatalogName());
+        
         udfSignatureMap.forEach((name, metaInfoList) -> {
-            List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo, getCatalogName())).collect(toImmutableList());
-            functions.forEach(this::createFunction);
+            try {
+                log.debug("Processing function group '%s' with %d variants for catalog: %s", 
+                        name, metaInfoList.size(), getCatalogName());
+                        
+                List<SqlInvokedFunction> functions = metaInfoList.stream()
+                        .map(metaInfo -> createSqlInvokedFunction(name, metaInfo, getCatalogName()))
+                        .collect(toImmutableList());
+                        
+                functions.forEach(this::createFunction);
+                
+                log.debug("Successfully registered %d variants for function '%s' in catalog: %s", 
+                        functions.size(), name, getCatalogName());
+            }
+            catch (Exception e) {
+                log.error(e, "Failed to process function '%s' for catalog: %s", name, getCatalogName());
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, 
+                        format("Failed to process function '%s' for catalog '%s': %s", name, getCatalogName(), e.getMessage()), e);
+            }
         });
+        
+        log.info("Successfully populated %d total functions for catalog: %s", functions.size(), getCatalogName());
     }
 
     @Override
@@ -275,6 +340,26 @@ public class NativeFunctionNamespaceManager
     public FunctionDefinitionProvider getFunctionDefinitionProvider()
     {
         return functionDefinitionProvider;
+    }
+
+    /**
+     * Gets the current catalog name for this function namespace manager.
+     * This is useful for troubleshooting catalog filtering issues.
+     */
+    @VisibleForTesting
+    public String getCurrentCatalogName()
+    {
+        return getCatalogName();
+    }
+
+    /**
+     * Gets the number of currently cached functions.
+     * This is useful for troubleshooting and monitoring.
+     */
+    @VisibleForTesting
+    public int getCachedFunctionCount()
+    {
+        return memoizedFunctionsSupplier.get().size();
     }
 
     private synchronized void createFunction(SqlInvokedFunction function)

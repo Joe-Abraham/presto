@@ -21,4 +21,7 @@ namespace facebook::presto {
 // Returns metadata for all registered functions as json.
 nlohmann::json getFunctionsMetadata();
 
+// Returns metadata for functions registered under a specific catalog as json.
+nlohmann::json getFunctionsMetadataForCatalog(const std::string& catalog);
+
 } // namespace facebook::presto
