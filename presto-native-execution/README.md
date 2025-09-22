@@ -377,8 +377,8 @@ You can register multiple native sidecar endpoints with different catalog config
 The `etc_sidecar` directory includes ready-to-use configuration files for different catalog scenarios:
 
 - `etc_sidecar/function-namespace/native.properties` - All functions (default)
-- `etc_sidecar/function-namespace/native-hive.properties` - Hive catalog only  
-- `etc_sidecar/function-namespace/native-presto.properties` - Presto catalog only
+- `etc_sidecar/function-namespace/native-presto.properties` - Presto catalog only  
+- `etc_sidecar/function-namespace/native-custom.properties` - Custom catalog example
 - `etc_sidecar/function-namespace/native-custom-example.properties` - Custom catalog example
 
 To use these configurations:
@@ -391,7 +391,7 @@ To use these configurations:
 Functions are registered with catalog prefixes in the format `{catalog}.{schema}.{function_name}`:
 
 - Built-in Presto functions: `presto.default.{function_name}`
-- Hive-compatible functions: `hive.default.{function_name}`
+- Native functions: `native.default.{function_name}` 
 - Custom catalog functions: `{custom_catalog}.{schema}.{function_name}`
 
 This allows users to namespace their custom C++ functions separately from built-in functions, similar to how the function namespace manager works for other connectors.
@@ -406,11 +406,11 @@ To test the catalog filtering functionality end-to-end, you can use the `NativeS
 # Test all functions (default)
 java -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
 
-# Test hive catalog only
-java -Dsidecar.catalog=hive -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
-
-# Test presto catalog only  
+# Test presto catalog only
 java -Dsidecar.catalog=presto -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test native catalog only  
+java -Dsidecar.catalog=native -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
 
 # Test custom catalog
 java -Dsidecar.catalog=my_custom_catalog -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner

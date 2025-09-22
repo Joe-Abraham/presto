@@ -5,11 +5,11 @@
 # 1. For all functions (default behavior):
 # java -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
 
-# 2. For hive catalog only:
-# java -Dsidecar.catalog=hive -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
-
-# 3. For presto catalog only:
+# 2. For presto catalog only:
 # java -Dsidecar.catalog=presto -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# 3. For native catalog only:
+# java -Dsidecar.catalog=native -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
 
 # 4. For custom catalog:
 # java -Dsidecar.catalog=my_custom_catalog -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner

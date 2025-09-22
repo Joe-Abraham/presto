@@ -79,23 +79,23 @@ public class TestNativeSidecarMultipleCatalogs
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
         
-        // Second namespace manager with hive catalog filtering
+        // Second namespace manager with presto catalog filtering
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
-                "native_hive",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP",
-                        "sidecar.catalog-name", "hive"));
-        
-        // Third namespace manager with presto catalog filtering
-        queryRunner.loadFunctionNamespaceManager(
-                NativeFunctionNamespaceManagerFactory.NAME,
-                "native_presto", 
+                "native_presto_filtered",
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
                         "sidecar.catalog-name", "presto"));
+        
+        // Third namespace manager with native catalog filtering
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "native_native_filtered", 
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP",
+                        "sidecar.catalog-name", "native"));
                         
         queryRunner.loadTypeManager(com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
@@ -127,12 +127,12 @@ public class TestNativeSidecarMultipleCatalogs
                 "Should have native_all namespace manager");
                 
         assertTrue(getQueryRunner().getMetadata().getFunctionAndTypeManager()
-                .getFunctionNamespaceManagers().containsKey("native_hive"),
-                "Should have native_hive namespace manager");
+                .getFunctionNamespaceManagers().containsKey("native_presto_filtered"),
+                "Should have native_presto_filtered namespace manager");
                 
         assertTrue(getQueryRunner().getMetadata().getFunctionAndTypeManager()
-                .getFunctionNamespaceManagers().containsKey("native_presto"),
-                "Should have native_presto namespace manager");
+                .getFunctionNamespaceManagers().containsKey("native_native_filtered"),
+                "Should have native_native_filtered namespace manager");
     }
 
     @Test

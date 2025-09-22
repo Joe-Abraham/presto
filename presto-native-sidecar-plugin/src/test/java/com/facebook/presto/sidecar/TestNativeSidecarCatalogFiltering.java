@@ -51,8 +51,8 @@ import static org.testng.Assert.assertTrue;
 public class TestNativeSidecarCatalogFiltering
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_CATALOG_REGEX = "hive\\.default\\..*";
     private static final String PRESTO_CATALOG_REGEX = "presto\\.default\\..*"; 
+    private static final String NATIVE_CATALOG_REGEX = "native\\.default\\..*"; 
 
     @Override
     protected void createTables()
@@ -74,8 +74,8 @@ public class TestNativeSidecarCatalogFiltering
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        // Setup with hive catalog filtering
-        setupNativeSidecarPluginWithCatalog(queryRunner, "hive");
+        // Setup with presto catalog filtering
+        setupNativeSidecarPluginWithCatalog(queryRunner, "presto");
         return queryRunner;
     }
 
@@ -115,24 +115,23 @@ public class TestNativeSidecarCatalogFiltering
         MaterializedResult actualResult = computeActual(sql);
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
         
-        boolean foundHiveFunction = false;
         boolean foundPrestoFunction = false;
+        boolean foundNativeFunction = false;
         
         for (MaterializedRow actualRow : actualRows) {
             List<Object> row = actualRow.getFields();
             String fullFunctionName = row.get(5).toString(); // Full function name with namespace
             
-            if (Pattern.matches(HIVE_CATALOG_REGEX, fullFunctionName)) {
-                foundHiveFunction = true;
-            }
             if (Pattern.matches(PRESTO_CATALOG_REGEX, fullFunctionName)) {
                 foundPrestoFunction = true;
             }
+            if (Pattern.matches(NATIVE_CATALOG_REGEX, fullFunctionName)) {
+                foundNativeFunction = true;
+            }
         }
         
-        // With hive catalog filtering, we should find hive functions
-        // The presence of presto functions depends on the actual implementation
-        assertTrue(foundHiveFunction || foundPrestoFunction, 
+        // With presto catalog filtering, we should find presto or native functions
+        assertTrue(foundPrestoFunction || foundNativeFunction, 
                 "Should find at least some functions with proper catalog namespacing");
     }
 
@@ -151,7 +150,7 @@ public class TestNativeSidecarCatalogFiltering
     }
 
     @Test
-    public void testHiveFunctionAvailability()
+    public void testPrestoFunctionAvailability()
     {
         // Test that we can access functions when catalog filtering is configured
         // This depends on what functions are actually registered in the native sidecar
