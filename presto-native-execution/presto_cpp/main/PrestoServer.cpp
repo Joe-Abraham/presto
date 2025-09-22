@@ -16,6 +16,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
+#include <regex>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -1670,6 +1671,24 @@ void PrestoServer::registerSidecarEndpoints() {
          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
+  // Add catalog-filtered endpoint for functions
+  httpServer_->registerGet(
+      "/v1/functions/.*",
+      [](proxygen::HTTPMessage* message,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        std::string path = message->getPath();
+        // Extract catalog from path: /v1/functions/{catalog}
+        std::regex pathRegex("/v1/functions/([^/]+)/?");
+        std::smatch matches;
+        if (std::regex_match(path, matches, pathRegex) && matches.size() > 1) {
+          std::string catalog = matches[1].str();
+          http::sendOkResponse(downstream, getFunctionsMetadataForCatalog(catalog));
+        } else {
+          // Fall back to all functions if catalog parsing fails
+          http::sendOkResponse(downstream, getFunctionsMetadata());
+        }
       });
   httpServer_->registerPost(
       "/v1/velox/plan",

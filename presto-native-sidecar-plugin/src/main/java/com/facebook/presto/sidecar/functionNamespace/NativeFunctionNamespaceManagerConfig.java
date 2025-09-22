@@ -23,6 +23,7 @@ public class NativeFunctionNamespaceManagerConfig
 {
     private int sidecarNumRetries = 8;
     private Duration sidecarRetryDelay = new Duration(1, MINUTES);
+    private String catalogName = "";
 
     public int getSidecarNumRetries()
     {
@@ -47,6 +48,19 @@ public class NativeFunctionNamespaceManagerConfig
     public NativeFunctionNamespaceManagerConfig setSidecarRetryDelay(Duration sidecarRetryDelay)
     {
         this.sidecarRetryDelay = sidecarRetryDelay;
+        return this;
+    }
+
+    public String getCatalogName()
+    {
+        return catalogName;
+    }
+
+    @Config("sidecar.catalog-name")
+    @ConfigDescription("Catalog name to filter functions from sidecar. If empty, all functions are returned.")
+    public NativeFunctionNamespaceManagerConfig setCatalogName(String catalogName)
+    {
+        this.catalogName = catalogName;
         return this;
     }
 }

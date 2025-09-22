@@ -14,6 +14,7 @@
 package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
@@ -59,10 +60,19 @@ public class NativeFunctionDefinitionProvider
     public UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager)
     {
         try {
-            Request request =
-                    prepareGet().setUri(
-                            getSidecarLocationOnStartup(
-                                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis())).build();
+            URI baseUri = getSidecarLocationOnStartup(
+                    nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
+            
+            // If catalog name is specified, use the catalog-filtered endpoint
+            URI requestUri = baseUri;
+            if (!config.getCatalogName().isEmpty()) {
+                requestUri = HttpUriBuilder
+                        .uriBuilderFrom(baseUri)
+                        .replacePath("/v1/functions/" + config.getCatalogName())
+                        .build();
+            }
+            
+            Request request = prepareGet().setUri(requestUri).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
