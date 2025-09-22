@@ -382,5 +382,45 @@ Functions are registered with catalog prefixes in the format `{catalog}.{schema}
 
 This allows users to namespace their custom C++ functions separately from built-in functions, similar to how the function namespace manager works for other connectors.
 
+## End-to-End Testing
+
+To test the catalog filtering functionality end-to-end, you can use the `NativeSidecarPluginQueryRunner` with different configurations:
+
+### Running with Catalog Filtering
+
+```bash
+# Test all functions (default)
+java -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test hive catalog only
+java -Dsidecar.catalog=hive -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test presto catalog only  
+java -Dsidecar.catalog=presto -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test custom catalog
+java -Dsidecar.catalog=my_custom_catalog -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+```
+
+### Verification Queries
+
+Once the server is running, connect with the Presto CLI and run:
+
+```sql
+-- Show functions from the filtered catalog
+SHOW FUNCTIONS;
+
+-- Verify basic queries still work
+SELECT * FROM nation LIMIT 5;
+```
+
+### Test Classes
+
+The following test classes provide comprehensive end-to-end testing:
+
+- `TestNativeSidecarCatalogFiltering` - Tests single catalog filtering functionality
+- `TestNativeSidecarMultipleCatalogs` - Tests multiple catalog namespace configurations
+- `TestNativeFunctionDefinitionProviderCatalogFiltering` - Unit tests for the catalog filtering logic
+
 ## Troubleshooting
 For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).

@@ -20,24 +20,41 @@ import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
+
 public class NativeSidecarPluginQueryRunnerUtils
 {
     private NativeSidecarPluginQueryRunnerUtils() {}
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
     {
+        setupNativeSidecarPlugin(queryRunner, ImmutableMap.of());
+    }
+
+    public static void setupNativeSidecarPlugin(QueryRunner queryRunner, Map<String, String> catalogProperties)
+    {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(
                 NativeSystemSessionPropertyProviderFactory.NAME,
                 ImmutableMap.of());
+        
+        // Build function namespace manager properties with catalog-specific settings
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
+        propertiesBuilder.put("supported-function-languages", "CPP");
+        propertiesBuilder.put("function-implementation-type", "CPP");
+        propertiesBuilder.putAll(catalogProperties);
+        
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP"));
+                propertiesBuilder.build());
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
+    }
+
+    public static void setupNativeSidecarPluginWithCatalog(QueryRunner queryRunner, String catalogName)
+    {
+        setupNativeSidecarPlugin(queryRunner, ImmutableMap.of("sidecar.catalog-name", catalogName));
     }
 }
