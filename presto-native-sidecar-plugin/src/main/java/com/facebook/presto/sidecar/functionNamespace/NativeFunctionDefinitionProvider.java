@@ -65,18 +65,35 @@ public class NativeFunctionDefinitionProvider
             
             // If catalog name is specified, use the catalog-filtered endpoint
             URI requestUri = baseUri;
-            if (!config.getCatalogName().isEmpty()) {
+            String catalogFilter = config.getCatalogName();
+            
+            if (!catalogFilter.isEmpty()) {
                 requestUri = HttpUriBuilder
                         .uriBuilderFrom(baseUri)
-                        .replacePath("/v1/functions/" + config.getCatalogName())
+                        .replacePath("/v1/functions/" + catalogFilter)
                         .build();
+                        
+                log.info("Fetching functions for catalog filter: %s from endpoint: %s", catalogFilter, requestUri);
+            } else {
+                log.info("Fetching all functions (no catalog filter) from endpoint: %s", requestUri);
             }
             
             Request request = prepareGet().setUri(requestUri).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap = httpClient.execute(request, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));
+            
+            if (nativeFunctionSignatureMap == null) {
+                log.warn("Received null response from sidecar endpoint: %s", requestUri);
+                return new UdfFunctionSignatureMap(ImmutableMap.of());
+            }
+            
+            log.info("Successfully retrieved %d function groups from sidecar%s", 
+                    nativeFunctionSignatureMap.size(),
+                    catalogFilter.isEmpty() ? "" : " for catalog: " + catalogFilter);
+            
             return new UdfFunctionSignatureMap(ImmutableMap.copyOf(nativeFunctionSignatureMap));
         }
         catch (Exception e) {
+            log.error(e, "Failed to get functions from sidecar with catalog filter: %s", config.getCatalogName());
             throw new PrestoException(INVALID_ARGUMENTS, "Failed to get functions from sidecar.", e);
         }
     }
@@ -85,5 +102,25 @@ public class NativeFunctionDefinitionProvider
     public HttpClient getHttpClient()
     {
         return httpClient;
+    }
+
+    /**
+     * Gets the current catalog filter configuration.
+     * This is useful for troubleshooting catalog filtering issues.
+     */
+    @VisibleForTesting
+    public String getCatalogFilter()
+    {
+        return config.getCatalogName();
+    }
+
+    /**
+     * Gets the current sidecar configuration.
+     * This is useful for troubleshooting connectivity and configuration issues.
+     */
+    @VisibleForTesting
+    public NativeFunctionNamespaceManagerConfig getConfig()
+    {
+        return config;
     }
 }
