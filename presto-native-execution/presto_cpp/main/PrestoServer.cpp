@@ -409,6 +409,7 @@ void PrestoServer::run() {
   }
   registerVeloxCudf();
   registerFunctions();
+  registerHiveFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
@@ -1340,6 +1341,20 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+}
+
+void PrestoServer::registerHiveFunctions() {
+  // Register Hive-compatible functions with "hive" catalog prefix
+  // This enables catalog-specific function resolution
+  const std::string hiveCatalogPrefix = "hive.default.";
+  
+  // Register specific hive functions that might not be in the presto set
+  // For example, initcap function for Hive compatibility
+  // Note: This is a placeholder - actual hive function registration would
+  // depend on the specific hive function implementations available
+  velox::functions::prestosql::registerAllScalarFunctions(hiveCatalogPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(hiveCatalogPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(hiveCatalogPrefix);
 }
 
 void PrestoServer::registerRemoteFunctions() {
