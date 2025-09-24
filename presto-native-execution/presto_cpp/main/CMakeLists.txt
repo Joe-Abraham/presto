@@ -16,6 +16,7 @@ add_subdirectory(common)
 add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(dynamic_registry)
+add_subdirectory(functions)
 
 add_library(
   presto_server_lib
@@ -39,7 +40,7 @@ add_library(
   PeriodicServiceInventoryManager.cpp)
 
 add_dependencies(presto_server_lib presto_operators presto_protocol
-                 presto_types presto_thrift-cpp2 presto_thrift_extra)
+                 presto_types presto_thrift-cpp2 presto_thrift_extra presto_functions)
 
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
 target_link_libraries(
@@ -50,6 +51,7 @@ target_link_libraries(
   presto_common
   presto_exception
   presto_function_metadata
+  presto_functions
   presto_connectors
   presto_http
   presto_operators
