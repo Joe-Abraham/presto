@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
+import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
@@ -36,8 +39,24 @@ public class NativeSidecarPluginQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+        
+        // Set up hive catalog with custom initcap function
+        setupHiveFunctionNamespaceManager(queryRunner);
+        
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
+    }
+    
+    public static void setupHiveFunctionNamespaceManager(QueryRunner queryRunner) {
+        String jsonDefinitionPath = Resources.getResource("hive_functions.json").getFile();
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadFunctionNamespaceManager(
+                JsonFileBasedFunctionNamespaceManagerFactory.NAME,
+                "hive",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP",
+                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
     }
 }

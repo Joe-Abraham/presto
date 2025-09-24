@@ -1,0 +1,20 @@
+{
+  "udfSignatureMap": {
+    "initcap": [
+      {
+        "docString": "Returns string with the first letter of each word in uppercase and the rest in lowercase. strictspace=false version that treats any non-alphanumeric character as a word boundary.",
+        "functionKind": "SCALAR",
+        "outputType": "VARCHAR",
+        "paramTypes": [
+          "VARCHAR"
+        ],
+        "schema": "default",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}
