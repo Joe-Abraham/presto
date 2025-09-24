@@ -1,0 +1,37 @@
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Example configuration for multiple catalog support in native sidecar
+discovery.uri=http://127.0.0.1:<replace_port>
+presto.version=testversion
+http-server.http.port=7778
+shutdown-onset-sec=1
+runtime-metrics-collection-enabled=true
+native-sidecar=true
+
+# Configuration for multiple function namespace managers
+# Each catalog will have its own namespace manager instance
+
+# Native functions catalog (default)
+presto.default-namespace=native.default
+
+# Additional catalogs for testing multiple namespace support
+# These would be loaded from the function-namespace directory
+# File-based configuration:
+# - native.properties        -> 'native' catalog
+# - custom_cpp.properties    -> 'custom_cpp' catalog  
+# - user_functions.properties -> 'user_functions' catalog
+
+# Enable the native sidecar plugin
+plugin.bundles=../presto-native-sidecar-plugin/pom.xml
