@@ -22,6 +22,7 @@ if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   target_link_libraries(presto_connectors presto_flight_connector)
 endif()
 
+add_subdirectory(hive)
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_connectors velox_cudf_hive_connector cudf::cudf)
 endif()
