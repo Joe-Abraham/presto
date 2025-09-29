@@ -22,6 +22,7 @@ add_library(
   Announcer.cpp
   CPUMon.cpp
   CoordinatorDiscoverer.cpp
+  HiveFunctionRegistration.cpp
   PeriodicMemoryChecker.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp

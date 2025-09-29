@@ -14,14 +14,13 @@
 
 #pragma once
 
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include <cstddef>
 
 namespace facebook::presto {
 
-// Returns metadata for all registered functions as json.
-nlohmann::json getFunctionsMetadata();
-
-// Returns metadata for registered functions in the specified catalog as json.
-nlohmann::json getFunctionsMetadataForCatalog(const std::string& catalog);
+/// Register Hive-specific functions with the "hive" catalog prefix.
+/// This allows namespacing Hive functions separately from built-in functions.
+/// Returns the number of functions registered.
+size_t registerHiveFunctions();
 
 } // namespace facebook::presto
