@@ -31,7 +31,8 @@ public class TestNativeFunctionNamespaceManagerConfig
     {
         assertRecordedDefaults(recordDefaults(NativeFunctionNamespaceManagerConfig.class)
                 .setSidecarNumRetries(8)
-                .setSidecarRetryDelay(new Duration(1, MINUTES)));
+                .setSidecarRetryDelay(new Duration(1, MINUTES))
+                .setCatalogName(""));
     }
 
     @Test
@@ -40,11 +41,13 @@ public class TestNativeFunctionNamespaceManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sidecar.num-retries", "15")
                 .put("sidecar.retry-delay", "5m")
+                .put("sidecar.catalog-name", "hive")
                 .build();
 
         NativeFunctionNamespaceManagerConfig expected = new NativeFunctionNamespaceManagerConfig()
                 .setSidecarNumRetries(15)
-                .setSidecarRetryDelay(new Duration(5, MINUTES));
+                .setSidecarRetryDelay(new Duration(5, MINUTES))
+                .setCatalogName("hive");
 
         assertFullMapping(properties, expected);
     }

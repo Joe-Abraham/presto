@@ -335,5 +335,110 @@ For Prestissimo to use a newer Velox version from the Presto repository root:
 ## Functional test using containers
 To build container images and do functional tests, see [Prestissimo: Functional Testing Using Containers](testcontainers/README.md).
 
+## Native Sidecar Function Registry Catalog Support
+
+The native sidecar supports catalog-filtered function endpoints to enable proper namespace separation for custom C++ functions.
+
+### Configuration
+
+To configure catalog-specific function filtering in the native sidecar plugin:
+
+```properties
+# In your function namespace manager configuration
+sidecar.catalog-name=hive
+```
+
+### Endpoints
+
+The sidecar exposes two endpoints for function metadata:
+
+- `/v1/functions` - Returns all registered functions (backward compatible)
+- `/v1/functions/{catalog}` - Returns functions registered under the specified catalog
+
+### Usage Examples
+
+**All Functions (Default):**
+```properties
+# No catalog filtering - returns all functions
+sidecar.catalog-name=
+```
+
+**Hive Catalog Only:**
+```properties
+# Returns only functions registered with "hive" catalog prefix
+sidecar.catalog-name=hive
+```
+
+**Multiple Catalogs:**
+You can register multiple native sidecar endpoints with different catalog configurations by configuring separate function namespace managers, each with a different catalog name.
+
+### Configuration Files
+
+The `etc_sidecar` directory includes ready-to-use configuration files for different catalog scenarios:
+
+- `etc_sidecar/function-namespace/native.properties` - All functions (default)
+- `etc_sidecar/function-namespace/native-hive.properties` - Hive catalog only  
+- `etc_sidecar/function-namespace/native-presto.properties` - Presto catalog only
+- `etc_sidecar/function-namespace/native-custom-example.properties` - Custom catalog example
+
+To use these configurations:
+1. Copy the desired `.properties` files to your coordinator's `etc/function-namespace/` directory
+2. Rename them as needed (e.g., `native-functions.properties`)
+3. Restart the coordinator
+
+### Function Registration
+
+Functions are registered with catalog prefixes in the format `{catalog}.{schema}.{function_name}`:
+
+- Built-in Presto functions: `presto.default.{function_name}`
+- Hive functions: `hive.default.{function_name}` (includes functions like abs, initcap, etc.)
+- Native functions: `native.default.{function_name}` 
+- Custom catalog functions: `{custom_catalog}.{schema}.{function_name}`
+
+This allows users to namespace their custom C++ functions separately from built-in functions, similar to how the function namespace manager works for other connectors.
+
+## End-to-End Testing
+
+To test the catalog filtering functionality end-to-end, you can use the `NativeSidecarPluginQueryRunner` with different configurations:
+
+### Running with Catalog Filtering
+
+```bash
+# Test all functions (default)
+java -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test hive catalog only
+java -Dsidecar.catalog=hive -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test presto catalog only
+java -Dsidecar.catalog=presto -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test native catalog only  
+java -Dsidecar.catalog=native -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+
+# Test custom catalog
+java -Dsidecar.catalog=my_custom_catalog -cp <classpath> com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner
+```
+
+### Verification Queries
+
+Once the server is running, connect with the Presto CLI and run:
+
+```sql
+-- Show functions from the filtered catalog
+SHOW FUNCTIONS;
+
+-- Verify basic queries still work
+SELECT * FROM nation LIMIT 5;
+```
+
+### Test Classes
+
+The following test classes provide comprehensive end-to-end testing:
+
+- `TestNativeSidecarCatalogFiltering` - Tests single catalog filtering functionality
+- `TestNativeSidecarMultipleCatalogs` - Tests multiple catalog namespace configurations
+- `TestNativeFunctionDefinitionProviderCatalogFiltering` - Unit tests for the catalog filtering logic
+
 ## Troubleshooting
 For known build issues check the wiki page [Troubleshooting known build issues](https://github.com/prestodb/presto/wiki/Troubleshooting-known-build-issues).

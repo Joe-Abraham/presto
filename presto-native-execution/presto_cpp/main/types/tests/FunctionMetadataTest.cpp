@@ -114,3 +114,26 @@ TEST_F(FunctionMetadataTest, transformKeys) {
 TEST_F(FunctionMetadataTest, variance) {
   testFunction("variance", "Variance.json", 5);
 }
+
+TEST_F(FunctionMetadataTest, catalogFiltering) {
+  // Test that catalog filtering returns only functions from the specified catalog
+  json defaultCatalogMetadata = getFunctionsMetadataForCatalog("presto");
+  json allMetadata = getFunctionsMetadata();
+  
+  // Default catalog should contain functions
+  EXPECT_GT(defaultCatalogMetadata.size(), 0);
+  
+  // Default catalog functions should be a subset of all functions
+  EXPECT_LE(defaultCatalogMetadata.size(), allMetadata.size());
+  
+  // Test with non-existent catalog - should return empty result
+  json nonExistentCatalogMetadata = getFunctionsMetadataForCatalog("nonexistent");
+  EXPECT_EQ(nonExistentCatalogMetadata.size(), 0);
+  
+  // Test that functions in catalog-filtered result actually belong to that catalog
+  // This test assumes that at least some functions exist with "presto" catalog prefix
+  for (auto it = defaultCatalogMetadata.begin(); it != defaultCatalogMetadata.end(); ++it) {
+    // Each function should exist in the all-functions result as well
+    EXPECT_TRUE(allMetadata.contains(it.key()));
+  }
+}

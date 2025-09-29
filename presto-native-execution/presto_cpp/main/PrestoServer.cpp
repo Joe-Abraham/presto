@@ -16,6 +16,7 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <glog/logging.h>
+#include <regex>
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -408,6 +409,7 @@ void PrestoServer::run() {
   }
   registerVeloxCudf();
   registerFunctions();
+  registerHiveFunctions();
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
@@ -1341,6 +1343,20 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
 }
 
+void PrestoServer::registerHiveFunctions() {
+  // Register Hive-compatible functions with "hive.default." prefix
+  // This enables catalog-specific function resolution for hive namespace
+  const std::string hiveCatalogPrefix = "hive.default.";
+  
+  // Register all Presto scalar functions under the hive namespace
+  // This makes functions like abs, initcap, etc. available as hive.default.abs, hive.default.initcap
+  velox::functions::prestosql::registerAllScalarFunctions(hiveCatalogPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(hiveCatalogPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(hiveCatalogPrefix);
+  
+  PRESTO_STARTUP_LOG(INFO) << "Registered Presto functions under hive.default namespace";
+}
+
 void PrestoServer::registerRemoteFunctions() {
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
   auto* systemConfig = SystemConfig::instance();
@@ -1670,6 +1686,24 @@ void PrestoServer::registerSidecarEndpoints() {
          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
+  // Add catalog-filtered endpoint for functions
+  httpServer_->registerGet(
+      "/v1/functions/.*",
+      [](proxygen::HTTPMessage* message,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        std::string path = message->getPath();
+        // Extract catalog from path: /v1/functions/{catalog}
+        std::regex pathRegex("/v1/functions/([^/]+)/?");
+        std::smatch matches;
+        if (std::regex_match(path, matches, pathRegex) && matches.size() > 1) {
+          std::string catalog = matches[1].str();
+          http::sendOkResponse(downstream, getFunctionsMetadataForCatalog(catalog));
+        } else {
+          // Fall back to all functions if catalog parsing fails
+          http::sendOkResponse(downstream, getFunctionsMetadata());
+        }
       });
   httpServer_->registerPost(
       "/v1/velox/plan",

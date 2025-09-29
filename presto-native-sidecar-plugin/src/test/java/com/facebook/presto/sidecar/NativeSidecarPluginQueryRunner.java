@@ -21,6 +21,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPluginWithCatalog;
 
 public class NativeSidecarPluginQueryRunner
 {
@@ -31,6 +32,16 @@ public class NativeSidecarPluginQueryRunner
     {
         // You need to add "--user user" to your CLI for your queries to work.
         Logging.initialize();
+        
+        // Support catalog filtering via system property
+        String catalogName = System.getProperty("sidecar.catalog", "");
+        
+        Logger log = Logger.get(NativeSidecarPluginQueryRunner.class);
+        if (!catalogName.isEmpty()) {
+            log.info("Starting Native Sidecar with catalog filtering: %s", catalogName);
+        } else {
+            log.info("Starting Native Sidecar with no catalog filtering (all functions)");
+        }
 
         // Create tables before launching distributed runner.
         QueryRunner javaQueryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
@@ -43,10 +54,22 @@ public class NativeSidecarPluginQueryRunner
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
+        
+        // Setup with catalog filtering if specified
+        if (!catalogName.isEmpty()) {
+            setupNativeSidecarPluginWithCatalog(queryRunner, catalogName);
+        } else {
+            setupNativeSidecarPlugin(queryRunner);
+        }
+        
         Thread.sleep(10);
-        Logger log = Logger.get(DistributedQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        Logger startupLog = Logger.get(DistributedQueryRunner.class);
+        startupLog.info("======== SERVER STARTED ========");
+        startupLog.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        
+        if (!catalogName.isEmpty()) {
+            startupLog.info("Catalog filtering enabled for: %s", catalogName);
+            startupLog.info("Use queries like 'SHOW FUNCTIONS' to see catalog-filtered functions");
+        }
     }
 }
