@@ -40,6 +40,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/functions/InitcapFunctions.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
@@ -1339,6 +1340,9 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+  
+  // Register custom hive functions
+  facebook::presto::functions::registerInitcapFunctions("hive.default");
 }
 
 void PrestoServer::registerRemoteFunctions() {
