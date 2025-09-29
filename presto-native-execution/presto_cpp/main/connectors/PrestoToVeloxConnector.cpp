@@ -54,6 +54,13 @@ void registerPrestoToVeloxConnector(
       connectorName);
   protocol::registerConnectorProtocol(
       connectorName, std::move(connectorProtocol));
+  // Register hive-specific functions when hive catalog is detected.
+  // Delegate to generic Hive native function registrar which is idempotent.
+  if (connectorName ==
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName ||
+      connectorName == std::string("hive-hadoop2")) {
+    hive::functions::registerHiveNativeFunctions();
+  }
 }
 
 void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
