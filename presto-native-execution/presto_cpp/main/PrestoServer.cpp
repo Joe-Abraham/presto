@@ -1692,7 +1692,7 @@ void PrestoServer::registerSidecarEndpoints() {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
   httpServer_->registerGet(
-      R"(/v1/functions/([^/]+))",
+      R"(/v1/functions/catalog/([^/]+))",
       [](proxygen::HTTPMessage* /*message*/,
          const std::vector<std::string>& pathMatch) {
         return new http::CallbackRequestHandler(
