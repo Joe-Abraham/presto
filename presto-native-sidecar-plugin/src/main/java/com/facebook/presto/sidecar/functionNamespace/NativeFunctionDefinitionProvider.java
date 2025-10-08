@@ -68,8 +68,8 @@ public class NativeFunctionDefinitionProvider
             // Base endpoint: /v1/functions
             URI baseUri = getSidecarLocationOnStartup(
                     nodeManager, config.getSidecarNumRetries(), config.getSidecarRetryDelay().toMillis());
-            // Catalog-filtered endpoint: /v1/functions/catalog/{catalog}
-            URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath("catalog").appendPath(catalogName).build();
+            // Catalog-filtered endpoint: /v1/functions/{catalog}
+            URI catalogUri = HttpUriBuilder.uriBuilderFrom(baseUri).appendPath(catalogName).build();
             Request catalogRequest = prepareGet().setUri(catalogUri).build();
             Map<String, List<JsonBasedUdfFunctionMetadata>> nativeFunctionSignatureMap =
                     httpClient.execute(catalogRequest, createJsonResponseHandler(nativeFunctionSignatureMapJsonCodec));

@@ -24,7 +24,7 @@ The following HTTP endpoints are implemented by the Presto C++ sidecar.
    Presto C++ worker. Each function's metadata is serialized to JSON in
    format ``JsonBasedUdfFunctionMetadata``.
 
-.. function:: GET /v1/functions/catalog/{catalog}
+.. function:: GET /v1/functions/{catalog}
 
    Returns a list of function metadata for all functions registered in the
    Presto C++ worker that belong to the specified catalog. Each function's

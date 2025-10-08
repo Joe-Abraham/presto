@@ -25,10 +25,6 @@ namespace facebook::presto {
 
 namespace {
 
-// Blocklist of internal functions that should not be exposed.
-static const std::unordered_set<std::string> kFunctionBlockList = {
-    "row_constructor", "in", "is_null"};
-
 // Check if the Velox type is supported in Presto.
 bool isValidPrestoType(const TypeSignature& typeSignature) {
   if (typeSignature.parameters().empty()) {
@@ -275,13 +271,15 @@ json getFunctionsMetadata() {
 
   // Get metadata for all registered scalar functions in velox.
   const auto signatures = getFunctionSignatures();
+  static const std::unordered_set<std::string> kBlockList = {
+      "row_constructor", "in", "is_null"};
   // Exclude aggregate companion functions (extract aggregate companion
   // functions are registered as vector functions).
   const auto aggregateFunctions = exec::aggregateFunctions().copy();
   for (const auto& entry : signatures) {
     const auto name = entry.first;
     // Skip internal functions. They don't have any prefix.
-    if (kFunctionBlockList.count(name) != 0 ||
+    if (kBlockList.count(name) != 0 ||
         name.find("$internal$") != std::string::npos ||
         getScalarMetadata(name).companionFunction) {
       continue;
@@ -326,13 +324,15 @@ json getFunctionsMetadata(const std::string& catalog) {
 
   // Get metadata for all registered scalar functions in velox.
   const auto signatures = getFunctionSignatures();
+  static const std::unordered_set<std::string> kBlockList = {
+      "row_constructor", "in", "is_null"};
   // Exclude aggregate companion functions (extract aggregate companion
   // functions are registered as vector functions).
   const auto aggregateFunctions = exec::aggregateFunctions().copy();
   for (const auto& entry : signatures) {
     const auto name = entry.first;
     // Skip internal functions. They don't have any prefix.
-    if (kFunctionBlockList.count(name) != 0 ||
+    if (kBlockList.count(name) != 0 ||
         name.find("$internal$") != std::string::npos ||
         getScalarMetadata(name).companionFunction) {
       continue;
