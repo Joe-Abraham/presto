@@ -36,40 +36,40 @@ The native sidecar function registry should support:
 
 The solution introduces catalog-based filtering at three layers:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Presto Coordinator                        │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │   NativeFunctionNamespaceManager (Catalog: mycatalog)  │ │
-│  │   NativeFunctionNamespaceManager (Catalog: presto)     │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           │ HTTP GET /v1/functions/{catalog}
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Presto Native Sidecar (C++ Worker)              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  PrestoServer HTTP Endpoints                           │ │
-│  │  - GET /v1/functions         (all functions)           │ │
-│  │  - GET /v1/functions/{catalog} (filtered by catalog)   │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                           │                                  │
-│                           ▼                                  │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  getFunctionsMetadata(catalog)                         │ │
-│  │  - Filters scalar functions by catalog                 │ │
-│  │  - Filters aggregate functions by catalog              │ │
-│  │  - Filters window functions by catalog                 │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                           │                                  │
-│                           ▼                                  │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │  Velox Function Registry                               │ │
-│  │  Functions registered as: catalog.schema.function_name │ │
-│  │  Example: mycatalog.myschema.my_custom_function        │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Coordinator[Presto Coordinator]
+    NamespaceManager1[NativeFunctionNamespaceManager<br/>Catalog: mycatalog]
+    NamespaceManager2[NativeFunctionNamespaceManager<br/>Catalog: presto]
+    Sidecar[Presto Native Sidecar<br/>C++ Worker]
+    HTTPServer[PrestoServer<br/>HTTP Endpoints]
+    EndpointAll[GET /v1/functions<br/>all functions]
+    EndpointCatalog[GET /v1/functions/{catalog}<br/>filtered by catalog]
+    FilterAll[getFunctionsMetadata<br/>no filtering]
+    FilterCatalog[getFunctionsMetadata catalog<br/>filters by catalog]
+    Registry[Velox Function Registry<br/>catalog.schema.function_name]
+
+    Coordinator -->|manages| NamespaceManager1
+    Coordinator -->|manages| NamespaceManager2
+    NamespaceManager1 -->|HTTP GET<br/>/v1/functions/mycatalog| HTTPServer
+    NamespaceManager2 -->|HTTP GET<br/>/v1/functions/presto| HTTPServer
+    HTTPServer -->|routes to| EndpointAll
+    HTTPServer -->|routes to| EndpointCatalog
+    EndpointAll -->|calls| FilterAll
+    EndpointCatalog -->|calls with<br/>catalog param| FilterCatalog
+    FilterAll -->|reads all| Registry
+    FilterCatalog -->|reads filtered| Registry
+
+    style Coordinator fill:#e1f5ff
+    style NamespaceManager1 fill:#fff4e1
+    style NamespaceManager2 fill:#fff4e1
+    style Sidecar fill:#e8f5e9
+    style HTTPServer fill:#e8f5e9
+    style EndpointAll fill:#f3e5f5
+    style EndpointCatalog fill:#f3e5f5
+    style FilterAll fill:#fce4ec
+    style FilterCatalog fill:#fce4ec
+    style Registry fill:#e0f2f1
 ```
 
 ### Key Components
