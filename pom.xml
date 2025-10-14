@@ -1180,7 +1180,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <version>0.18.9</version>
             </dependency>
 
             <dependency>
