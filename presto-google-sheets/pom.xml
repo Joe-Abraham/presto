@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <dep.http-client.version>2.0.0</dep.http-client.version>
+        <dep.http-client.version>2.0.2</dep.http-client.version>
     </properties>
 
     <dependencies>
