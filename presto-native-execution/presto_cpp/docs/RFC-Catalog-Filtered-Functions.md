@@ -17,8 +17,8 @@ The solution introduces catalog-based filtering:
 graph TD
     Coordinator[Presto Coordinator]
     NamespaceManager1[NativeFunctionNamespaceManager - Catalog: mycatalog]
-    NamespaceManager2[NativeFunctionNamespaceManager]
-    EndpointAll["GET /v1/functions"]
+    NamespaceManager2[NativeFunctionNamespaceManager - Catalog: native]
+    EndpointAll["GET /v1/functions<br/>(available but not used by managers)"]
     EndpointCatalog["GET /v1/functions/{catalog}"]
     FilterAll[getFunctionsMetadata]
     FilterCatalog["getFunctionsMetadata(catalog)"]
@@ -26,8 +26,8 @@ graph TD
 
     Coordinator --> NamespaceManager1
     Coordinator --> NamespaceManager2
-    NamespaceManager1 --> EndpointCatalog
-    NamespaceManager2 --> EndpointAll
+    NamespaceManager1 -->|"/v1/functions/mycatalog"| EndpointCatalog
+    NamespaceManager2 -->|"/v1/functions/native"| EndpointCatalog
     EndpointAll --> FilterAll
     EndpointCatalog --> FilterCatalog
     FilterAll --> Registry
@@ -35,7 +35,7 @@ graph TD
 ```
 - **C++ Backend:** Adds `/v1/functions/{catalog}` endpoint in `PrestoServer.cpp` that delegates to `getFunctionsMetadata(catalog)`.
 - **Filtering Logic:** In `FunctionMetadata.cpp`, functions are filtered by catalog prefix (from fully qualified name: `catalog.schema.function_name`).
-- **Java Plugin:** Each `NativeFunctionNamespaceManager` instance is bound to a catalog and queries only its catalog's functions from the sidecar.
+- **Java Plugin:** Each `NativeFunctionNamespaceManager` instance is bound to a specific catalog (e.g., "native", "mycatalog") and queries only its catalog's functions from the sidecar using `/v1/functions/{catalog}`. The unfiltered `/v1/functions` endpoint remains available but is not used by namespace managers to prevent cross-catalog leakage.
 
 ## API Specification
 - **GET /v1/functions**: Returns all functions (unfiltered).
@@ -65,10 +65,24 @@ Example response for `/v1/functions/mycatalog`:
 - Filtering is performed by splitting the function name and matching the catalog.
 
 ## Usage Example
-Configure multiple function namespace managers:
+Configure multiple function namespace managers, including the default "native" catalog:
+
 ```properties
-# etc/function-namespace/mycatalog.properties
+# etc/function-namespace/native.properties (default catalog)
+function-namespace-manager.name=native
+function-implementation-type=CPP
+supported-function-languages=CPP
+```
+
+```properties
+# etc/function-namespace/mycatalog.properties (custom catalog)
 function-namespace-manager.name=mycatalog
 function-implementation-type=CPP
 supported-function-languages=CPP
 ```
+
+**Note:** Each namespace manager, including the default "native" one, uses the catalog-filtered endpoint. For example:
+- The "native" namespace manager calls `/v1/functions/native`
+- The "mycatalog" namespace manager calls `/v1/functions/mycatalog`
+
+This ensures proper catalog isolation and prevents cross-catalog function leakage.
