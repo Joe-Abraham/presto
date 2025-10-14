@@ -166,13 +166,13 @@ jobs:
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: arrow-flight-presto-native-build
           path: presto-native-execution/_build/release/presto_cpp/main
 
       - name: Download Arrow Flight install artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: arrow-flight-install
           path: ${{ env.INSTALL_PREFIX }}/lib64

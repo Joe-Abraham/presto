@@ -154,7 +154,7 @@ jobs:
       - name: Download artifacts
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
@@ -250,7 +250,7 @@ jobs:
       - name: Download artifacts
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
@@ -344,7 +344,7 @@ jobs:
       - name: Download artifacts
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
@@ -432,7 +432,7 @@ jobs:
       - name: Download artifacts
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release
@@ -517,7 +517,7 @@ jobs:
       - name: Download artifacts
         if: |
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-native-build
           path: presto-native-execution/_build/release

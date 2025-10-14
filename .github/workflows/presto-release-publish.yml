@@ -251,7 +251,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG}}
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-artifacts-${{ env.RELEASE_TAG }}
           path: ./
@@ -285,7 +285,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG}}
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-artifacts-${{ env.RELEASE_TAG }}
           path: ./
@@ -466,7 +466,7 @@ jobs:
           git ls -5
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: presto-artifacts-${{ env.RELEASE_TAG }}
           path: ${{ github.workspace }}/build
