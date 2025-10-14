@@ -29,6 +29,7 @@ benchmark_outputs
 .checkstyle
 .mvn/timing.properties
 .editorconfig
+.venv/
 node_modules
 presto-docs-venv/
 
@@ -66,3 +67,4 @@ presto-native-execution/deps-install
 # Compiled executables used for docker build
 /docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
+/.venv/
