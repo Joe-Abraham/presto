@@ -133,7 +133,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>1.2.5.RELEASE</version>
+                <version>1.5.22.RELEASE</version>
                 <configuration>
                     <classifier>executable</classifier>
                     <mainClass>com.teradata.benchto.driver.DriverApp</mainClass>
