@@ -19,7 +19,7 @@ jobs:
     # For pull requests it's not necessary to checkout the code
     - name: Run changes check for PRs
       if: github.event_name != 'schedule'
-      uses: dorny/paths-filter@v2
+      uses: dorny/paths-filter@v3
       id: filter
       with:
         filters: |
