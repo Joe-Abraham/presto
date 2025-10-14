@@ -16,7 +16,7 @@ jobs:
     container:
       image: public.ecr.aws/oss-presto/velox-dev:check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container

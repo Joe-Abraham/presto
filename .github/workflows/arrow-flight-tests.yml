@@ -30,7 +30,7 @@ jobs:
 
     steps:
       # Checkout the code only if there are changes in the relevant files
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           show-progress: false
 
@@ -62,7 +62,7 @@ jobs:
       DEPENDENCY_DIR: "${{ github.workspace }}/adapter-deps/download"
       INSTALL_PREFIX: "${{ github.workspace }}/adapter-deps/install"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
@@ -158,7 +158,7 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Fix git permissions
         # Usually actions/checkout does this but as we run in a container
