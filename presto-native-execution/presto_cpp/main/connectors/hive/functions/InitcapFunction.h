@@ -25,6 +25,7 @@ template <typename T>
 struct InitCapFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
+  // ASCII input always produces ASCII result.
   static constexpr bool is_default_ascii_behavior = true;
 
   FOLLY_ALWAYS_INLINE void call(
