@@ -18,8 +18,8 @@
 
 #include "presto_cpp/main/connectors/hive/functions/InitcapFunction.h"
 #include "presto_cpp/main/functions/dynamic_registry/DynamicFunctionRegistrar.h"
-#include "velox/functions/FunctionRegistry.h"
 
+using namespace facebook::velox;
 namespace facebook::presto::hive::functions {
 
 namespace {

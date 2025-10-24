@@ -10,10 +10,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_hive_functions HiveFunctionRegistration.cpp)
-target_link_libraries(presto_hive_functions presto_dynamic_function_registrar
-                      velox_functions_string)
+add_executable(presto_hive_functions_test InitcapTest.cpp)
 
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+add_test(
+  NAME presto_hive_functions_test
+  COMMAND presto_hive_functions_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_hive_functions_test presto_hive_functions presto_common
+  velox_functions_test_lib GTest::gtest GTest::gtest_main)

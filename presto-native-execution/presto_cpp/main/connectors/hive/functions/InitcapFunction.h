@@ -17,8 +17,6 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/string/StringImpl.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::functions;
 namespace facebook::presto::hive::functions {
 
 /// The InitCapFunction capitalizes the first character of each word in a
@@ -30,9 +28,9 @@ struct InitCapFunction {
   static constexpr bool is_default_ascii_behavior = true;
 
   FOLLY_ALWAYS_INLINE void call(
-      out_type<Varchar>& result,
-      const arg_type<Varchar>& input) {
-    stringImpl::initcap<
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Varchar>& input) {
+    velox::functions::stringImpl::initcap<
         /*strictSpace=*/false,
         /*isAscii=*/false,
         /*turkishCasing=*/true,
@@ -40,9 +38,9 @@ struct InitCapFunction {
   }
 
   FOLLY_ALWAYS_INLINE void callAscii(
-      out_type<Varchar>& result,
-      const arg_type<Varchar>& input) {
-    stringImpl::initcap<
+      out_type<velox::Varchar>& result,
+      const arg_type<velox::Varchar>& input) {
+    velox::functions::stringImpl::initcap<
         /*strictSpace=*/false,
         /*isAscii=*/true,
         /*turkishCasing=*/true,
