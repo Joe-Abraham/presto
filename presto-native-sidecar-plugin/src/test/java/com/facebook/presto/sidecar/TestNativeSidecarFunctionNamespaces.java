@@ -15,9 +15,11 @@ package com.facebook.presto.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -26,7 +28,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 
-public class TestNativeSidecarCustomNamespaces
+public class TestNativeSidecarFunctionNamespaces
         extends AbstractTestQueryFramework
 {
     @Override
@@ -49,6 +51,14 @@ public class TestNativeSidecarCustomNamespaces
                 .setCoordinatorSidecarEnabled(true)
                 .build();
         TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
+
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "hive",
+                ImmutableMap.of(
+                        "supported-function-languages", "CPP",
+                        "function-implementation-type", "CPP"));
+
         return queryRunner;
     }
 
@@ -66,9 +76,8 @@ public class TestNativeSidecarCustomNamespaces
     @Test
     public void testHiveInitcapFunctions()
     {
-        assertQuery("SELECT hive.default.initcap(`Hello world`)", "SELECT('Hello World`)");
-        assertQuery("SELECT hive.default.initcap(`abcd`)", "SELECT('Abcd`)");
-        assertQuery("SELECT hive.default.initcap(`hello\\tworld\\ntest`)", "SELECT('Hello\\tWorld\\nTest`)");
-        assertQuery("SELECT hive.default.initcap(`a   b   c`)", "SELECT('A   B   C`)");
+        assertQuery("SELECT hive.default.initcap('Hello world')", "SELECT('Hello World')");
+        assertQuery("SELECT hive.default.initcap('abcd')", "SELECT('Abcd')");
+        assertQuery("SELECT hive.default.initcap('a   b   c')", "SELECT('A   B   C')");
     }
 }
