@@ -1359,6 +1359,15 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+  
+  // Register hive-specific functions if hive connector is present.
+  // Delegate to generic Hive native function registrar which is idempotent.
+  if (velox::connector::getConnectorFactory(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) !=
+          nullptr ||
+      velox::connector::getConnectorFactory("hive-hadoop2") != nullptr) {
+    hive::functions::registerHiveNativeFunctions();
+  }
 }
 
 void PrestoServer::registerRemoteFunctions() {
