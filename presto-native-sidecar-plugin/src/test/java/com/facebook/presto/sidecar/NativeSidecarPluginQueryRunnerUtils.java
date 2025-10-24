@@ -39,7 +39,9 @@ public class NativeSidecarPluginQueryRunnerUtils
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
 
-        // Register hive catalog for hive-specific functions
+        // Register hive catalog for hive-specific functions.
+        // Note: The C++ PrestoServer registers hive functions only when a hive connector is present.
+        // Since tests always setup the hive connector, hive functions will be available.
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "hive",

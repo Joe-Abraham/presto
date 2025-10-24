@@ -149,8 +149,7 @@ TEST_F(FunctionMetadataTest, GetFunctionsMetadataWithCatalog) {
 
 TEST_F(FunctionMetadataTest, GetFunctionsMetadataWithNonExistentCatalog) {
   // Test with a catalog that doesn't exist
-  std::string catalog = "nonexistent";
-  auto metadata = getFunctionsMetadata(catalog);
+  auto metadata = getFunctionsMetadata("nonexistent");
 
   // When no functions match, it returns a null JSON value or empty object
   // The default json() constructor creates a null value
