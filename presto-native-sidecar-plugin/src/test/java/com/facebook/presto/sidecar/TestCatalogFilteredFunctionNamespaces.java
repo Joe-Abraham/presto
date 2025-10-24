@@ -28,7 +28,12 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 
-public class TestNativeSidecarFunctionNamespaces
+/**
+ * Tests catalog-filtered function namespaces with sidecar enabled.
+ * Verifies that functions are properly isolated by catalog and that
+ * the /v1/functions/{catalog} endpoint correctly filters functions.
+ */
+public class TestCatalogFilteredFunctionNamespaces
         extends AbstractTestQueryFramework
 {
     @Override
@@ -52,6 +57,7 @@ public class TestNativeSidecarFunctionNamespaces
                 .build();
         TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
 
+        // Setup hive catalog function namespace manager
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "hive",
@@ -74,10 +80,48 @@ public class TestNativeSidecarFunctionNamespaces
     }
 
     @Test
-    public void testHiveInitcapFunctions()
+    public void testHiveCatalogInitcapFunction()
     {
         assertQuery("SELECT hive.default.initcap('Hello world')", "SELECT('Hello World')");
         assertQuery("SELECT hive.default.initcap('abcd')", "SELECT('Abcd')");
         assertQuery("SELECT hive.default.initcap('a   b   c')", "SELECT('A   B   C')");
+    }
+
+    @Test
+    public void testHiveCatalogInitcapWithVariousInputs()
+    {
+        // Test with empty string
+        assertQuery("SELECT hive.default.initcap('')", "SELECT('')");
+        
+        // Test with single character
+        assertQuery("SELECT hive.default.initcap('x')", "SELECT('X')");
+        
+        // Test with numbers
+        assertQuery("SELECT hive.default.initcap('hello123world')", "SELECT('Hello123world')");
+        
+        // Test with special characters
+        assertQuery("SELECT hive.default.initcap('hello-world')", "SELECT('Hello-World')");
+    }
+
+    @Test
+    public void testHiveCatalogInitcapWithNullValue()
+    {
+        assertQuery("SELECT hive.default.initcap(NULL)", "SELECT CAST(NULL AS VARCHAR)");
+    }
+
+    @Test
+    public void testQualifiedFunctionCallWithCatalogAndSchema()
+    {
+        // Ensure fully qualified function names work correctly
+        assertQuery("SELECT hive.default.initcap('test')", "SELECT('Test')");
+    }
+
+    @Test
+    public void testHiveCatalogInitcapInComplexQuery()
+    {
+        // Test function in WHERE clause
+        assertQuery(
+                "SELECT name FROM nation WHERE hive.default.initcap(name) = hive.default.initcap(name) LIMIT 1",
+                "SELECT name FROM nation LIMIT 1");
     }
 }

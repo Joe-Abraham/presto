@@ -27,7 +27,11 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 
-public class TestNativeFunctionNamespacesWithoutSidecar
+/**
+ * Tests that catalog-filtered function namespaces require a sidecar to be enabled.
+ * When sidecar is disabled, functions from catalogs should not be accessible.
+ */
+public class TestCatalogFilteredFunctionsWithoutSidecar
         extends AbstractTestQueryFramework
 {
     @Override
@@ -65,8 +69,20 @@ public class TestNativeFunctionNamespacesWithoutSidecar
     }
 
     @Test
-    public void testHiveInitcapFunctions()
+    public void testHiveCatalogFunctionFailsWithoutSidecar()
     {
         assertQueryFails("SELECT hive.default.initcap('Hello world')", "(?s).*Function hive.default.initcap not registered*");
+    }
+
+    @Test
+    public void testNativeCatalogFunctionFailsWithoutSidecar()
+    {
+        assertQueryFails("SELECT native.default.array_sum(ARRAY[1, 2, 3])", "(?s).*Function native.default.array_sum not registered*");
+    }
+
+    @Test
+    public void testCustomCatalogFunctionFailsWithoutSidecar()
+    {
+        assertQueryFails("SELECT mycatalog.myschema.custom_func('test')", "(?s).*Function mycatalog.myschema.custom_func not registered*");
     }
 }
