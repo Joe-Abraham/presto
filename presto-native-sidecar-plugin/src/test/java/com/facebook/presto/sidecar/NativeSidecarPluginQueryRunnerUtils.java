@@ -41,7 +41,7 @@ public class NativeSidecarPluginQueryRunnerUtils
 
         // Register hive catalog for hive-specific functions only if hive connector is present.
         // Note: The C++ PrestoServer registers hive functions only when a hive connector is present.
-        if (queryRunner.getMetadata().getCatalogHandle(queryRunner.getDefaultSession(), "hive").isPresent()) {
+        if (queryRunner.getCoordinator().getCatalogManager().getCatalog("hive").isPresent()) {
             queryRunner.loadFunctionNamespaceManager(
                     NativeFunctionNamespaceManagerFactory.NAME,
                     "hive",
