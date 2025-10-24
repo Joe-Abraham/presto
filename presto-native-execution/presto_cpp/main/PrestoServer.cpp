@@ -1359,6 +1359,15 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
+  
+  // Register hive-specific functions if hive connector is present.
+  // Delegate to generic Hive native function registrar which is idempotent.
+  if (velox::connector::getConnectorFactory(
+          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) !=
+          nullptr ||
+      velox::connector::getConnectorFactory("hive-hadoop2") != nullptr) {
+    hive::functions::registerHiveNativeFunctions();
+  }
 }
 
 void PrestoServer::registerRemoteFunctions() {
@@ -1690,6 +1699,18 @@ void PrestoServer::registerSidecarEndpoints() {
          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
          proxygen::ResponseHandler* downstream) {
         http::sendOkResponse(downstream, getFunctionsMetadata());
+      });
+  httpServer_->registerGet(
+      R"(/v1/functions/([^/]+))",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::string>& pathMatch) {
+        return new http::CallbackRequestHandler(
+            [catalog = pathMatch[1]](
+                proxygen::HTTPMessage* /*message*/,
+                std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+                proxygen::ResponseHandler* downstream) {
+              http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
+            });
       });
   httpServer_->registerPost(
       "/v1/velox/plan",

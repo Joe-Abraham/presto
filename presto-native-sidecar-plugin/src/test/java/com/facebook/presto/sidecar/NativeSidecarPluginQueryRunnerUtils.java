@@ -30,12 +30,26 @@ public class NativeSidecarPluginQueryRunnerUtils
         queryRunner.loadSessionPropertyProvider(
                 NativeSystemSessionPropertyProviderFactory.NAME,
                 ImmutableMap.of());
+
+        // Register native catalog for built-in functions
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "native",
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP"));
+
+        // Register hive catalog for hive-specific functions only if hive connector is present.
+        // Note: The C++ PrestoServer registers hive functions only when a hive connector is present.
+        if (queryRunner.getCoordinator().getCatalogManager().getCatalog("hive").isPresent()) {
+            queryRunner.loadFunctionNamespaceManager(
+                    NativeFunctionNamespaceManagerFactory.NAME,
+                    "hive",
+                    ImmutableMap.of(
+                            "supported-function-languages", "CPP",
+                            "function-implementation-type", "CPP"));
+        }
+
         queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
