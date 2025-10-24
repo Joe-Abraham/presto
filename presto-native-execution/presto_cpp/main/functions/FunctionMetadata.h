@@ -14,14 +14,13 @@
 
 #pragma once
 
+#include <optional>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 
 namespace facebook::presto {
 
 // Returns metadata for all registered functions as json.
-nlohmann::json getFunctionsMetadata();
-
-// Returns metadata for all registered functions filtered by catalog as json.
-nlohmann::json getFunctionsMetadata(const std::string& catalog);
+nlohmann::json getFunctionsMetadata(
+    const std::optional<std::string>& catalog = std::nullopt);
 
 } // namespace facebook::presto
