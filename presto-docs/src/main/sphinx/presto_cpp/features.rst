@@ -156,6 +156,158 @@ function server. If specified, takes precedence over
 ``remote-function-server.thrift.address`` and
 ``remote-function-server.thrift.port``.
 
+REST-Based Remote Functions
+----------------------------
+
+In addition to Thrift-based remote function execution, Presto C++ also supports
+REST-based remote functions that communicate via HTTP/REST protocol. This provides
+an alternative approach to remote function execution that may be easier to
+implement and integrate with existing REST-based services.
+
+REST functions use HTTP POST requests to invoke remote functions and receive
+results. The communication uses serialized data in either Presto page format
+or Spark unsafe row format for efficient data transfer.
+
+Configuration
+^^^^^^^^^^^^^
+
+To enable REST-based remote functions, configure the following property:
+
+``remote-function-server.rest.url``
+""""""""""""""""""""""""""""""""""""
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+The base URL of the REST server that hosts remote functions. When specified,
+the Presto C++ worker will invoke functions via HTTP REST endpoints at this
+server. The URL should include the protocol and host (e.g., 
+``http://localhost:8080`` or ``https://remote-function-server.example.com``).
+
+If empty, REST-based remote functions are disabled.
+
+The REST function server must implement the following endpoint pattern:
+``<base_url>/v1/functions/<schema>/<function>/<function_id>/<version>``
+
+For example, if the base URL is ``http://localhost:8080`` and you have a
+function ``my_schema.my_function``, the endpoint would be:
+``http://localhost:8080/v1/functions/my_schema/my_function/...``
+
+``remote-function-server.serde``
+""""""""""""""""""""""""""""""""
+
+* **Type:** ``string``
+* **Default value:** ``"presto_page"``
+
+This property (shared with Thrift-based remote functions) determines the
+serialization format for data sent to and received from the REST server.
+
+Supported values:
+
+* ``presto_page``: Uses Presto's native page serialization format
+* ``spark_unsafe_row``: Uses Spark's unsafe row serialization format
+
+Setup and Usage
+^^^^^^^^^^^^^^^
+
+To use REST-based remote functions in your Presto C++ cluster:
+
+1. **Deploy a REST Function Server**: Implement a REST service that accepts
+   HTTP POST requests at the required endpoint pattern. The server should:
+
+   * Accept POST requests with serialized input data in the configured serde format
+   * Process the function invocation
+   * Return serialized results in the same serde format
+   * Set appropriate Content-Type headers (e.g., ``application/octet-stream``)
+
+2. **Configure the Presto C++ Worker**: Add the following to your worker's
+   configuration file (e.g., ``config.properties``):
+
+   .. code-block:: properties
+
+      remote-function-server.rest.url=http://your-function-server:8080
+      remote-function-server.serde=presto_page
+
+3. **Register Functions**: Functions are registered when the coordinator sends
+   function metadata to the worker during query execution. The function
+   signatures and metadata are managed by the coordinator's function namespace
+   manager.
+
+4. **Use Functions in Queries**: Once configured, remote functions can be used
+   in SQL queries like any other function:
+
+   .. code-block:: sql
+
+      SELECT catalog.schema.remote_function(column1, column2)
+      FROM your_table;
+
+Example REST Function Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A REST function server must implement the following behavior:
+
+* **Endpoint**: ``POST /v1/functions/<schema>/<function>/<function_id>/<version>``
+* **Request Headers**:
+
+  * ``Content-Type``: ``application/octet-stream`` (for binary serialized data)
+  * ``Accept``: ``application/octet-stream``
+
+* **Request Body**: Serialized input vectors in the configured format (Presto page or Spark unsafe row)
+* **Response Body**: Serialized output vectors in the same format
+* **Response Status**: ``200 OK`` on success, appropriate error codes on failure
+
+The REST function server is responsible for:
+
+1. Deserializing the input data from the request body
+2. Executing the function logic
+3. Serializing the results
+4. Returning the serialized results in the response
+
+Security Considerations
+^^^^^^^^^^^^^^^^^^^^^^^
+
+When deploying REST-based remote functions:
+
+* Use HTTPS (``https://``) for the REST server URL in production environments
+* Implement authentication and authorization at the REST server level
+* Consider network segmentation to isolate the remote function server
+* Validate and sanitize all inputs at the REST server
+* Implement rate limiting and resource controls to prevent abuse
+
+Comparison: REST vs. Thrift
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**REST-based Remote Functions:**
+
+* Pros:
+
+  * Simpler protocol, easier to implement in various languages
+  * No Thrift dependency required
+  * Works well with standard HTTP infrastructure (load balancers, proxies)
+  * Easier debugging with standard HTTP tools
+
+* Cons:
+
+  * HTTP overhead may result in slightly higher latency
+  * Less efficient binary protocol compared to Thrift
+
+**Thrift-based Remote Functions:**
+
+* Pros:
+
+  * More efficient binary protocol
+  * Lower latency for high-frequency function calls
+  * Supports Unix domain sockets for local communication
+
+* Cons:
+
+  * Requires Thrift framework and code generation
+  * Less flexibility in implementation
+
+Choose REST-based remote functions for ease of implementation and integration
+with existing REST services. Choose Thrift-based remote functions for maximum
+performance in high-throughput scenarios.
+
 JWT authentication support
 --------------------------
 
