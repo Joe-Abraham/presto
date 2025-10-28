@@ -220,8 +220,12 @@ To use REST-based remote functions in your Presto C++ cluster:
 
    * Implement ``GET /v1/functions`` to list available functions
    * Implement ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` for function execution
-   * Accept serialized input data in the configured serde format with ``Content-Type: text/plain; charset=utf-8``
-   * Return serialized results in the same format
+   * Accept serialized input data with appropriate Content-Type:
+     
+     * ``Content-Type: application/X-presto-pages`` for Presto page format
+     * ``Content-Type: application/X-spark-unsafe-row`` for Spark unsafe row format
+     
+   * Return serialized results with the same Content-Type as the request
 
 2. **Configure the Presto C++ Worker**: Add the following to your worker's
    configuration file (e.g., ``config.properties``):
@@ -250,6 +254,9 @@ REST Function Server API Specification
 The REST function server must implement the API specification defined in
 `rest_function_server.yaml <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
 
+A sample implementation using Presto Java functions is available in
+`FunctionServer.java <https://github.com/prestodb/presto/blob/master/presto-function-server/src/main/java/com/facebook/presto/server/FunctionServer.java>`_.
+
 The key endpoints include:
 
 **Function Discovery:**
@@ -268,9 +275,13 @@ The key endpoints include:
 
 * ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` - Execute a function
 
-  * **Request Headers**: ``Content-Type: text/plain; charset=utf-8``
+  * **Request Headers**: 
+  
+    * ``Content-Type: application/X-presto-pages`` (for Presto page format)
+    * ``Content-Type: application/X-spark-unsafe-row`` (for Spark unsafe row format)
+    
   * **Request Body**: Serialized input vectors in the configured format (Presto page or Spark unsafe row)
-  * **Response Headers**: ``Content-Type: text/plain; charset=utf-8``
+  * **Response Headers**: Same ``Content-Type`` as request
   * **Response Body**: Serialized output vectors in the same format
   * **Response Status**: ``200 OK`` on success, appropriate error codes on failure
 
