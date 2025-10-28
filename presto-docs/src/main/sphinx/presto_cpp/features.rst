@@ -212,13 +212,16 @@ Setup and Usage
 
 To use REST-based remote functions in your Presto C++ cluster:
 
-1. **Deploy a REST Function Server**: Implement a REST service that accepts
-   HTTP POST requests at the required endpoint pattern. The server should:
+1. **Deploy a REST Function Server**: Implement a REST service that conforms to the
+   `REST Function Server API specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
+   The server must implement endpoints for function discovery, management, and execution.
 
-   * Accept POST requests with serialized input data in the configured serde format
-   * Process the function invocation
-   * Return serialized results in the same serde format
-   * Set appropriate Content-Type headers (e.g., ``application/octet-stream``)
+   Key requirements:
+
+   * Implement ``GET /v1/functions`` to list available functions
+   * Implement ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` for function execution
+   * Accept serialized input data in the configured serde format with ``Content-Type: text/plain; charset=utf-8``
+   * Return serialized results in the same format
 
 2. **Configure the Presto C++ Worker**: Add the following to your worker's
    configuration file (e.g., ``config.properties``):
@@ -241,27 +244,45 @@ To use REST-based remote functions in your Presto C++ cluster:
       SELECT catalog.schema.remote_function(column1, column2)
       FROM your_table;
 
-Example REST Function Server
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+REST Function Server API Specification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A REST function server must implement the following behavior:
+The REST function server must implement the API specification defined in
+`rest_function_server.yaml <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
 
-* **Endpoint**: ``POST /v1/functions/<schema>/<function>/<function_id>/<version>``
-* **Request Headers**:
+The key endpoints include:
 
-  * ``Content-Type``: ``application/octet-stream`` (for binary serialized data)
-  * ``Accept``: ``application/octet-stream``
+**Function Discovery:**
 
-* **Request Body**: Serialized input vectors in the configured format (Presto page or Spark unsafe row)
-* **Response Body**: Serialized output vectors in the same format
-* **Response Status**: ``200 OK`` on success, appropriate error codes on failure
+* ``GET /v1/functions`` - List all available functions
+* ``GET /v1/functions/{schema}`` - List functions in a specific schema
+* ``GET /v1/functions/{schema}/{functionName}`` - Get specific function metadata
 
-The REST function server is responsible for:
+**Function Management:**
+
+* ``POST /v1/functions/{schema}/{functionName}`` - Create a new function
+* ``PUT /v1/functions/{schema}/{functionName}/{functionId}`` - Update an existing function
+* ``DELETE /v1/functions/{schema}/{functionName}/{functionId}`` - Delete a function
+
+**Function Execution:**
+
+* ``POST /v1/functions/{schema}/{functionName}/{functionId}/{version}`` - Execute a function
+
+  * **Request Headers**: ``Content-Type: text/plain; charset=utf-8``
+  * **Request Body**: Serialized input vectors in the configured format (Presto page or Spark unsafe row)
+  * **Response Headers**: ``Content-Type: text/plain; charset=utf-8``
+  * **Response Body**: Serialized output vectors in the same format
+  * **Response Status**: ``200 OK`` on success, appropriate error codes on failure
+
+The function execution endpoint is responsible for:
 
 1. Deserializing the input data from the request body
-2. Executing the function logic
+2. Executing the function logic with the provided inputs
 3. Serializing the results
 4. Returning the serialized results in the response
+
+For complete API details, request/response schemas, and examples, refer to the
+`OpenAPI specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
 
 Security Considerations
 ^^^^^^^^^^^^^^^^^^^^^^^
