@@ -205,9 +205,10 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
-                "trap 'kill -TERM $app 2>/dev/null' TERM\n\n" +
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
                 "java -Dconfig=/opt/function-server/etc/config.properties " +
                 "-jar /opt/presto-function-server-executable.jar &\n" +
+                "app=$!\n" +
                 "wait $app\n";
 
         createScriptFile("testcontainers/function-server/entrypoint.sh", scriptContent);
