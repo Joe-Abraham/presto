@@ -193,7 +193,10 @@ public class ContainerQueryRunnerUtils
     {
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
-                "$PRESTO_HOME/bin/launcher run\n";
+                "trap 'kill -TERM $app 2>/dev/null' TERM\n" +
+                "$PRESTO_HOME/bin/launcher run &\n" +
+                "app=$!\n" +
+                "wait $app";
         createScriptFile("testcontainers/coordinator/entrypoint.sh", scriptContent);
     }
 
@@ -203,11 +206,8 @@ public class ContainerQueryRunnerUtils
         String scriptContent = "#!/bin/sh\n" +
                 "set -e\n" +
                 "trap 'kill -TERM $app 2>/dev/null' TERM\n\n" +
-                "# Start Function Server\n" +
                 "java -Dconfig=/opt/function-server/etc/config.properties " +
                 "-jar /opt/presto-function-server-executable.jar &\n" +
-                "app=$!\n\n" +
-                "# Wait for Function Server process to exit\n" +
                 "wait $app\n";
 
         createScriptFile("testcontainers/function-server/entrypoint.sh", scriptContent);
