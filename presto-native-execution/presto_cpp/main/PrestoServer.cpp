@@ -29,6 +29,7 @@
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
+#include "presto_cpp/main/functions/FunctionCatalogManager.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
@@ -435,6 +436,7 @@ void PrestoServer::run() {
   }
   registerFunctions();
   registerRemoteFunctions();
+  registerFunctionCatalogs(fs::path(configDirectoryPath_));
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
   registerDynamicFunctions();
@@ -1397,6 +1399,70 @@ void PrestoServer::registerRemoteFunctions() {
     }
   }
 #endif
+}
+
+void PrestoServer::registerFunctionCatalogs(
+    const fs::path& configDirectoryPath) {
+  static const std::string kPropertiesExtension = ".properties";
+  static const std::string kFunctionCatalogType = "function-catalog";
+
+  std::error_code ec;
+  fs::path functionCatalogDir = configDirectoryPath / "function-catalog";
+
+  // Check if function-catalog directory exists
+  if (!fs::is_directory(functionCatalogDir, ec)) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Function catalog directory does not exist: " << functionCatalogDir;
+    return;
+  }
+
+  PRESTO_STARTUP_LOG(INFO)
+      << "Loading function catalogs from: " << functionCatalogDir;
+
+  auto* catalogManager = FunctionCatalogManager::instance();
+
+  for (const auto& entry : fs::directory_iterator(functionCatalogDir)) {
+    if (entry.path().extension() == kPropertiesExtension) {
+      auto fileName = entry.path().filename().string();
+      auto catalogName =
+          fileName.substr(0, fileName.size() - kPropertiesExtension.size());
+
+      auto catalogConf = util::readConfig(entry.path());
+      PRESTO_STARTUP_LOG(INFO) << "Found function catalog config: "
+                               << entry.path();
+
+      // Check if this is a function catalog
+      auto catalogType = util::getOptionalProperty(
+          catalogConf, kConnectorName, kFunctionCatalogType);
+
+      // Only process files that are explicitly marked as function catalogs
+      // or don't have a connector.name property (assume function catalog)
+      bool isFunctionCatalog = catalogType == kFunctionCatalogType ||
+          catalogConf.find(kConnectorName) == catalogConf.end();
+
+      if (isFunctionCatalog) {
+        std::shared_ptr<const velox::config::ConfigBase> properties =
+            std::make_shared<const velox::config::ConfigBase>(
+                std::move(catalogConf));
+
+        auto catalogConfig = std::make_shared<FunctionCatalogConfig>(
+            catalogName, std::move(properties));
+
+        catalogManager->registerCatalog(catalogName, catalogConfig);
+
+        PRESTO_STARTUP_LOG(INFO)
+            << "Registered function catalog: " << catalogName;
+      }
+    }
+  }
+
+  // Log registered catalogs
+  auto catalogNames = catalogManager->getCatalogNames();
+  if (!catalogNames.empty()) {
+    PRESTO_STARTUP_LOG(INFO) << "Registered " << catalogNames.size()
+                             << " function catalog(s): "
+                             << folly::join(", ", catalogNames);
+  }
 }
 
 void PrestoServer::registerVectorSerdes() {

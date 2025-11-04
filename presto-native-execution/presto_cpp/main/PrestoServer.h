@@ -157,6 +157,8 @@ class PrestoServer {
 
   virtual void registerRemoteFunctions();
 
+  void registerFunctionCatalogs(const std::filesystem::path& configDirectoryPath);
+
   virtual void registerVectorSerdes();
 
   virtual void registerFileSystems();

@@ -10,8 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata velox_function_registry)
+add_library(
+  presto_function_metadata OBJECT FunctionMetadata.cpp
+                                  FunctionCatalogConfig.cpp FunctionCatalogManager.cpp)
+target_link_libraries(presto_function_metadata velox_function_registry
+                      velox_config)
 
 add_subdirectory(dynamic_registry)
 

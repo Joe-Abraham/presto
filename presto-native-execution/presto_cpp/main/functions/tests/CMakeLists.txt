@@ -29,3 +29,19 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
 )
+
+add_executable(presto_function_catalog_test FunctionCatalogTest.cpp)
+
+add_test(
+  NAME presto_function_catalog_test
+  COMMAND presto_function_catalog_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_function_catalog_test
+  presto_function_metadata
+  velox_config
+  GTest::gtest
+  GTest::gtest_main
+)
