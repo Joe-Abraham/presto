@@ -30,8 +30,8 @@ void FunctionCatalogManager::registerCatalog(
   catalogs_[catalogName] = std::move(config);
 }
 
-std::shared_ptr<FunctionCatalogConfig>
-FunctionCatalogManager::getCatalogConfig(const std::string& catalogName) const {
+std::shared_ptr<FunctionCatalogConfig> FunctionCatalogManager::getCatalogConfig(
+    const std::string& catalogName) const {
   std::lock_guard<std::mutex> lock(mutex_);
   auto it = catalogs_.find(catalogName);
   if (it != catalogs_.end()) {

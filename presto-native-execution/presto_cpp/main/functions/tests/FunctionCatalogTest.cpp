@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
 #include "presto_cpp/main/functions/FunctionCatalogConfig.h"
 #include "presto_cpp/main/functions/FunctionCatalogManager.h"
-#include <gtest/gtest.h>
 #include "velox/common/config/Config.h"
 
 using namespace facebook::presto;
@@ -69,10 +69,13 @@ TEST_F(FunctionCatalogTest, CatalogConfigProperties) {
   EXPECT_EQ(config->optionalProperty<bool>("bool.prop"), true);
 
   // Test missing property
-  EXPECT_FALSE(config->optionalProperty<std::string>("missing.prop").has_value());
+  EXPECT_FALSE(
+      config->optionalProperty<std::string>("missing.prop").has_value());
 
   // Test propertyOrDefault
-  EXPECT_EQ(config->propertyOrDefault<std::string>("missing.prop", "default"), "default");
+  EXPECT_EQ(
+      config->propertyOrDefault<std::string>("missing.prop", "default"),
+      "default");
 }
 
 TEST_F(FunctionCatalogTest, SessionPropertyOverride) {
@@ -86,8 +89,8 @@ TEST_F(FunctionCatalogTest, SessionPropertyOverride) {
 
   // Apply session properties
   std::unordered_map<std::string, std::string> sessionProps;
-  sessionProps["prop1"] = "session_value";  // Override
-  sessionProps["prop3"] = "new_value";      // Add new
+  sessionProps["prop1"] = "session_value"; // Override
+  sessionProps["prop3"] = "new_value"; // Add new
 
   auto configWithSession = config->withSessionProperties(sessionProps);
 
@@ -96,9 +99,13 @@ TEST_F(FunctionCatalogTest, SessionPropertyOverride) {
   EXPECT_EQ(config->optionalProperty<std::string>("prop2"), "original");
 
   // New config should have merged properties
-  EXPECT_EQ(configWithSession->optionalProperty<std::string>("prop1"), "session_value");
-  EXPECT_EQ(configWithSession->optionalProperty<std::string>("prop2"), "original");
-  EXPECT_EQ(configWithSession->optionalProperty<std::string>("prop3"), "new_value");
+  EXPECT_EQ(
+      configWithSession->optionalProperty<std::string>("prop1"),
+      "session_value");
+  EXPECT_EQ(
+      configWithSession->optionalProperty<std::string>("prop2"), "original");
+  EXPECT_EQ(
+      configWithSession->optionalProperty<std::string>("prop3"), "new_value");
 }
 
 TEST_F(FunctionCatalogTest, MultipleCatalogs) {
@@ -109,7 +116,8 @@ TEST_F(FunctionCatalogTest, MultipleCatalogs) {
     std::unordered_map<std::string, std::string> props;
     props["id"] = std::to_string(i);
 
-    auto configBase = std::make_shared<const config::ConfigBase>(std::move(props));
+    auto configBase =
+        std::make_shared<const config::ConfigBase>(std::move(props));
     auto config = std::make_shared<FunctionCatalogConfig>(
         "catalog_" + std::to_string(i), configBase);
     manager->registerCatalog("catalog_" + std::to_string(i), config);
@@ -135,7 +143,8 @@ TEST_F(FunctionCatalogTest, GetCatalogConfigWithSession) {
   baseProps["api.key"] = "base_key";
   baseProps["timeout"] = "30";
 
-  auto configBase = std::make_shared<const config::ConfigBase>(std::move(baseProps));
+  auto configBase =
+      std::make_shared<const config::ConfigBase>(std::move(baseProps));
   auto config = std::make_shared<FunctionCatalogConfig>("ai", configBase);
   manager->registerCatalog("ai", config);
 
@@ -147,7 +156,8 @@ TEST_F(FunctionCatalogTest, GetCatalogConfigWithSession) {
   auto sessionConfig = manager->getCatalogConfigWithSession("ai", sessionProps);
   ASSERT_NE(sessionConfig, nullptr);
 
-  EXPECT_EQ(sessionConfig->optionalProperty<std::string>("api.key"), "session_key");
+  EXPECT_EQ(
+      sessionConfig->optionalProperty<std::string>("api.key"), "session_key");
   EXPECT_EQ(sessionConfig->optionalProperty<int>("timeout"), 30);
   EXPECT_EQ(sessionConfig->optionalProperty<int>("max.tokens"), 1000);
 }
