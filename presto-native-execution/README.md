@@ -167,12 +167,12 @@ Function catalogs provide a way to organize dynamic functions with shared config
 To configure function catalogs, create `.properties` files in the `etc/function-catalog/` directory:
 
 ```properties
-# etc/function-catalog/hive.properties
-hive.function.case-sensitive=false
-hive.function.locale=en_US
+# etc/function-catalog/custom.properties
+custom.case-sensitive=false
+custom.locale=en_US
 ```
 
-Functions are registered with catalog namespace: `catalog.schema.function` (e.g., `hive.default.initcap`).
+Functions are registered with catalog namespace: `catalog.schema.function` (e.g., `custom.default.my_function`).
 
 For detailed documentation, see [Function Catalogs Documentation](presto_cpp/docs/function-catalogs.md).
 

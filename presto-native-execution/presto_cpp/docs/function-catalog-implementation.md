@@ -40,11 +40,11 @@ The problem statement requested functionality to organize dynamic functions with
 - Each `.properties` file becomes a catalog (filename = catalog name)
 - Catalogs are loaded before dynamic functions are registered
 
-#### Example: Hive Functions
-Updated `HiveFunctionRegistration.cpp` to use catalog-based registration:
+#### Example: Custom Functions
+Custom functions can use catalog-based registration (existing Hive functions remain unchanged):
 ```cpp
-facebook::presto::registerCatalogFunction<InitCapFunction, Varchar, Varchar>(
-    "hive", "default", "initcap");
+facebook::presto::registerCatalogFunction<MyCustomFunction, Varchar, Varchar>(
+    "custom", "default", "my_function");
 ```
 
 ### Configuration Structure
@@ -145,7 +145,7 @@ Comprehensive test suite added (`FunctionCatalogTest.cpp`):
 - **Fully backward compatible**: Existing functions continue to work unchanged
 - **Additive feature**: No breaking changes to existing APIs
 - **Optional**: Function catalogs are only loaded if the `function-catalog` directory exists
-- **Existing Hive functions**: Updated to use catalog registration but maintain same behavior
+- **Existing functions unchanged**: Hive and other built-in functions maintain their original registration
 
 ## Future Enhancements
 

@@ -52,13 +52,13 @@ Functions can be registered within a catalog using the `registerCatalogFunction`
 ```cpp
 #include "presto_cpp/main/functions/dynamic_registry/CatalogFunctionRegistrar.h"
 
-// Register a function in the 'hive' catalog under the 'default' schema
+// Register a custom function in a catalog under the 'default' schema
 facebook::presto::registerCatalogFunction<MyFunction, Varchar, Varchar>(
-    "hive",      // catalog name
+    "custom",    // catalog name
     "default",   // schema name
     "myfunction" // function name
 );
-// This registers the function as: hive.default.myfunction
+// This registers the function as: custom.default.myfunction
 ```
 
 ### Accessing Catalog Configuration
@@ -70,12 +70,12 @@ Functions can access their catalog's configuration at runtime:
 
 // Get catalog configuration
 auto* catalogManager = FunctionCatalogManager::instance();
-auto config = catalogManager->getCatalogConfig("hive");
+auto config = catalogManager->getCatalogConfig("custom");
 
 if (config) {
   // Access configuration properties
-  auto caseSensitive = config->optionalProperty<bool>("hive.function.case-sensitive");
-  auto locale = config->propertyOrDefault<std::string>("hive.function.locale", "en_US");
+  auto caseSensitive = config->optionalProperty<bool>("custom.case-sensitive");
+  auto locale = config->propertyOrDefault<std::string>("custom.locale", "en_US");
 }
 ```
 
