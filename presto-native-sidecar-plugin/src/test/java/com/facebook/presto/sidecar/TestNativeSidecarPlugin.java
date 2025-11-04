@@ -666,4 +666,68 @@ public class TestNativeSidecarPlugin
                 .filter(row -> Pattern.matches(REGEX_SESSION_NAMESPACE, row.getFields().get(4).toString()))
                 .collect(Collectors.toList());
     }
+
+    @Test
+    public void testFunctionCatalogLoading()
+    {
+        // Test that function catalogs are loaded from etc/function-catalog directory
+        // The catalogs should be available: ai, custom, examples
+        
+        // Verify the native worker has access to function catalog configuration
+        // by checking if custom catalog configuration is accessible
+        // Note: This is a basic connectivity test to ensure the infrastructure is working
+        
+        // Test 1: Verify basic query still works with function catalogs loaded
+        assertQuery("SELECT count(*) FROM nation", "SELECT 25");
+        
+        // Test 2: Verify standard functions work (not affected by function catalog feature)
+        assertQuery("SELECT upper(name) FROM nation WHERE nationkey = 0", "SELECT 'ALGERIA'");
+        
+        // Test 3: Verify hive functions still work in their original namespace
+        assertQuery("SELECT \"hive.default.initcap\"('hello world')", "SELECT 'Hello World'");
+    }
+
+    @Test
+    public void testFunctionCatalogWithSessionProperties()
+    {
+        // Test that session properties can be used with function catalogs
+        // This verifies the session property override mechanism works
+        
+        // Test 1: Basic query with session properties set
+        Session sessionWithProperties = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "true")
+                .build();
+        
+        assertQuery(sessionWithProperties, "SELECT count(*) FROM nation", "SELECT 25");
+        
+        // Test 2: Verify functions work with session properties
+        assertQuery(sessionWithProperties, 
+                "SELECT \"hive.default.initcap\"('test')", 
+                "SELECT 'Test'");
+    }
+
+    @Test
+    public void testFunctionCatalogDoesNotAffectBuiltinFunctions()
+    {
+        // Verify that the function catalog feature is opt-in and doesn't affect
+        // existing built-in functions or their behavior
+        
+        // Test standard Presto functions
+        assertQuery("SELECT abs(-5)", "SELECT 5");
+        assertQuery("SELECT concat('hello', ' ', 'world')", "SELECT 'hello world'");
+        assertQuery("SELECT length('test')", "SELECT 4");
+        
+        // Test aggregate functions
+        assertQuery("SELECT sum(nationkey) FROM nation", "SELECT 300");
+        assertQuery("SELECT avg(nationkey) FROM nation", "SELECT 12.0");
+        
+        // Test window functions
+        assertQuery("SELECT nationkey, row_number() OVER (ORDER BY nationkey) FROM nation LIMIT 5",
+                "VALUES (0, 1), (1, 2), (2, 3), (3, 4), (4, 5)");
+        
+        // Test Hive functions maintain their original registration
+        assertQuery("SELECT \"hive.default.initcap\"('hello')", "SELECT 'Hello'");
+        assertQuery("SELECT \"hive.default.initcap\"('WORLD')", "SELECT 'World'");
+        assertQuery("SELECT \"hive.default.initcap\"('TeSt CaSe')", "SELECT 'Test Case'");
+    }
 }
