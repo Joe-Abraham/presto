@@ -13,21 +13,13 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Set;
 
-import static com.facebook.presto.common.type.StandardTypes.BIGINT;
-import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -63,6 +55,7 @@ public class TestNativeRemoteFunctionsE2E
     @Test
     public void testRemoteFunctions()
     {
+        // Test various remote functions with different argument types
         assertEquals(
                 computeActual("select remote.default.abs(-1230)")
                         .getMaterializedRows().get(0).getField(0).toString(),
@@ -79,14 +72,18 @@ public class TestNativeRemoteFunctionsE2E
                 computeActual("select remote.default.floor(100000.99)")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "100000.0");
+        assertEquals(
+                computeActual("select remote.default.to_base32(CAST('abc' AS VARBINARY))")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "MFRGG===");
     }
 
     @Test
     public void testFunctionPlugins()
     {
+        // Validate that remote functions are available and can be discovered
         // Note: Unlike TestRestRemoteFunctions, we cannot dynamically install plugins
         // in the container-based function server at runtime.
-        // This test validates that custom functions can be configured and used.
         MaterializedResult actualResult = computeActual("show functions like '%remote.default.abs%'");
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
         assertFalse(actualRows.isEmpty(), "Expected at least one function matching 'remote.default.abs%', but found none.");
@@ -95,55 +92,21 @@ public class TestNativeRemoteFunctionsE2E
     @Test
     public void testRemoteFunctionAppliedToColumn()
     {
+        // Verify remote functions work correctly on actual table columns
+        assertEquals(computeActual("SELECT remote.default.floor(o_totalprice) FROM tpch.sf1.orders")
+                .getMaterializedRows().size(), 1500000);
+        assertEquals(computeActual("SELECT remote.default.abs(l_discount) FROM tpch.sf1.lineitem")
+                .getMaterializedRows().size(), 6001215);
+
+        // Verify results match built-in function results
         assertQueryWithSameQueryRunner(
                 "SELECT remote.default.floor(o_totalprice) FROM tpch.sf1.orders",
                 "SELECT floor(o_totalprice) FROM tpch.sf1.orders");
         assertQueryWithSameQueryRunner(
                 "SELECT remote.default.abs(l_discount) FROM tpch.sf1.lineitem",
                 "SELECT abs(l_discount) FROM tpch.sf1.lineitem");
+
         assertEquals(computeActual("SELECT remote.default.length(CAST(o_comment AS VARBINARY)) FROM tpch.sf1.orders")
                 .getMaterializedRows().size(), 1500000);
-    }
-
-    @Test
-    public void testRemoteBasicTests()
-    {
-        assertEquals(
-                computeActual("select remote.default.abs(-10)")
-                        .getMaterializedRows().get(0).getField(0).toString(),
-                "10");
-        assertEquals(
-                computeActual("select remote.default.to_base32(CAST('abc' AS VARBINARY))")
-                        .getMaterializedRows().get(0).getField(0).toString(),
-                "MFRGG===");
-    }
-
-    /**
-     * Dummy plugin for testing custom functions.
-     * Note: This is provided as a reference for how custom functions would be structured.
-     * In the container-based setup, these would need to be pre-configured in the function server.
-     */
-    private static final class DummyPlugin
-            implements Plugin
-    {
-        @Override
-        public Set<Class<?>> getFunctions()
-        {
-            return ImmutableSet.of(DummyFunctions.class);
-        }
-    }
-
-    /**
-     * Example custom functions.
-     */
-    public static class DummyFunctions
-    {
-        @ScalarFunction
-        @Description("Check if number is positive")
-        @SqlType(BOOLEAN)
-        public static boolean isPositive(@SqlType(BIGINT) long input)
-        {
-            return input > 0;
-        }
     }
 }
