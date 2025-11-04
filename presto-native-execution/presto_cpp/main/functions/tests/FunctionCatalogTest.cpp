@@ -178,3 +178,145 @@ TEST_F(FunctionCatalogTest, RequiredProperty) {
       config->requiredProperty<std::string>("missing.prop"),
       velox::VeloxUserError);
 }
+
+TEST_F(FunctionCatalogTest, EmptyCatalogName) {
+  std::unordered_map<std::string, std::string> properties;
+  properties["test.prop"] = "value";
+
+  auto configBase =
+      std::make_shared<const config::ConfigBase>(std::move(properties));
+  auto config = std::make_shared<FunctionCatalogConfig>("", configBase);
+
+  auto* manager = FunctionCatalogManager::instance();
+  manager->registerCatalog("", config);
+
+  EXPECT_TRUE(manager->hasCatalog(""));
+  EXPECT_EQ(config->catalogName(), "");
+}
+
+TEST_F(FunctionCatalogTest, CatalogOverwrite) {
+  auto* manager = FunctionCatalogManager::instance();
+
+  // Register first catalog
+  std::unordered_map<std::string, std::string> props1;
+  props1["version"] = "1";
+  auto config1 = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(props1)));
+  manager->registerCatalog("test", config1);
+
+  // Overwrite with second catalog
+  std::unordered_map<std::string, std::string> props2;
+  props2["version"] = "2";
+  auto config2 = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(props2)));
+  manager->registerCatalog("test", config2);
+
+  // Should have the second version
+  auto retrieved = manager->getCatalogConfig("test");
+  ASSERT_NE(retrieved, nullptr);
+  EXPECT_EQ(retrieved->optionalProperty<std::string>("version"), "2");
+}
+
+TEST_F(FunctionCatalogTest, PropertyTypeMismatch) {
+  std::unordered_map<std::string, std::string> properties;
+  properties["int.prop"] = "not_a_number";
+
+  auto configBase =
+      std::make_shared<const config::ConfigBase>(std::move(properties));
+  auto config = std::make_shared<FunctionCatalogConfig>("test", configBase);
+
+  // Should throw when trying to parse as int
+  EXPECT_THROW(config->optionalProperty<int>("int.prop"), std::exception);
+}
+
+TEST_F(FunctionCatalogTest, SessionPropertiesEmptyMerge) {
+  std::unordered_map<std::string, std::string> baseProps;
+  baseProps["prop1"] = "value1";
+
+  auto config = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(baseProps)));
+
+  // Merge with empty session properties
+  std::unordered_map<std::string, std::string> emptySession;
+  auto merged = config->withSessionProperties(emptySession);
+
+  // Should still have original properties
+  EXPECT_EQ(merged->optionalProperty<std::string>("prop1"), "value1");
+}
+
+TEST_F(FunctionCatalogTest, CatalogConfigImmutability) {
+  std::unordered_map<std::string, std::string> baseProps;
+  baseProps["prop1"] = "original";
+
+  auto config = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(baseProps)));
+
+  // Create session-merged config
+  std::unordered_map<std::string, std::string> sessionProps;
+  sessionProps["prop1"] = "modified";
+  auto merged = config->withSessionProperties(sessionProps);
+
+  // Original should be unchanged
+  EXPECT_EQ(config->optionalProperty<std::string>("prop1"), "original");
+  // Merged should have new value
+  EXPECT_EQ(merged->optionalProperty<std::string>("prop1"), "modified");
+}
+
+TEST_F(FunctionCatalogTest, NonExistentCatalogReturnsNull) {
+  auto* manager = FunctionCatalogManager::instance();
+  
+  auto config = manager->getCatalogConfig("nonexistent");
+  EXPECT_EQ(config, nullptr);
+
+  auto configWithSession = manager->getCatalogConfigWithSession(
+      "nonexistent", {{"key", "value"}});
+  EXPECT_EQ(configWithSession, nullptr);
+}
+
+TEST_F(FunctionCatalogTest, CatalogNamesCasePreserving) {
+  auto* manager = FunctionCatalogManager::instance();
+
+  std::unordered_map<std::string, std::string> props;
+  props["test"] = "value";
+  auto config = std::make_shared<FunctionCatalogConfig>(
+      "MixedCase",
+      std::make_shared<const config::ConfigBase>(std::move(props)));
+
+  manager->registerCatalog("MixedCase", config);
+
+  // Case-sensitive lookup
+  EXPECT_TRUE(manager->hasCatalog("MixedCase"));
+  EXPECT_FALSE(manager->hasCatalog("mixedcase"));
+  EXPECT_FALSE(manager->hasCatalog("MIXEDCASE"));
+}
+
+TEST_F(FunctionCatalogTest, LargeConfigurationValues) {
+  std::unordered_map<std::string, std::string> properties;
+  
+  // Test with large string value
+  std::string largeValue(10000, 'x');
+  properties["large.value"] = largeValue;
+  properties["int.value"] = "999999999";
+
+  auto config = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(properties)));
+
+  EXPECT_EQ(config->optionalProperty<std::string>("large.value"), largeValue);
+  EXPECT_EQ(config->optionalProperty<int>("int.value"), 999999999);
+}
+
+TEST_F(FunctionCatalogTest, SpecialCharactersInKeys) {
+  std::unordered_map<std::string, std::string> properties;
+  properties["key-with-dashes"] = "value1";
+  properties["key.with.dots"] = "value2";
+  properties["key_with_underscores"] = "value3";
+
+  auto config = std::make_shared<FunctionCatalogConfig>(
+      "test", std::make_shared<const config::ConfigBase>(std::move(properties)));
+
+  EXPECT_EQ(
+      config->optionalProperty<std::string>("key-with-dashes"), "value1");
+  EXPECT_EQ(config->optionalProperty<std::string>("key.with.dots"), "value2");
+  EXPECT_EQ(
+      config->optionalProperty<std::string>("key_with_underscores"), "value3");
+}

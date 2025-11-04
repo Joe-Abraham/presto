@@ -45,3 +45,41 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
 )
+
+add_executable(presto_function_catalog_integration_test
+               FunctionCatalogIntegrationTest.cpp)
+
+add_test(
+  NAME presto_function_catalog_integration_test
+  COMMAND presto_function_catalog_integration_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_function_catalog_integration_test
+  presto_function_metadata
+  velox_config
+  velox_functions_prestosql
+  velox_functions_test_lib
+  GTest::gtest
+  GTest::gtest_main
+)
+
+add_executable(presto_function_catalog_e2e_test FunctionCatalogE2ETest.cpp)
+
+add_test(
+  NAME presto_function_catalog_e2e_test
+  COMMAND presto_function_catalog_e2e_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+  presto_function_catalog_e2e_test
+  presto_function_metadata
+  presto_common
+  velox_config
+  GTest::gtest
+  GTest::gtest_main
+)
+
+
