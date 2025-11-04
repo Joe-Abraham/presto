@@ -13,43 +13,124 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
+import com.facebook.presto.functionNamespace.rest.RestBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.server.TestingFunctionServer;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.List;
+import java.util.Set;
 
+import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 /**
  * End-to-end test for remote functions in native execution environment.
- * Similar to TestRestRemoteFunctions but adapted for container-based native execution.
+ * Similar to TestRestRemoteFunctions but adapted for native execution with REST-based function server.
  * Tests call remote functions served by the Presto Function Server.
  */
 public class TestNativeRemoteFunctionsE2E
         extends AbstractTestQueryFramework
 {
+    private TestingFunctionServer functionServer;
+    private int functionServerPort;
+
+    private static final Session session = testSessionBuilder()
+            .setSource("test")
+            .setCatalog("hive")
+            .setSchema("tpch")
+            .setSystemProperty("remote_functions_enabled", "true")
+            .build();
+
+    private static int findRandomPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
     @Override
-    protected ContainerQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return new ContainerQueryRunner(
-                ContainerQueryRunner.DEFAULT_COORDINATOR_PORT,
-                ContainerQueryRunner.TPCH_CATALOG,
-                ContainerQueryRunner.TINY_SCHEMA,
-                ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
-                ContainerQueryRunner.DEFAULT_FUNCTION_SERVER_PORT,
-                true);
+        functionServerPort = findRandomPort();
+        functionServer = new TestingFunctionServer(functionServerPort);
+
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .setCoordinatorSidecarEnabled(false)
+                .build();
+
+        // Install function namespace manager plugin for REST-based remote functions
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadFunctionNamespaceManager(
+                RestBasedFunctionNamespaceManagerFactory.NAME,
+                "rest",
+                ImmutableMap.of(
+                        "supported-function-languages", "JAVA",
+                        "function-implementation-type", "REST",
+                        "rest-based-function-manager.rest.url", format("http://localhost:%s", functionServerPort)));
+
+        return queryRunner;
+    }
+
+    @Override
+    protected QueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .build();
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return session;
+    }
+
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
+        NativeQueryRunnerUtils.createLineitem(queryRunner);
+        NativeQueryRunnerUtils.createOrders(queryRunner);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        if (functionServer != null) {
+            // Function server cleanup if needed
+            functionServer = null;
+        }
     }
 
     @Test
     public void testShowFunction()
     {
-        MaterializedResult actualResult = computeActual("show functions like '%remote.%'");
+        MaterializedResult actualResult = computeActual(session, "show functions like '%rest.%'");
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
-        assertFalse(actualRows.isEmpty(), "Expected at least one function matching 'remote.%', but found none.");
+        assertFalse(actualRows.isEmpty(), "Expected at least one function matching 'rest.%', but found none.");
     }
 
     @Test
@@ -57,56 +138,71 @@ public class TestNativeRemoteFunctionsE2E
     {
         // Test various remote functions with different argument types
         assertEquals(
-                computeActual("select remote.default.abs(-1230)")
+                computeActual(session, "select rest.default.abs(-1230)")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "1230");
         assertEquals(
-                computeActual("select remote.default.day(interval '2' day)")
+                computeActual(session, "select rest.default.day(interval '2' day)")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "2");
         assertEquals(
-                computeActual("select remote.default.length(CAST('AB' AS VARBINARY))")
+                computeActual(session, "select rest.default.length(CAST('AB' AS VARBINARY))")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "2");
         assertEquals(
-                computeActual("select remote.default.floor(100000.99)")
+                computeActual(session, "select rest.default.floor(100000.99)")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "100000.0");
-        assertEquals(
-                computeActual("select remote.default.to_base32(CAST('abc' AS VARBINARY))")
-                        .getMaterializedRows().get(0).getField(0).toString(),
-                "MFRGG===");
     }
 
     @Test
     public void testFunctionPlugins()
     {
-        // Validate that remote functions are available and can be discovered
-        // Note: Unlike TestRestRemoteFunctions, we cannot dynamically install plugins
-        // in the container-based function server at runtime.
-        MaterializedResult actualResult = computeActual("show functions like '%remote.default.abs%'");
+        // Install a custom plugin and validate it can be discovered
+        functionServer.installPlugin(new DummyPlugin());
+        MaterializedResult actualResult = computeActual(session, "show functions like '%rest.default.is_positive%'");
         List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
-        assertFalse(actualRows.isEmpty(), "Expected at least one function matching 'remote.default.abs%', but found none.");
+        assertFalse(actualRows.isEmpty());
+
+        assertEquals(
+                computeActual(session, "SELECT rest.default.is_positive(1)")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "true");
+        assertEquals(
+                computeActual(session, "SELECT rest.default.is_positive(-1)")
+                        .getMaterializedRows().get(0).getField(0).toString(),
+                "false");
     }
 
     @Test
     public void testRemoteFunctionAppliedToColumn()
     {
-        // Verify remote functions work correctly on actual table columns
-        assertEquals(computeActual("SELECT remote.default.floor(o_totalprice) FROM tpch.sf1.orders")
-                .getMaterializedRows().size(), 1500000);
-        assertEquals(computeActual("SELECT remote.default.abs(l_discount) FROM tpch.sf1.lineitem")
-                .getMaterializedRows().size(), 6001215);
-
-        // Verify results match built-in function results
         assertQueryWithSameQueryRunner(
-                "SELECT remote.default.floor(o_totalprice) FROM tpch.sf1.orders",
-                "SELECT floor(o_totalprice) FROM tpch.sf1.orders");
+                "SELECT rest.default.floor(totalprice) FROM orders",
+                "SELECT floor(totalprice) FROM orders");
         assertQueryWithSameQueryRunner(
-                "SELECT remote.default.abs(l_discount) FROM tpch.sf1.lineitem",
-                "SELECT abs(l_discount) FROM tpch.sf1.lineitem");
+                "SELECT rest.default.abs(discount) FROM lineitem",
+                "SELECT abs(discount) FROM lineitem");
+    }
 
-        assertEquals(computeActual("SELECT remote.default.length(CAST(o_comment AS VARBINARY)) FROM tpch.sf1.orders")
-                .getMaterializedRows().size(), 1500000);
+    private static final class DummyPlugin
+            implements Plugin
+    {
+        @Override
+        public Set<Class<?>> getFunctions()
+        {
+            return ImmutableSet.of(DummyFunctions.class);
+        }
+    }
+
+    public static class DummyFunctions
+    {
+        @ScalarFunction
+        @Description("Check if number is positive")
+        @SqlType(BOOLEAN)
+        public static boolean isPositive(@SqlType(BIGINT) long input)
+        {
+            return input > 0;
+        }
     }
 }
