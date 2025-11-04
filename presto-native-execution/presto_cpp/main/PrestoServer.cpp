@@ -1459,9 +1459,15 @@ void PrestoServer::registerFunctionCatalogs(
   // Log registered catalogs
   auto catalogNames = catalogManager->getCatalogNames();
   if (!catalogNames.empty()) {
+    std::string catalogList;
+    for (size_t i = 0; i < catalogNames.size(); ++i) {
+      if (i > 0) {
+        catalogList += ", ";
+      }
+      catalogList += catalogNames[i];
+    }
     PRESTO_STARTUP_LOG(INFO) << "Registered " << catalogNames.size()
-                             << " function catalog(s): "
-                             << folly::join(", ", catalogNames);
+                             << " function catalog(s): " << catalogList;
   }
 }
 
