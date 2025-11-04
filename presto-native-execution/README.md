@@ -157,6 +157,25 @@ Spatial type and function support is enabled by default. To disable it, add to `
 
 The spatial support adds new types (OGC geometry types) and functionality for spatial calculations.
 
+#### Function Catalogs
+
+Function catalogs provide a way to organize dynamic functions with shared configuration, similar to connector catalogs. This feature enables:
+- Grouping related functions into logical catalogs
+- Sharing configuration properties across functions in a catalog
+- Runtime configuration overrides via session properties
+
+To configure function catalogs, create `.properties` files in the `etc/function-catalog/` directory:
+
+```properties
+# etc/function-catalog/hive.properties
+hive.function.case-sensitive=false
+hive.function.locale=en_US
+```
+
+Functions are registered with catalog namespace: `catalog.schema.function` (e.g., `hive.default.initcap`).
+
+For detailed documentation, see [Function Catalogs Documentation](presto_cpp/docs/function-catalogs.md).
+
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
 ```
