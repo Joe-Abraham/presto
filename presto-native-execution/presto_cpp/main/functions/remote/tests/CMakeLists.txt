@@ -28,3 +28,22 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
 )
+
+add_executable(presto_rest_function_registration_test
+               PrestoRestFunctionRegistrationTest.cpp)
+
+add_test(presto_rest_function_registration_test
+         presto_rest_function_registration_test)
+
+target_link_libraries(
+  presto_rest_function_registration_test
+  presto_functions_rest_client
+  presto_functions_remote
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox_functions_test_lib
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main
+)
