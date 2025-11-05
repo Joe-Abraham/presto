@@ -84,7 +84,12 @@ TEST_F(PrestoRestFunctionRegistrationTest, registerWithoutExecutionEndpoint) {
 // Test that registering a function with executionEndpoint uses the provided URL
 // This test verifies that the executionEndpoint is properly fed through to
 // VeloxRemoteFunctionMetadata.location by attempting to call a function
-// with an invalid endpoint and checking the error message contains the endpoint
+// with an invalid endpoint and checking the error message contains the endpoint.
+//
+// Note: This test uses error message matching as a verification method because
+// there is no direct API to inspect VeloxRemoteFunctionMetadata after registration.
+// While this approach is indirect, it effectively proves the endpoint is used
+// without requiring invasive changes to expose internal metadata structures.
 TEST_F(PrestoRestFunctionRegistrationTest, registerWithExecutionEndpoint) {
   const std::string customEndpoint = "http://custom-server:9999";
   auto handle = createTestFunctionHandle("test_custom_endpoint", customEndpoint);
@@ -113,7 +118,11 @@ TEST_F(PrestoRestFunctionRegistrationTest, registerWithExecutionEndpoint) {
 }
 
 // Test that the same function can be registered multiple times with different
-// endpoints and the latest registration wins
+// endpoints and the latest registration wins.
+//
+// Note: Similar to registerWithExecutionEndpoint, this test uses error message
+// matching to verify endpoint usage, as there is no direct API to inspect the
+// metadata after registration.
 TEST_F(PrestoRestFunctionRegistrationTest, reregisterWithDifferentEndpoint) {
   const std::string firstEndpoint = "http://first-server:8080";
   const std::string secondEndpoint = "http://second-server:9090";
