@@ -1,0 +1,69 @@
+{
+  "udfSignatureMap": {
+    "ceil":[
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "INTEGER",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      },
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "DOUBLE",
+        "paramTypes": [
+          "DOUBLE"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+
+    "ceil_with_invalid_endpoint":[
+      {
+        "docString": "Function with invalid executionEndpoint to verify endpoint is being used",
+        "functionKind": "SCALAR",
+        "outputType": "INTEGER",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "executionEndpoint": "http://invalid-endpoint:9999"
+      }
+    ],
+    "concat":[
+      {
+        "docString": "",
+        "functionKind": "SCALAR",
+        "outputType": "VARCHAR",
+        "paramTypes": [
+          "VARCHAR",
+          "VARCHAR"
+        ],
+        "schema": "schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}
