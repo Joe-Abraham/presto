@@ -55,7 +55,7 @@ class PrestoRestFunctionRegistrationTest
     handle.signature = signature;
     
     if (executionEndpoint.has_value()) {
-      handle.executionEndpoint = executionEndpoint.value();
+      handle.executionEndpoint = std::make_shared<std::string>(executionEndpoint.value());
     }
     
     return handle;
