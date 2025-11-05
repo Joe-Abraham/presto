@@ -30,6 +30,9 @@ namespace {
 class PrestoRestFunctionRegistrationTest
     : public velox::functions::test::FunctionBaseTest {
  public:
+  static constexpr const char* kFunctionSchema = "remote.schema";
+  static constexpr const char* kFunctionIdTypeSuffix = ";integer";
+  
   void SetUp() override {
     // Initialize system config with a default REST URL
     SystemConfig::instance()->setValue(
@@ -43,11 +46,11 @@ class PrestoRestFunctionRegistrationTest
       const std::string& functionName,
       const std::optional<std::string>& executionEndpoint = std::nullopt) {
     protocol::RestFunctionHandle handle;
-    handle.functionId = "remote.schema." + functionName + ";integer";
+    handle.functionId = std::string(kFunctionSchema) + "." + functionName + kFunctionIdTypeSuffix;
     handle.version = "1";
     
     protocol::Signature signature;
-    signature.name = "remote.schema." + functionName;
+    signature.name = std::string(kFunctionSchema) + "." + functionName;
     signature.kind = protocol::FunctionKind::SCALAR;
     signature.returnType = "integer";
     signature.argumentTypes = {"integer"};
@@ -60,6 +63,10 @@ class PrestoRestFunctionRegistrationTest
     
     return handle;
   }
+  
+  void verifyFunctionIsRegistered(const std::string& functionName) {
+    EXPECT_TRUE(exec::getVectorFunctionSignatures(functionName) != std::nullopt);
+  }
 };
 
 // Test that registering a function without executionEndpoint uses the default URL
@@ -71,7 +78,7 @@ TEST_F(PrestoRestFunctionRegistrationTest, registerWithoutExecutionEndpoint) {
   EXPECT_NO_THROW(registerRestRemoteFunction(handle));
   
   // Verify the function is registered
-  EXPECT_TRUE(exec::getVectorFunctionSignatures("test_default_endpoint") != std::nullopt);
+  verifyFunctionIsRegistered("test_default_endpoint");
 }
 
 // Test that registering a function with executionEndpoint uses the provided URL
@@ -86,7 +93,7 @@ TEST_F(PrestoRestFunctionRegistrationTest, registerWithExecutionEndpoint) {
   EXPECT_NO_THROW(registerRestRemoteFunction(handle));
   
   // Verify the function is registered
-  EXPECT_TRUE(exec::getVectorFunctionSignatures("test_custom_endpoint") != std::nullopt);
+  verifyFunctionIsRegistered("test_custom_endpoint");
   
   // Try to invoke the function - it should fail with a connection error
   // that includes the custom endpoint URL, proving that the executionEndpoint
@@ -120,7 +127,7 @@ TEST_F(PrestoRestFunctionRegistrationTest, reregisterWithDifferentEndpoint) {
   EXPECT_NO_THROW(registerRestRemoteFunction(handle2));
   
   // Verify the function is still registered
-  EXPECT_TRUE(exec::getVectorFunctionSignatures("test_reregister") != std::nullopt);
+  verifyFunctionIsRegistered("test_reregister");
   
   // Try to invoke - the error should contain the second endpoint,
   // proving the re-registration updated the metadata.location
