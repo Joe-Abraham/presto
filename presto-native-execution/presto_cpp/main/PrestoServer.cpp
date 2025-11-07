@@ -1366,7 +1366,7 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
       prestoBuiltinFunctionPrefix_);
-  velox::functions::iceberg::registerFunctions("iceberg.default.");
+  velox::functions::iceberg::registerFunctions("iceberg.system.");
 
   if (velox::connector::hasConnector(
           velox::connector::hive::HiveConnectorFactory::kHiveConnectorName) ||
