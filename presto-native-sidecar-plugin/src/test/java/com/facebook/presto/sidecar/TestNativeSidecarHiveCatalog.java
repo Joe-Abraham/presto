@@ -154,4 +154,36 @@ public class TestNativeSidecarHiveCatalog
                 "SELECT COUNT(DISTINCT hive.default.initcap(name)) FROM nation",
                 "SELECT BIGINT '25'");
     }
+
+    @Test
+    public void testFunctionCatalogIntegrationWithHiveFunctions()
+    {
+        // Test that function catalogs don't interfere with Hive functions
+        // and that Hive functions maintain their original behavior
+        
+        // Test basic Hive function calls
+        assertQuery("SELECT hive.default.initcap('test case')", "SELECT 'Test Case'");
+        assertQuery("SELECT hive.default.initcap('UPPER CASE')", "SELECT 'Upper Case'");
+        
+        // Test Hive functions with data from tables
+        assertQuery(
+                "SELECT hive.default.initcap(name) FROM nation WHERE nationkey < 5 ORDER BY nationkey",
+                "VALUES ('Algeria'), ('Argentina'), ('Brazil'), ('Canada'), ('Egypt')");
+        
+        // Test that function catalog infrastructure is properly loaded
+        // by verifying complex queries still work
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT hive.default.initcap(name) as initcap_name FROM nation) t",
+                "SELECT BIGINT '25'");
+        
+        // Test function calls in WHERE clauses
+        assertQuery(
+                "SELECT nationkey FROM nation WHERE hive.default.initcap(name) = 'Algeria'",
+                "SELECT BIGINT '0'");
+        
+        // Test function calls with aggregations
+        assertQuery(
+                "SELECT MIN(hive.default.initcap(name)), MAX(hive.default.initcap(name)) FROM nation",
+                "VALUES ('Algeria', 'Vietnam')");
+    }
 }
