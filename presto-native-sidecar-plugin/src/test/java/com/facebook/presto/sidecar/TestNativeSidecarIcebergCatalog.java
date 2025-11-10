@@ -13,20 +13,40 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestNativeSidecarIcebergCatalog
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected void createTables()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = testSessionBuilder()
+                .setCatalog("iceberg")
+                .setSchema("tpch")
+                .build();
+        
+        // Copy nation table from TPCH
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, 
+                ImmutableList.of(TpchTable.NATION), true);
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -193,5 +213,41 @@ public class TestNativeSidecarIcebergCatalog
         assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 10) = iceberg.system.bucket(cast(42 as bigint), 10)");
         assertQuery("SELECT iceberg.system.bucket(cast('test' as varchar), 5) = iceberg.system.bucket(cast('test' as varchar), 5)");
         assertQuery("SELECT iceberg.system.bucket(cast('2023-01-01' as date), 7) = iceberg.system.bucket(cast('2023-01-01' as date), 7)");
+    }
+
+    @Test
+    public void testBucketFunctionWithNationTable()
+    {
+        // Test bucket function with nationkey column (bigint)
+        assertQuery("SELECT iceberg.system.bucket(nationkey, 5) FROM nation WHERE nationkey < 3 ORDER BY nationkey");
+        assertQuery("SELECT iceberg.system.bucket(nationkey, 10) FROM nation WHERE nationkey BETWEEN 5 AND 10 ORDER BY nationkey");
+        assertQuery("SELECT COUNT(DISTINCT iceberg.system.bucket(nationkey, 8)) FROM nation");
+        
+        // Test bucket function with name column (varchar)
+        assertQuery("SELECT iceberg.system.bucket(name, 7) FROM nation WHERE nationkey < 5 ORDER BY nationkey");
+        assertQuery("SELECT iceberg.system.bucket(UPPER(name), 6) FROM nation WHERE nationkey IN (0, 1, 2) ORDER BY nationkey");
+        assertQuery("SELECT COUNT(DISTINCT iceberg.system.bucket(name, 10)) FROM nation");
+        
+        // Test bucket function with regionkey column (bigint)
+        assertQuery("SELECT iceberg.system.bucket(regionkey, 3) FROM nation WHERE nationkey < 5 ORDER BY nationkey");
+        assertQuery("SELECT DISTINCT iceberg.system.bucket(regionkey, 5) FROM nation ORDER BY 1");
+        
+        // Test grouping by bucket
+        assertQuery("SELECT iceberg.system.bucket(nationkey, 5) as bucket, COUNT(*) FROM nation GROUP BY 1 ORDER BY 1");
+        assertQuery("SELECT iceberg.system.bucket(regionkey, 3) as bucket, COUNT(*) FROM nation GROUP BY 1 ORDER BY 1");
+        
+        // Test filtering by bucket result
+        assertQuery("SELECT nationkey FROM nation WHERE iceberg.system.bucket(nationkey, 10) = 0 ORDER BY nationkey");
+        assertQuery("SELECT name FROM nation WHERE iceberg.system.bucket(nationkey, 5) < 3 ORDER BY nationkey");
+        
+        // Test with aggregations
+        assertQuery("SELECT AVG(nationkey) FROM nation WHERE iceberg.system.bucket(nationkey, 4) = 1");
+        assertQuery("SELECT MIN(nationkey), MAX(nationkey) FROM nation WHERE iceberg.system.bucket(regionkey, 2) = 0");
+        
+        // Test bucket consistency with same values
+        assertQuery(
+                "SELECT COUNT(*) FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.nationkey " +
+                "WHERE iceberg.system.bucket(n1.nationkey, 10) = iceberg.system.bucket(n2.nationkey, 10)",
+                "SELECT COUNT(*) FROM nation");
     }
 }
