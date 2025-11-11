@@ -332,6 +332,7 @@ public class PrestoNativeQueryRunnerUtils
         private Map<String, String> extraConnectorProperties = new HashMap<>();
         private Optional<String> remoteFunctionServerUds = Optional.empty();
         private boolean addStorageFormatToPath;
+        private boolean coordinatorSidecarEnabled = false;
         // External worker launcher is applicable only for the native iceberg query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -370,6 +371,15 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public IcebergQueryRunnerBuilder setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+        {
+            this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
+            if (coordinatorSidecarEnabled) {
+                this.extraProperties.putAll(getNativeSidecarProperties());
+            }
+            return this;
+        }
+
         public IcebergQueryRunnerBuilder setUseThrift(boolean useThrift)
         {
             this.extraProperties
@@ -383,7 +393,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, coordinatorSidecarEnabled, false, false, false, false);
             }
             return IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
