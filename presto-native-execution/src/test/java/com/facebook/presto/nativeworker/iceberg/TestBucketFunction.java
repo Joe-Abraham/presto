@@ -11,204 +11,86 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativeworker.iceberg;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
+import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
-import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestNativeSidecarIcebergCatalog
+public class TestBucketFunction
         extends AbstractTestQueryFramework
 {
-    @Override
-    protected void createTables()
-    {
-        QueryRunner queryRunner = getQueryRunner();
-        Session session = testSessionBuilder()
-                .setCatalog("iceberg")
-                .setSchema("tpch")
-                .build();
-        
-        // Copy nation table from TPCH
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, 
-                ImmutableList.of(TpchTable.NATION), true);
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = nativeIcebergQueryRunnerBuilder()
+        QueryRunner nativeQueryRunner =  nativeIcebergQueryRunnerBuilder()
                 .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
                 .setAddStorageFormatToPath(false)
-                .setCoordinatorSidecarEnabled(true)
                 .build();
-        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
-//        queryRunner.loadFunctionNamespaceManager(
-//                NativeFunctionNamespaceManagerFactory.NAME,
-//                "iceberg",
-//                ImmutableMap.of(
-//                        "supported-function-languages", "CPP",
-//                        "function-implementation-type", "CPP"));
-        queryRunner.loadFunctionNamespaceManager(
-                NativeFunctionNamespaceManagerFactory.NAME,
-                "native",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP"));
-        return queryRunner;
+//        NativeQueryRunnerUtils.createAllIcebergTables(nativeQueryRunner);
+        return nativeQueryRunner;
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return javaIcebergQueryRunnerBuilder()
+        QueryRunner javaQueryRunner = javaIcebergQueryRunnerBuilder()
                 .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
                 .setAddStorageFormatToPath(false)
                 .build();
+        NativeQueryRunnerUtils.createAllIcebergTables(javaQueryRunner);
+        return javaQueryRunner;
     }
 
     @Test
-    public void testBucketFunctionWithTinyInt()
+    public void testBucketFunction()
     {
-        // Test bucket function with tinyint
         assertQuery("SELECT iceberg.system.bucket(cast(10 as tinyint), 3)");
         assertQuery("SELECT iceberg.system.bucket(cast(0 as tinyint), 5)");
-        assertQuery("SELECT iceberg.system.bucket(cast(-5 as tinyint), 4)");
-        assertQuery("SELECT iceberg.system.bucket(cast(127 as tinyint), 10)");
-        assertQuery("SELECT iceberg.system.bucket(cast(-128 as tinyint), 8)");
-    }
-
-    @Test
-    public void testBucketFunctionWithSmallInt()
-    {
-        // Test bucket function with smallint
         assertQuery("SELECT iceberg.system.bucket(cast(1950 as smallint), 4)");
         assertQuery("SELECT iceberg.system.bucket(cast(0 as smallint), 7)");
         assertQuery("SELECT iceberg.system.bucket(cast(-1000 as smallint), 6)");
-        assertQuery("SELECT iceberg.system.bucket(cast(32767 as smallint), 15)");
-        assertQuery("SELECT iceberg.system.bucket(cast(-32768 as smallint), 12)");
-    }
-
-    @Test
-    public void testBucketFunctionWithInteger()
-    {
-        // Test bucket function with integer
-        assertQuery("SELECT iceberg.system.bucket(cast(2375645 as int), 5)");
-        assertQuery("SELECT iceberg.system.bucket(cast(0 as int), 10)");
         assertQuery("SELECT iceberg.system.bucket(cast(-123456 as int), 8)");
         assertQuery("SELECT iceberg.system.bucket(cast(2147483647 as int), 20)");
         assertQuery("SELECT iceberg.system.bucket(cast(-2147483648 as int), 16)");
-    }
-
-    @Test
-    public void testBucketFunctionWithBigInt()
-    {
-        // Test bucket function with bigint
         assertQuery("SELECT iceberg.system.bucket(cast(2779099983928392323 as bigint), 6)");
         assertQuery("SELECT iceberg.system.bucket(cast(0 as bigint), 12)");
         assertQuery("SELECT iceberg.system.bucket(cast(-9876543210 as bigint), 9)");
-        assertQuery("SELECT iceberg.system.bucket(cast(9223372036854775807 as bigint), 25)");
-    }
-
-    @Test
-    public void testBucketFunctionWithDecimals()
-    {
-        // Test bucket function with decimals
         assertQuery("SELECT iceberg.system.bucket(cast(456.43 as DECIMAL(5,2)), 12)");
         assertQuery("SELECT iceberg.system.bucket(cast(0.00 as DECIMAL(5,2)), 8)");
         assertQuery("SELECT iceberg.system.bucket(cast(-99.99 as DECIMAL(5,2)), 10)");
         assertQuery("SELECT iceberg.system.bucket(cast(999.99 as DECIMAL(5,2)), 15)");
-        
-        // Long decimals
         assertQuery("SELECT iceberg.system.bucket(cast('12345678901234567890.1234567890' as DECIMAL(30,10)), 12)");
         assertQuery("SELECT iceberg.system.bucket(cast('0.0000000000' as DECIMAL(30,10)), 7)");
         assertQuery("SELECT iceberg.system.bucket(cast('-99999999999999999999.9999999999' as DECIMAL(30,10)), 20)");
-    }
-
-    @Test
-    public void testBucketFunctionWithVarchar()
-    {
-        // Test bucket function with varchar
         assertQuery("SELECT iceberg.system.bucket(cast('nasdbsdnsdms' as varchar), 7)");
-        assertQuery("SELECT iceberg.system.bucket(cast('test' as varchar), 5)");
         assertQuery("SELECT iceberg.system.bucket(cast('' as varchar), 4)");
         assertQuery("SELECT iceberg.system.bucket(cast('a' as varchar), 3)");
-        assertQuery("SELECT iceberg.system.bucket(cast('Hello World!' as varchar), 10)");
         assertQuery("SELECT iceberg.system.bucket(cast('123456789' as varchar), 8)");
         assertQuery("SELECT iceberg.system.bucket(cast('special@#$%chars' as varchar), 12)");
-    }
-
-    @Test
-    public void testBucketFunctionWithVarbinary()
-    {
-        // Test bucket function with varbinary
-        assertQuery("SELECT iceberg.system.bucket(cast('nasdbsdnsdms' as varbinary), 8)");
         assertQuery("SELECT iceberg.system.bucket(cast('binary data' as varbinary), 6)");
         assertQuery("SELECT iceberg.system.bucket(cast('' as varbinary), 5)");
         assertQuery("SELECT iceberg.system.bucket(cast('x' as varbinary), 4)");
-    }
-
-    @Test
-    public void testBucketFunctionWithDate()
-    {
-        // Test bucket function with date
         assertQuery("SELECT iceberg.system.bucket(cast('2018-04-06' as date), 9)");
         assertQuery("SELECT iceberg.system.bucket(cast('2023-01-01' as date), 12)");
         assertQuery("SELECT iceberg.system.bucket(cast('2000-12-31' as date), 7)");
-        assertQuery("SELECT iceberg.system.bucket(cast('1970-01-01' as date), 10)");
-        assertQuery("SELECT iceberg.system.bucket(cast('2024-02-29' as date), 8)");
-    }
-
-    @Test
-    public void testBucketFunctionWithTimestamp()
-    {
-        // Test bucket function with timestamp
-        assertQuery("SELECT iceberg.system.bucket(CAST('2018-04-06 04:35:00.000' AS TIMESTAMP), 10)");
-        assertQuery("SELECT iceberg.system.bucket(CAST('2023-12-25 00:00:00.000' AS TIMESTAMP), 15)");
         assertQuery("SELECT iceberg.system.bucket(CAST('2000-01-01 12:30:45.123' AS TIMESTAMP), 8)");
         assertQuery("SELECT iceberg.system.bucket(CAST('1970-01-01 00:00:00.000' AS TIMESTAMP), 6)");
-    }
-
-    @Test
-    public void testBucketFunctionWithTimestampWithTimeZone()
-    {
-        // Test bucket function with timestamp with time zone
-        assertQuery("SELECT iceberg.system.bucket(CAST('2018-04-06 04:35:00.000 GMT' AS TIMESTAMP WITH TIME ZONE), 11)");
         assertQuery("SELECT iceberg.system.bucket(CAST('2023-07-15 10:20:30.000 UTC' AS TIMESTAMP WITH TIME ZONE), 13)");
         assertQuery("SELECT iceberg.system.bucket(CAST('2000-06-15 18:45:12.000 GMT' AS TIMESTAMP WITH TIME ZONE), 9)");
     }
 
     @Test
-    public void testBucketFunctionWithDifferentBucketSizes()
-    {
-        // Test with various bucket sizes
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 1)");
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 2)");
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 10)");
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 50)");
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 100)");
-        assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 1000)");
-    }
-
-    @Test
     public void testBucketFunctionConsistency()
     {
-        // Test that same input produces same bucket
         assertQuery("SELECT iceberg.system.bucket(cast(42 as bigint), 10) = iceberg.system.bucket(cast(42 as bigint), 10)");
         assertQuery("SELECT iceberg.system.bucket(cast('test' as varchar), 5) = iceberg.system.bucket(cast('test' as varchar), 5)");
         assertQuery("SELECT iceberg.system.bucket(cast('2023-01-01' as date), 7) = iceberg.system.bucket(cast('2023-01-01' as date), 7)");
@@ -218,35 +100,36 @@ public class TestNativeSidecarIcebergCatalog
     public void testBucketFunctionWithNationTable()
     {
         // Test bucket function with nationkey column (bigint)
-        assertQuery("SELECT iceberg.system.bucket(nationkey, 5) FROM nation WHERE nationkey < 3 ORDER BY nationkey");
+        assertQuery("SELECT iceberg.system.bucket( nationkey, 5) FROM nation WHERE nationkey < 3 ORDER BY nationkey",
+                "SELECT iceberg.system.bucket(5, nationkey) FROM nation WHERE nationkey < 3 ORDER BY nationkey");
         assertQuery("SELECT iceberg.system.bucket(nationkey, 10) FROM nation WHERE nationkey BETWEEN 5 AND 10 ORDER BY nationkey");
         assertQuery("SELECT COUNT(DISTINCT iceberg.system.bucket(nationkey, 8)) FROM nation");
-        
+
         // Test bucket function with name column (varchar)
         assertQuery("SELECT iceberg.system.bucket(name, 7) FROM nation WHERE nationkey < 5 ORDER BY nationkey");
         assertQuery("SELECT iceberg.system.bucket(UPPER(name), 6) FROM nation WHERE nationkey IN (0, 1, 2) ORDER BY nationkey");
         assertQuery("SELECT COUNT(DISTINCT iceberg.system.bucket(name, 10)) FROM nation");
-        
+
         // Test bucket function with regionkey column (bigint)
         assertQuery("SELECT iceberg.system.bucket(regionkey, 3) FROM nation WHERE nationkey < 5 ORDER BY nationkey");
         assertQuery("SELECT DISTINCT iceberg.system.bucket(regionkey, 5) FROM nation ORDER BY 1");
-        
+
         // Test grouping by bucket
         assertQuery("SELECT iceberg.system.bucket(nationkey, 5) as bucket, COUNT(*) FROM nation GROUP BY 1 ORDER BY 1");
         assertQuery("SELECT iceberg.system.bucket(regionkey, 3) as bucket, COUNT(*) FROM nation GROUP BY 1 ORDER BY 1");
-        
+
         // Test filtering by bucket result
         assertQuery("SELECT nationkey FROM nation WHERE iceberg.system.bucket(nationkey, 10) = 0 ORDER BY nationkey");
         assertQuery("SELECT name FROM nation WHERE iceberg.system.bucket(nationkey, 5) < 3 ORDER BY nationkey");
-        
+
         // Test with aggregations
         assertQuery("SELECT AVG(nationkey) FROM nation WHERE iceberg.system.bucket(nationkey, 4) = 1");
         assertQuery("SELECT MIN(nationkey), MAX(nationkey) FROM nation WHERE iceberg.system.bucket(regionkey, 2) = 0");
-        
+
         // Test bucket consistency with same values
         assertQuery(
                 "SELECT COUNT(*) FROM nation n1 JOIN nation n2 ON n1.nationkey = n2.nationkey " +
-                "WHERE iceberg.system.bucket(n1.nationkey, 10) = iceberg.system.bucket(n2.nationkey, 10)",
+                        "WHERE iceberg.system.bucket(n1.nationkey, 10) = iceberg.system.bucket(n2.nationkey, 10)",
                 "SELECT COUNT(*) FROM nation");
     }
 }

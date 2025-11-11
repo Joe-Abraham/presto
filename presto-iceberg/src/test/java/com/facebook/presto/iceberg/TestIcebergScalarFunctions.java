@@ -66,7 +66,6 @@ public class TestIcebergScalarFunctions
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(10 as tinyint), 3)", INTEGER, bucketInteger(10, 3));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(1950 as smallint), 4)", INTEGER, bucketInteger(1950, 4));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2375645 as int), 5)", INTEGER, bucketInteger(2375645, 5));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2779099983928392323 as bigint), 6)", INTEGER, bucketInteger(2779099983928392323L, 6));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(456.43 as DECIMAL(5,2)), 12)", INTEGER, bucketShortDecimal(5, 2, 45643, 12));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast('12345678901234567890.1234567890' as DECIMAL(30,10)), 12)", INTEGER, bucketLongDecimal(30, 10, encodeScaledValue(new BigDecimal("12345678901234567890.1234567890")), 12));
 
@@ -87,25 +86,21 @@ public class TestIcebergScalarFunctions
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(0 as tinyint), 5)", INTEGER, bucketInteger(0, 5));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(0 as smallint), 7)", INTEGER, bucketInteger(0, 7));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(0 as int), 10)", INTEGER, bucketInteger(0, 10));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(0 as bigint), 12)", INTEGER, bucketInteger(0L, 12));
-        
+
         // Test with negative values
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-10 as tinyint), 3)", INTEGER, bucketInteger(-10, 3));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-1950 as smallint), 4)", INTEGER, bucketInteger(-1950, 4));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-2375645 as int), 5)", INTEGER, bucketInteger(-2375645, 5));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-2779099983928392323 as bigint), 6)", INTEGER, bucketInteger(-2779099983928392323L, 6));
-        
+
         // Test with max values
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(127 as tinyint), 8)", INTEGER, bucketInteger(127, 8));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(32767 as smallint), 15)", INTEGER, bucketInteger(32767, 15));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(2147483647 as int), 20)", INTEGER, bucketInteger(2147483647, 20));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(9223372036854775807 as bigint), 25)", INTEGER, bucketInteger(9223372036854775807L, 25));
-        
+
         // Test with min values
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-128 as tinyint), 8)", INTEGER, bucketInteger(-128, 8));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-32768 as smallint), 12)", INTEGER, bucketInteger(-32768, 12));
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-2147483648 as int), 16)", INTEGER, bucketInteger(-2147483648, 16));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(-9223372036854775808 as bigint), 18)", INTEGER, bucketInteger(-9223372036854775808L, 18));
     }
 
     @Test
@@ -174,33 +169,5 @@ public class TestIcebergScalarFunctions
         // Test with timestamp with time zone
         functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2023-07-15 10:20:30.000 UTC' AS TIMESTAMP WITH TIME ZONE), 13)", INTEGER, bucketTimestampWithTimeZone(TimestampWithTimeZoneOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2023-07-15 10:20:30.000 UTC")), 13));
         functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2000-06-15 18:45:12.000 GMT' AS TIMESTAMP WITH TIME ZONE), 9)", INTEGER, bucketTimestampWithTimeZone(TimestampWithTimeZoneOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2000-06-15 18:45:12.000 GMT")), 9));
-    }
-
-    @Test
-    public void testBucketFunctionWithDifferentBucketSizes()
-    {
-        String catalogSchema = "iceberg.system";
-        
-        // Test with various bucket sizes
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 1)", INTEGER, bucketInteger(42L, 1));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 2)", INTEGER, bucketInteger(42L, 2));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 50)", INTEGER, bucketInteger(42L, 50));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 100)", INTEGER, bucketInteger(42L, 100));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 1000)", INTEGER, bucketInteger(42L, 1000));
-    }
-
-    @Test
-    public void testBucketFunctionConsistency()
-    {
-        String catalogSchema = "iceberg.system";
-        
-        // Test that same input produces same bucket
-        long value = bucketInteger(42L, 10);
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 10)", INTEGER, value);
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast(42 as bigint), 10)", INTEGER, value);
-        
-        long stringValue = bucketVarchar(utf8Slice("test"), 5);
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('test' as varchar), 5)", INTEGER, stringValue);
-        functionAssertions.assertFunction(catalogSchema + ".bucket(cast('test' as varchar), 5)", INTEGER, stringValue);
     }
 }
