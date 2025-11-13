@@ -77,121 +77,39 @@ option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" ON)
 
 ### System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         SQL Query                                    │
-│            SELECT remote.default.strlen('hello')                     │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Presto Coordinator                                │
-│  • Parses SQL                                                        │
-│  • Creates RestFunctionHandle with:                                  │
-│    - functionId: "remote.default.strlen;varchar"                     │
-│    - location: "http://function-server:8081"                         │
-│    - signatures: [varchar -> integer]                                │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │ (distributes to workers)
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Presto Native Worker                              │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 1. EXPRESSION CONVERSION (PrestoToVeloxExpr)                  │  │
-│  │    • Detects RestFunctionHandle in expression tree            │  │
-│  │    • Extracts function metadata                               │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-│                      │                                               │
-│                      ▼                                               │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 2. REGISTRATION (PrestoRestFunctionRegistration)              │  │
-│  │                                                                │  │
-│  │    [Thread-Safe Registration Logic]                           │  │
-│  │    ┌─────────────────────────────────────────┐                │  │
-│  │    │ static std::mutex mutex                 │                │  │
-│  │    │ static std::unordered_set<string>       │                │  │
-│  │    │        registeredFunctionHandles        │                │  │
-│  │    │ static std::unordered_map<string, Ptr>  │                │  │
-│  │    │        remoteClients (one per location) │                │  │
-│  │    └─────────────────────────────────────────┘                │  │
-│  │                                                                │  │
-│  │    Steps:                                                      │  │
-│  │    a) Parse functionId → "remote.default.strlen"              │  │
-│  │    b) Build URL → http://...:8081/v1/function/remote.defa...  │  │
-│  │    c) Get or create RestRemoteClient for location             │  │
-│  │    d) Convert Presto Signature → Velox FunctionSignature      │  │
-│  │    e) Register RestRemoteFunction with Velox                  │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-│                      │                                               │
-│                      ▼                                               │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 3. EXECUTION (RestRemoteFunction)                             │  │
-│  │    • Velox calls function during query execution              │  │
-│  │    • Function serializes input vectors → Presto Page format   │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-│                      │                                               │
-│                      ▼                                               │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 4. HTTP REQUEST (RestRemoteClient)                            │  │
-│  │    • Constructs POST request                                  │  │
-│  │    • Headers:                                                 │  │
-│  │      - Content-Type: application/vnd.presto.page              │  │
-│  │      - Content-Length: <size>                                 │  │
-│  │    • Body: Serialized input data                              │  │
-│  │    • Timeout: Uses exchange-request-timeout-ms config         │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-└────────────────────────┼──────────────────────────────────────────┘
-                         │ HTTP POST
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                  Remote Function Server                              │
-│                  (e.g., http://function-server:8081)                 │
-│                                                                      │
-│  POST /v1/function/remote.default.strlen                             │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 1. Route to handler (based on function name)                  │  │
-│  └───────────┬──────────────────────────────────────────────────┘  │
-│              ▼                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 2. Deserialize request (Presto Page → Velox Vectors)          │  │
-│  └───────────┬──────────────────────────────────────────────────┘  │
-│              ▼                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 3. Execute function logic                                     │  │
-│  │    strlen("hello") → 5                                         │  │
-│  └───────────┬──────────────────────────────────────────────────┘  │
-│              ▼                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 4. Serialize result (Velox Vectors → Presto Page)             │  │
-│  └───────────┬──────────────────────────────────────────────────┘  │
-│              ▼                                                       │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ 5. Return HTTP 200 with result in body                        │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │ HTTP Response
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Presto Native Worker                              │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ RestRemoteClient receives response                            │  │
-│  │ • Validates HTTP status (must be 2xx)                          │  │
-│  │ • Extracts response body                                       │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-│                      ▼                                               │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │ RestRemoteFunction deserializes result                        │  │
-│  │ • Presto Page → Velox Vectors                                  │  │
-│  │ • Returns to Velox execution engine                           │  │
-│  └───────────────────┬──────────────────────────────────────────┘  │
-└────────────────────────┼──────────────────────────────────────────┘
-                         │
-                         ▼
-                    Query Result: 5
+```mermaid
+graph TD
+    A[SQL Query<br/>SELECT remote.default.strlen'hello'] --> B[Presto Coordinator]
+    B -->|Parses SQL<br/>Creates RestFunctionHandle| C[Presto Native Worker]
+    
+    subgraph Worker["Presto Native Worker"]
+        C --> D[1. Expression Conversion<br/>PrestoToVeloxExpr]
+        D -->|Detects RestFunctionHandle<br/>Extracts metadata| E[2. Registration<br/>PrestoRestFunctionRegistration]
+        
+        E -->|Thread-Safe Logic:<br/>• Parse functionId<br/>• Build URL<br/>• Get/Create RestRemoteClient<br/>• Convert Signature<br/>• Register with Velox| F[3. Execution<br/>RestRemoteFunction]
+        
+        F -->|Serialize input vectors<br/>to Presto Page| G[4. HTTP Request<br/>RestRemoteClient]
+    end
+    
+    G -->|POST /v1/function/remote.default.strlen<br/>Content-Type: application/vnd.presto.page| H[Remote Function Server]
+    
+    subgraph Server["Remote Function Server http://function-server:8081"]
+        H --> I[1. Route to Handler]
+        I --> J[2. Deserialize Request<br/>Presto Page → Velox Vectors]
+        J --> K[3. Execute Function<br/>strlen'hello' → 5]
+        K --> L[4. Serialize Result<br/>Velox Vectors → Presto Page]
+        L --> M[5. Return HTTP 200]
+    end
+    
+    M -->|HTTP Response<br/>with result| N[RestRemoteClient<br/>validates response]
+    N --> O[RestRemoteFunction<br/>deserializes result]
+    O --> P[Velox Execution Engine]
+    P --> Q[Query Result: 5]
+    
+    style Worker fill:#e1f5ff
+    style Server fill:#fff4e1
+    style B fill:#d4edda
+    style Q fill:#d4edda
 ```
 
 ### Component Interaction Details
@@ -203,18 +121,16 @@ option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" ON)
 **Role**: Entry point that detects remote functions
 
 **Interaction Flow**:
-```cpp
-CallExpression received from coordinator
-    ↓
-Check if functionHandle is RestFunctionHandle
-    ↓ YES
-Extract: functionId, location, signatures
-    ↓
-Call registerRestRemoteFunction(restFunctionHandle)
-    ↓
-Create CallTypedExpr with function name
-    ↓
-Return to Velox for execution
+```mermaid
+flowchart TD
+    A[CallExpression received<br/>from coordinator] --> B{functionHandle is<br/>RestFunctionHandle?}
+    B -->|YES| C[Extract:<br/>functionId, location, signatures]
+    C --> D[Call registerRestRemoteFunction<br/>restFunctionHandle]
+    D --> E[Create CallTypedExpr<br/>with function name]
+    E --> F[Return to Velox<br/>for execution]
+    
+    style A fill:#e1f5ff
+    style F fill:#d4edda
 ```
 
 **Key Code**:
@@ -248,38 +164,30 @@ else if (auto restFunctionHandle =
 **Role**: Thread-safe function registration and client management
 
 **Interaction Flow**:
-```
-RestFunctionHandle received
-    ↓
-Acquire global mutex lock
-    ↓
-Generate unique key from function metadata
-    ↓
-Check if already registered? ──YES──> Return (done)
-    ↓ NO
-Extract location URL
-    ↓
-Get RestRemoteClient from cache?
-    ↓ NO → Create new RestRemoteClient
-    ↓ YES → Reuse existing client
-    ↓
-Parse functionId → extract function name
-    ↓
-URL-encode function name
-    ↓
-Build full URL: {location}/v1/function/{encoded-name}
-    ↓
-Convert Presto Signature → Velox FunctionSignaturePtr
-    ↓
-Create VeloxRemoteFunctionMetadata with:
-    • location (full URL)
-    • serdeFormat (from config)
-    ↓
-Call registerVeloxRemoteFunction()
-    ↓
-Add to registeredFunctionHandles set
-    ↓
-Release mutex lock
+```mermaid
+flowchart TD
+    A[RestFunctionHandle received] --> B[Acquire global mutex lock]
+    B --> C[Generate unique key from<br/>function metadata]
+    C --> D{Already<br/>registered?}
+    D -->|YES| E[Return done]
+    D -->|NO| F[Extract location URL]
+    F --> G{RestRemoteClient<br/>in cache?}
+    G -->|NO| H[Create new<br/>RestRemoteClient]
+    G -->|YES| I[Reuse existing client]
+    H --> J[Store in remoteClients map]
+    I --> J
+    J --> K[Parse functionId →<br/>extract function name]
+    K --> L[URL-encode function name]
+    L --> M[Build full URL:<br/>location/v1/function/encoded-name]
+    M --> N[Convert Presto Signature →<br/>Velox FunctionSignaturePtr]
+    N --> O[Create VeloxRemoteFunctionMetadata<br/>with location & serdeFormat]
+    O --> P[Call registerVeloxRemoteFunction]
+    P --> Q[Add to registeredFunctionHandles set]
+    Q --> R[Release mutex lock]
+    
+    style A fill:#e1f5ff
+    style E fill:#d4edda
+    style R fill:#d4edda
 ```
 
 **Key Data Structures**:
@@ -316,43 +224,38 @@ static std::unordered_map<std::string, RestRemoteClientPtr> remoteClients;
 **Role**: HTTP communication with remote servers
 
 **Lifecycle**:
-```
-Construction:
-    ↓
-Parse URL → extract host, port, scheme
-    ↓
-Create dedicated EventBase thread
-    ↓
-Initialize Proxygen HTTP client with:
-    • endpoint (host, port, isHttps)
-    • timeouts (from config)
-    • memory pool
-    ↓
-Client ready for requests
-
-On invokeFunction():
-    ↓
-Clone request payload (IOBuf)
-    ↓
-Set Content-Type header based on serdeFormat
-    ↓
-Send POST request on EventBase thread
-    ↓
-Wait for response (with timeout)
-    ↓
-Validate HTTP status code (2xx required)
-    ↓
-Extract response body
-    ↓
-Return IOBuf to caller
-
-Destruction:
-    ↓
-Schedule client cleanup on EventBase thread
-    ↓
-Wait for cleanup completion
-    ↓
-Destroy EventBase thread
+```mermaid
+flowchart TD
+    subgraph Construction
+        A[Start Construction] --> B[Parse URL →<br/>extract host, port, scheme]
+        B --> C[Create dedicated<br/>EventBase thread]
+        C --> D[Initialize Proxygen HTTP client<br/>endpoint, timeouts, memory pool]
+        D --> E[Client ready for requests]
+    end
+    
+    subgraph "invokeFunction()"
+        F[Start invokeFunction] --> G[Clone request payload IOBuf]
+        G --> H[Set Content-Type header<br/>based on serdeFormat]
+        H --> I[Send POST request<br/>on EventBase thread]
+        I --> J[Wait for response<br/>with timeout]
+        J --> K[Validate HTTP status code<br/>2xx required]
+        K --> L[Extract response body]
+        L --> M[Return IOBuf to caller]
+    end
+    
+    subgraph Destruction
+        N[Start Destruction] --> O[Schedule client cleanup<br/>on EventBase thread]
+        O --> P[Wait for cleanup completion]
+        P --> Q[Destroy EventBase thread]
+    end
+    
+    E -.->|ready for calls| F
+    M -.->|can be called again| F
+    E -.->|when done| N
+    
+    style E fill:#d4edda
+    style M fill:#d4edda
+    style Q fill:#d4edda
 ```
 
 **Key Features**:
@@ -394,26 +297,20 @@ Content-Length: 567
 **Role**: Velox-compatible function that delegates to HTTP
 
 **Execution Flow**:
-```
-Velox calls apply() with input vectors
-    ↓
-Base class serializes inputs → RemoteFunctionRequest
-    ↓
-Call invokeRemoteFunction() [overridden method]
-    ↓
-Extract payload from request
-    ↓
-Clone IOBuf (for thread safety)
-    ↓
-Call restClient_->invokeFunction(location, format, payload)
-    ↓ [Component 3 handles HTTP]
-Receive response IOBuf
-    ↓
-Wrap in RemoteFunctionResponse
-    ↓
-Base class deserializes → output vectors
-    ↓
-Return to Velox
+```mermaid
+flowchart TD
+    A[Velox calls apply<br/>with input vectors] --> B[Base class serializes inputs →<br/>RemoteFunctionRequest]
+    B --> C[Call invokeRemoteFunction<br/>overridden method]
+    C --> D[Extract payload from request]
+    D --> E[Clone IOBuf<br/>for thread safety]
+    E --> F[Call restClient_->invokeFunction<br/>location, format, payload]
+    F -->|Component 3<br/>handles HTTP| G[Receive response IOBuf]
+    G --> H[Wrap in RemoteFunctionResponse]
+    H --> I[Base class deserializes →<br/>output vectors]
+    I --> J[Return to Velox]
+    
+    style A fill:#e1f5ff
+    style J fill:#d4edda
 ```
 
 **Key Code**:
@@ -458,59 +355,40 @@ private:
 
 #### Registration Phase (One-time per function)
 
-```
-[Coordinator] 
-    ↓ RestFunctionHandle
-[PrestoToVeloxExpr] ──────────┐
-    ↓                         │
-    │ registerRestRemoteFunction()
-    ↓                         │
-[PrestoRestFunctionRegistration]
-    ↓                         │
-    │ Check cache             │
-    ↓                         │
-    ├─ Create RestRemoteClient (if new location)
-    │  Store in remoteClients map
-    ↓                         │
-    │ Build signatures        │
-    ↓                         │
-    │ registerVeloxRemoteFunction()
-    ↓                         │
-[Velox Function Registry] ◀───┘
-    • Stores factory for RestRemoteFunction
-    • Associates name → factory
+```mermaid
+flowchart TD
+    A[Coordinator] -->|RestFunctionHandle| B[PrestoToVeloxExpr]
+    B -->|registerRestRemoteFunction| C[PrestoRestFunctionRegistration]
+    C --> D{Check cache}
+    D -->|New location| E[Create RestRemoteClient]
+    E --> F[Store in remoteClients map]
+    D -->|Exists| F
+    F --> G[Build signatures]
+    G --> H[registerVeloxRemoteFunction]
+    H --> I[Velox Function Registry]
+    I --> J[Stores factory for<br/>RestRemoteFunction<br/>Associates name → factory]
+    
+    style A fill:#e1f5ff
+    style J fill:#d4edda
 ```
 
 #### Execution Phase (Per function call)
 
-```
-[Query Execution]
-    ↓
-[Velox] looks up "remote.default.strlen"
-    ↓
-[Velox] creates RestRemoteFunction instance
-    ↓
-[Velox] calls apply(inputVectors)
-    ↓
-[RestRemoteFunction] serializes inputs
-    ↓
-    │ invokeFunction(location, format, payload)
-    ↓
-[RestRemoteClient]
-    ↓
-    │ POST /v1/function/...
-    ↓
-[Remote Server] processes request
-    ↓
-    │ HTTP 200 + result
-    ↓
-[RestRemoteClient] validates response
-    ↓
-[RestRemoteFunction] deserializes result
-    ↓
-[Velox] receives output vectors
-    ↓
-[Query Result]
+```mermaid
+flowchart TD
+    A[Query Execution] --> B[Velox looks up<br/>'remote.default.strlen']
+    B --> C[Velox creates<br/>RestRemoteFunction instance]
+    C --> D[Velox calls apply<br/>inputVectors]
+    D --> E[RestRemoteFunction<br/>serializes inputs]
+    E -->|invokeFunction<br/>location, format, payload| F[RestRemoteClient]
+    F -->|POST /v1/function/...| G[Remote Server<br/>processes request]
+    G -->|HTTP 200 + result| H[RestRemoteClient<br/>validates response]
+    H --> I[RestRemoteFunction<br/>deserializes result]
+    I --> J[Velox receives<br/>output vectors]
+    J --> K[Query Result]
+    
+    style A fill:#e1f5ff
+    style K fill:#d4edda
 ```
 
 ---
@@ -755,22 +633,26 @@ private:
 
 ### Test Pyramid
 
-```
-        ┌─────────────────┐
-        │   E2E Tests     │  ← Full system with Docker
-        │  (Java/Docker)  │     • Real SQL queries
-        └────────┬────────┘     • Actual HTTP calls
-                 │
-        ┌────────▼────────┐
-        │ Integration     │  ← C++ with test server
-        │     Tests       │     • Mock HTTP server
-        └────────┬────────┘     • Real serialization
-                 │
-        ┌────────▼────────┐
-        │  Unit Tests     │  ← Component isolation
-        │                 │     • Registration logic
-        └─────────────────┘     • URL building
-                                • Thread safety
+```mermaid
+graph TD
+    subgraph "E2E Tests (Java/Docker)"
+        A[Full system with Docker<br/>• Real SQL queries<br/>• Actual HTTP calls]
+    end
+    
+    subgraph "Integration Tests (C++)"
+        B[C++ with test server<br/>• Mock HTTP server<br/>• Real serialization]
+    end
+    
+    subgraph "Unit Tests (C++)"
+        C[Component isolation<br/>• Registration logic<br/>• URL building<br/>• Thread safety]
+    end
+    
+    A --> B
+    B --> C
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#d4edda
 ```
 
 ### Test Coverage
