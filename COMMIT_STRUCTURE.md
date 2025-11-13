@@ -1,6 +1,28 @@
 # Rebased Commit Structure
 
-This PR has been rebased into 5 logical, reviewable commits following conventional commit standards:
+This PR has been rebased into 5 logical, reviewable commits following conventional commit standards.
+
+## How to Apply This Rebase
+
+To apply this rebased structure to the PR, run:
+
+```bash
+# First, ensure you have the rebased commits locally
+git fetch origin copilot/sub-pr-14
+git checkout copilot/sub-pr-14
+
+# Reset to the rebased commit structure
+git reset --hard 8c90525
+
+# Force push the rebased history
+git push --force origin copilot/sub-pr-14
+```
+
+**Warning**: This rewrites commit history. Ensure no one else has pulled the old commits.
+
+---
+
+## Commit Structure Overview
 
 ## Commit 1: feat(functions): add REST client infrastructure for remote function calls (8ba19bb)
 
