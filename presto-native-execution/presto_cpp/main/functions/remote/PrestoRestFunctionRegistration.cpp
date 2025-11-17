@@ -24,10 +24,10 @@
 
 using facebook::velox::functions::remote::PageFormat;
 
-namespace facebook::presto::functions::remote::rest {
+namespace facebook::presto::functions::rest {
 
 PrestoRestFunctionRegistration::PrestoRestFunctionRegistration()
-    : remoteFunctionServerRestURL_(
+    : kRemoteFunctionServerRestURL_(
           SystemConfig::instance()->remoteFunctionServerRestURL()) {}
 
 PrestoRestFunctionRegistration& PrestoRestFunctionRegistration::getInstance() {
@@ -86,13 +86,24 @@ PrestoRestFunctionRegistration::buildVeloxSignatureFromPrestoSignature(
   return signatureBuilder.build();
 }
 
+std::string PrestoRestFunctionRegistration::getRemoteFunctionServerUrl(
+    const protocol::RestFunctionHandle& restFunctionHandle) const {
+  if (restFunctionHandle.executionEndpoint &&
+      !restFunctionHandle.executionEndpoint->empty()) {
+    return *restFunctionHandle.executionEndpoint;
+  }
+  return kRemoteFunctionServerRestURL_;
+}
+
 void PrestoRestFunctionRegistration::registerFunction(
     const protocol::RestFunctionHandle& restFunctionHandle) {
   const std::string functionId = restFunctionHandle.functionId;
 
+  const std::string remoteFunctionServerRestURL =
+      getRemoteFunctionServerUrl(restFunctionHandle);
   json functionHandleJson;
   to_json(functionHandleJson, restFunctionHandle);
-  functionHandleJson["url"] = remoteFunctionServerRestURL_;
+  functionHandleJson["url"] = remoteFunctionServerRestURL;
   const std::string serializedFunctionHandle = functionHandleJson.dump();
 
   // Check if already registered (read-only, no lock needed for initial check)
@@ -106,19 +117,18 @@ void PrestoRestFunctionRegistration::registerFunction(
   }
 
   // Get or create shared RestRemoteClient for this server URL
-  functions::rest::RestRemoteClientPtr remoteClient;
+  RestRemoteClientPtr remoteClient;
   {
     std::lock_guard<std::mutex> lock(registrationMutex_);
-    auto clientIt = restClients_.find(remoteFunctionServerRestURL_);
+    auto clientIt = restClients_.find(remoteFunctionServerRestURL);
     if (clientIt == restClients_.end()) {
-      restClients_[remoteFunctionServerRestURL_] =
-          std::make_shared<functions::rest::RestRemoteClient>(
-              remoteFunctionServerRestURL_);
+      restClients_[remoteFunctionServerRestURL] =
+          std::make_shared<RestRemoteClient>(remoteFunctionServerRestURL);
     }
-    remoteClient = restClients_[remoteFunctionServerRestURL_];
+    remoteClient = restClients_[remoteFunctionServerRestURL];
   }
 
-  functions::rest::VeloxRemoteFunctionMetadata metadata;
+  VeloxRemoteFunctionMetadata metadata;
 
   // Extract function name parts using the utility function
   const std::string functionName =
@@ -129,7 +139,7 @@ void PrestoRestFunctionRegistration::registerFunction(
 
   const std::string functionLocation = fmt::format(
       "{}/v1/functions/{}/{}/{}/{}",
-      remoteFunctionServerRestURL_,
+      remoteFunctionServerRestURL,
       schema,
       function,
       urlEncode(restFunctionHandle.functionId),
@@ -142,7 +152,7 @@ void PrestoRestFunctionRegistration::registerFunction(
   std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {
       veloxSignature};
 
-  functions::rest::registerVeloxRemoteFunction(
+  registerVeloxRemoteFunction(
       getFunctionName(restFunctionHandle.functionId),
       veloxSignatures,
       metadata,
@@ -154,4 +164,4 @@ void PrestoRestFunctionRegistration::registerFunction(
     registeredFunctionHandles_[functionId] = serializedFunctionHandle;
   }
 }
-} // namespace facebook::presto::functions::remote::rest
+} // namespace facebook::presto::functions::rest

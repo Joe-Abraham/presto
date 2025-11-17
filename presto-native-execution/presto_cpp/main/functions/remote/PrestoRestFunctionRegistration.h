@@ -18,11 +18,13 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+
+#include "presto_cpp/main/functions/remote/RestRemoteFunction.h"
 #include "presto_cpp/main/functions/remote/client/RestRemoteClient.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/expression/FunctionSignature.h"
 
-namespace facebook::presto::functions::remote::rest {
+namespace facebook::presto::functions::rest {
 
 /// Manages registration of REST-based remote functions in Velox.
 /// This class provides a thread-safe singleton interface for registering
@@ -72,6 +74,13 @@ class PrestoRestFunctionRegistration {
   buildVeloxSignatureFromPrestoSignature(
       const protocol::Signature& prestoSignature);
 
+  /// Resolves the remote function server URL from the function handle.
+  /// @param restFunctionHandle The Presto REST function handle that may
+  ///        contain an execution endpoint.
+  /// @return The resolved remote function server URL.
+  std::string getRemoteFunctionServerUrl(
+      const protocol::RestFunctionHandle& restFunctionHandle) const;
+
   /// Mutex for thread-safe registration operations.
   std::mutex registrationMutex_;
 
@@ -79,10 +88,28 @@ class PrestoRestFunctionRegistration {
   std::unordered_map<std::string, std::string> registeredFunctionHandles_;
 
   /// Map of REST server URLs to their corresponding client instances.
-  std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
-      restClients_;
+  std::unordered_map<std::string, RestRemoteClientPtr> restClients_;
 
   /// The base URL for the remote function server REST API.
-  const std::string remoteFunctionServerRestURL_;
+  const std::string kRemoteFunctionServerRestURL_;
+
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlWithExecutionEndpoint);
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlWithEmptyExecutionEndpoint);
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlWithoutExecutionEndpoint);
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlConsistency);
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlWithDifferentProtocols);
+  VELOX_FRIEND_TEST(
+      PrestoRestFunctionRegistrationTest,
+      getRemoteFunctionServerUrlWithComplexUrls);
 };
-} // namespace facebook::presto::functions::remote::rest
+} // namespace facebook::presto::functions::rest
