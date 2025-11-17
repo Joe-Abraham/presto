@@ -25,15 +25,17 @@
 using facebook::velox::functions::remote::PageFormat;
 
 namespace facebook::presto::functions::remote::rest {
-namespace {
-// Returns the serialization/deserialization format used by the remote function
-// server. The format is determined by the system configuration value
-// "remoteFunctionServerSerde". Supported formats:
-//   - "presto_page": Uses Presto page format.
-//   - "spark_unsafe_row": Uses Spark unsafe row format.
-// @return PageFormat enum value corresponding to the configured serde format.
-// @throws VeloxException if the configured format is unknown.
-PageFormat getSerdeFormat() {
+
+PrestoRestFunctionRegistration::PrestoRestFunctionRegistration()
+    : remoteFunctionServerRestURL_(
+          SystemConfig::instance()->remoteFunctionServerRestURL()) {}
+
+PrestoRestFunctionRegistration& PrestoRestFunctionRegistration::getInstance() {
+  static PrestoRestFunctionRegistration instance;
+  return instance;
+}
+
+PageFormat PrestoRestFunctionRegistration::getSerdeFormat() {
   static const auto serdeFormat =
       SystemConfig::instance()->remoteFunctionServerSerde();
   if (serdeFormat == "presto_page") {
@@ -46,17 +48,13 @@ PageFormat getSerdeFormat() {
   }
 }
 
-// Encodes a string for safe inclusion in a URL by escaping non-alphanumeric
-// characters using percent-encoding. Alphanumeric characters and '-', '_', '.',
-// '~' are left unchanged. All other characters are replaced with '%' followed
-// by their two-digit hexadecimal value.
-// @param value The input string to encode.
-// @return The URL-encoded string.
-std::string urlEncode(const std::string& value) {
+std::string PrestoRestFunctionRegistration::urlEncode(
+    const std::string& value) {
   return boost::urls::encode(value, boost::urls::unreserved_chars);
 }
 
-std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
+std::string PrestoRestFunctionRegistration::getFunctionName(
+    const protocol::SqlFunctionId& functionId) {
   // Example: "namespace.schema.function;TYPE;TYPE".
   const auto nameEnd = functionId.find(';');
   // Assuming the possibility of missing ';' if there are no function arguments.
@@ -64,13 +62,8 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
                                       : functionId;
 }
 
-// Constructs a Velox function signature from a Presto function signature. This
-// function translates type variable constraints, integer variable constraints,
-// return type, argument types, and variable arity from the Presto signature to
-// the corresponding Velox signature builder.
-// @param prestoSignature The Presto function signature to convert.
-// @return A pointer to the constructed Velox function signature.
-velox::exec::FunctionSignaturePtr buildVeloxSignatureFromPrestoSignature(
+velox::exec::FunctionSignaturePtr
+PrestoRestFunctionRegistration::buildVeloxSignatureFromPrestoSignature(
     const protocol::Signature& prestoSignature) {
   velox::exec::FunctionSignatureBuilder signatureBuilder;
 
@@ -93,29 +86,20 @@ velox::exec::FunctionSignaturePtr buildVeloxSignatureFromPrestoSignature(
   return signatureBuilder.build();
 }
 
-} // namespace
-
-void registerRestRemoteFunction(
+void PrestoRestFunctionRegistration::registerFunction(
     const protocol::RestFunctionHandle& restFunctionHandle) {
-  static std::mutex registrationMutex;
-  static std::unordered_map<std::string, std::string> registeredFunctionHandles;
-  static std::unordered_map<std::string, functions::rest::RestRemoteClientPtr>
-      restClient;
-  static const std::string remoteFunctionServerRestURL =
-      SystemConfig::instance()->remoteFunctionServerRestURL();
-
   const std::string functionId = restFunctionHandle.functionId;
 
   json functionHandleJson;
   to_json(functionHandleJson, restFunctionHandle);
-  functionHandleJson["url"] = remoteFunctionServerRestURL;
+  functionHandleJson["url"] = remoteFunctionServerRestURL_;
   const std::string serializedFunctionHandle = functionHandleJson.dump();
 
   // Check if already registered (read-only, no lock needed for initial check)
   {
-    std::lock_guard<std::mutex> lock(registrationMutex);
-    auto it = registeredFunctionHandles.find(functionId);
-    if (it != registeredFunctionHandles.end() &&
+    std::lock_guard<std::mutex> lock(registrationMutex_);
+    auto it = registeredFunctionHandles_.find(functionId);
+    if (it != registeredFunctionHandles_.end() &&
         it->second == serializedFunctionHandle) {
       return;
     }
@@ -124,14 +108,14 @@ void registerRestRemoteFunction(
   // Get or create shared RestRemoteClient for this server URL
   functions::rest::RestRemoteClientPtr remoteClient;
   {
-    std::lock_guard<std::mutex> lock(registrationMutex);
-    auto clientIt = restClient.find(remoteFunctionServerRestURL);
-    if (clientIt == restClient.end()) {
-      restClient[remoteFunctionServerRestURL] =
+    std::lock_guard<std::mutex> lock(registrationMutex_);
+    auto clientIt = restClients_.find(remoteFunctionServerRestURL_);
+    if (clientIt == restClients_.end()) {
+      restClients_[remoteFunctionServerRestURL_] =
           std::make_shared<functions::rest::RestRemoteClient>(
-              remoteFunctionServerRestURL);
+              remoteFunctionServerRestURL_);
     }
-    remoteClient = restClient[remoteFunctionServerRestURL];
+    remoteClient = restClients_[remoteFunctionServerRestURL_];
   }
 
   functions::rest::VeloxRemoteFunctionMetadata metadata;
@@ -145,7 +129,7 @@ void registerRestRemoteFunction(
 
   const std::string functionLocation = fmt::format(
       "{}/v1/functions/{}/{}/{}/{}",
-      remoteFunctionServerRestURL,
+      remoteFunctionServerRestURL_,
       schema,
       function,
       urlEncode(restFunctionHandle.functionId),
@@ -166,8 +150,8 @@ void registerRestRemoteFunction(
 
   // Update registration map
   {
-    std::lock_guard<std::mutex> lock(registrationMutex);
-    registeredFunctionHandles[functionId] = serializedFunctionHandle;
+    std::lock_guard<std::mutex> lock(registrationMutex_);
+    registeredFunctionHandles_[functionId] = serializedFunctionHandle;
   }
 }
 } // namespace facebook::presto::functions::remote::rest
