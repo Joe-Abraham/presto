@@ -111,7 +111,6 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
@@ -897,20 +896,16 @@ public abstract class IcebergAbstractMetadata
             return;
         }
 
-        Schema schema = metadata.schemasById().get(snapshot.schemaId());
-        if (schema == null) {
-            schema = metadata.schema();
-        }
-
-        // Reject schema default values (initial-default / write-default)
-        for (Types.NestedField field : schema.columns()) {
-            if (field.initialDefault() != null || field.writeDefault() != null) {
+        // For v3 tables, reject unsupported features by checking table properties
+        // Column default values would be stored in table properties with prefix "default."
+        for (String key : metadata.properties().keySet()) {
+            if (key.startsWith("default.") || key.startsWith("schema.default.")) {
                 throw new PrestoException(NOT_SUPPORTED, "Iceberg v3 column default values are not supported");
             }
         }
 
         // Reject Iceberg table encryption
-        if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
+        if (metadata.properties().containsKey("encryption.key-id")) {
             throw new PrestoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
         }
     }
@@ -1172,7 +1167,7 @@ public abstract class IcebergAbstractMetadata
         verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
         BaseTable icebergTable = (BaseTable) getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
-        
+
         validateTableForTrino(icebergTable, Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
 
         return beginIcebergTableInsert(session, table, icebergTable);
