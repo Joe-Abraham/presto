@@ -111,6 +111,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
@@ -843,6 +844,9 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
                     "Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
         }
+        if (formatVersion > 2) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg table updates for format version %s are not supported yet", formatVersion));
+        }
         validateTableMode(session, icebergTable);
         transaction = icebergTable.newTransaction();
 
@@ -875,6 +879,40 @@ public abstract class IcebergAbstractMetadata
                 ((IcebergMergeTableHandle) tableHandle).getInsertTableHandle();
 
         finishWrite(session, insertTableHandle, fragments, UPDATE_AFTER);
+    }
+
+    // TODO: Remove when Iceberg v3 is fully supported
+    private static void validateTableForTrino(BaseTable table, Optional<Long> tableSnapshotId)
+    {
+        Snapshot snapshot = tableSnapshotId
+                .map(table::snapshot)
+                .orElse(table.currentSnapshot());
+        if (snapshot == null) {
+            // empty table, nothing to validate
+            return;
+        }
+
+        org.apache.iceberg.TableMetadata metadata = table.operations().current();
+        if (metadata.formatVersion() < 3) {
+            return;
+        }
+
+        Schema schema = metadata.schemasById().get(snapshot.schemaId());
+        if (schema == null) {
+            schema = metadata.schema();
+        }
+
+        // Reject schema default values (initial-default / write-default)
+        for (Types.NestedField field : schema.columns()) {
+            if (field.initialDefault() != null || field.writeDefault() != null) {
+                throw new PrestoException(NOT_SUPPORTED, "Iceberg v3 column default values are not supported");
+            }
+        }
+
+        // Reject Iceberg table encryption
+        if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
+            throw new PrestoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
+        }
     }
 
     @Override
@@ -1132,8 +1170,10 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
-        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        BaseTable icebergTable = (BaseTable) getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
+        
+        validateTableForTrino(icebergTable, Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
 
         return beginIcebergTableInsert(session, table, icebergTable);
     }
@@ -1323,6 +1363,9 @@ public abstract class IcebergAbstractMetadata
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
             throw new PrestoException(NOT_SUPPORTED, format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE));
+        }
+        if (formatVersion > 2) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
         if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.");
@@ -1585,6 +1628,9 @@ public abstract class IcebergAbstractMetadata
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
             throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+        }
+        if (formatVersion > 2) {
+            throw new PrestoException(NOT_SUPPORTED, format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
         validateTableMode(session, icebergTable);
         transaction = icebergTable.newTransaction();

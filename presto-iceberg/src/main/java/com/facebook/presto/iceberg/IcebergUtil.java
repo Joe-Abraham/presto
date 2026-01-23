@@ -215,6 +215,8 @@ public final class IcebergUtil
 {
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 3;
+    public static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
     public static final long DOUBLE_POSITIVE_INFINITE = 0x7ff0000000000000L;
@@ -1174,7 +1176,12 @@ public final class IcebergUtil
     public static int parseFormatVersion(String formatVersion)
     {
         try {
-            return parseInt(formatVersion);
+            int version = parseInt(formatVersion);
+            if (version > FORMAT_VERSION_SUPPORT_MAX) {
+                throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                        format("Unable to support table format version %s (max supported version is %s)", version, FORMAT_VERSION_SUPPORT_MAX));
+            }
+            return version;
         }
         catch (NumberFormatException | IndexOutOfBoundsException e) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION, "Unable to parse user provided format version");

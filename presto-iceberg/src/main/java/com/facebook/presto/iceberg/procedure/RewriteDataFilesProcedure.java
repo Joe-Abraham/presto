@@ -123,6 +123,14 @@ public class RewriteDataFilesProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
+            
+            // Verify table version for optimize operations
+            int tableFormatVersion = ((org.apache.iceberg.BaseTable) icebergTable).operations().current().formatVersion();
+            if (tableFormatVersion > 2) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "rewrite_data_files is not supported for Iceberg table format version > %d. Table %s format version is %s.",
+                        2, icebergTable.name(), tableFormatVersion));
+            }
 
             SortOrder sortOrder = icebergTable.sortOrder();
             List<String> sortFieldStrings = ImmutableList.of();
