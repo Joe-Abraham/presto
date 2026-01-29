@@ -255,6 +255,20 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- The JitPack fork replaces the original hive-apache artifact, causing dependency analyzer confusion -->
+                        <ignoredUnusedDeclaredDependency>com.github.Joe-Abraham:presto-hive-apache</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                    <ignoredUsedUndeclaredDependencies>
+                        <!-- The original hive-apache comes as a transitive dependency but is replaced by the JitPack fork -->
+                        <ignoredUsedUndeclaredDependency>com.facebook.presto.hive:hive-apache:jar</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <executions>
                     <execution>

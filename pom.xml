@@ -1105,7 +1105,7 @@
             <dependency>
                 <groupId>com.github.Joe-Abraham</groupId>
                 <artifactId>presto-hive-apache</artifactId>
-                <version>iceberg1.10-SNAPSHOT</version>
+                <version>iceberg-java17-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
