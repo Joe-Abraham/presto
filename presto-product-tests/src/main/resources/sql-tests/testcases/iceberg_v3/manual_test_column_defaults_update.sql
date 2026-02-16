@@ -208,11 +208,48 @@ SHOW COLUMNS FROM iceberg.tpch.test_metadata_update_defaults;
 --    - Or create a new table without defaults and migrate data
 
 -- ============================================================================
--- CLEANUP (if table is still accessible)
+-- CLEANUP AND RESTORATION
 -- ============================================================================
 
--- Note: If the metadata has been updated with defaults, this cleanup may fail
--- DROP TABLE IF EXISTS iceberg.tpch.test_metadata_update_defaults;
+-- Note: If the metadata has been updated with defaults, this cleanup may fail.
+-- To restore table accessibility, you need to remove the default values from the schema.
+
+-- Method 1: Remove defaults using Java API
+/*
+Table table = catalog.loadTable(tableId);
+BaseTable baseTable = (BaseTable) table;
+TableOperations ops = baseTable.operations();
+TableMetadata current = ops.current();
+
+// Create schema without default values
+Schema cleanSchema = new Schema(
+    Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+    Types.NestedField.optional(2, "name", Types.StringType.get()),
+    Types.NestedField.optional(3, "status", Types.StringType.get()),
+    Types.NestedField.optional(4, "created_date", Types.DateType.get())
+);
+
+TableMetadata updated = current.updateSchema(cleanSchema, current.lastColumnId());
+ops.commit(current, updated);
+*/
+
+-- Method 2: Remove defaults using PyIceberg
+/*
+table = catalog.load_table(("tpch", "test_metadata_update_defaults"))
+
+clean_schema = Schema(
+    NestedField(field_id=1, name="id", field_type=IntegerType(), required=False),
+    NestedField(field_id=2, name="name", field_type=StringType(), required=False),
+    NestedField(field_id=3, name="status", field_type=StringType(), required=False),
+    NestedField(field_id=4, name="created_date", field_type=DateType(), required=False)
+)
+
+with table.update_schema() as update:
+    update.set_schema(clean_schema)
+*/
+
+-- After removing defaults, the table should be accessible again
+DROP TABLE IF EXISTS iceberg.tpch.test_metadata_update_defaults;
 
 -- ============================================================================
 -- ADDITIONAL NOTES

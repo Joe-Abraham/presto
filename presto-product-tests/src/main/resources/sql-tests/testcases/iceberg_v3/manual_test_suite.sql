@@ -202,7 +202,7 @@ DROP TABLE iceberg.tpch.test_v3_supported;
 -- Note: For comprehensive data type testing with v3 tables, see test_v3_data_types.sql
 -- which validates all Presto data types (primitive, string, temporal, UUID, and 
 -- complex types like ARRAY, MAP, ROW) work correctly with format version 3.
---
+-- 
 -- For manual testing of column default values (initial-default and write-default),
 -- see manual_test_column_defaults_update.sql which provides step-by-step instructions
 -- for updating table metadata externally and verifying Presto's error handling.
