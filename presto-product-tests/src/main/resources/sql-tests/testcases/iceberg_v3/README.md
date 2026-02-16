@@ -61,6 +61,26 @@ A complete test suite containing all tests in a single file for easy execution. 
 
 **Description**: This test documents the behavior when Presto encounters a v3 table created externally with column default values. Note: This requires external table creation as Presto does not support creating tables with default values.
 
+#### 5b. Manual Column Defaults Update (`manual_test_column_defaults_update.sql`)
+
+**Purpose**: Provide a comprehensive manual test case for updating Iceberg table metadata to include initial-default and write-default values.
+
+**Expected Error**: `"Iceberg v3 column default values are not supported"`
+
+**Description**: This comprehensive manual test case demonstrates:
+- How to create a v3 table in Presto
+- Multiple methods to update table metadata externally (Java API, PyIceberg, direct JSON edit)
+- Steps to verify Presto correctly detects and rejects tables with column defaults
+- Detailed explanations of initial-default vs write-default
+- Code examples in Java and Python for metadata updates
+
+This is a step-by-step guide for manual testing that includes:
+1. Creating a test table in Presto
+2. External metadata update procedures (3 different methods)
+3. Verification that Presto rejects the table after metadata update
+4. Understanding the error detection mechanism
+5. Cleanup procedures
+
 #### 6. Deletion Vectors (PUFFIN Format) (`test_deletion_vectors_puffin.sql`)
 
 **Purpose**: Document the expected error when reading v3 tables with PUFFIN deletion vectors.
