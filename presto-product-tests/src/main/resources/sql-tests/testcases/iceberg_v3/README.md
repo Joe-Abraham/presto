@@ -88,6 +88,16 @@ The test includes:
 - Testing partitioned tables with various data types
 - Testing edge cases (empty collections, max/min values, special floating point values)
 
+#### 8. Advanced Types (`test_v3_advanced_types.sql`)
+
+**Purpose**: Document behavior and workarounds for advanced/future types with v3 tables.
+
+**Description**: This test documents the current state of support for:
+- **UNKNOWN type**: Presto's special type for NULL values (supported)
+- **GEOMETRY type**: Geospatial types (not directly supported in Iceberg; workaround: use VARCHAR/VARBINARY)
+- **Timestamp with nanosecond precision**: Iceberg v3 feature (not yet exposed in Presto; currently uses microsecond precision)
+- **VARIANT type**: Future flexible schema type (not yet implemented; workaround: use VARCHAR with JSON functions)
+
 ## How to Run These Tests
 
 These SQL test cases are designed for manual execution and testing. 
@@ -116,6 +126,7 @@ You can run individual test files to test specific features:
    presto-cli --catalog iceberg --schema tpch -f test_merge_on_v3_table.sql
    presto-cli --catalog iceberg --schema tpch -f test_optimize_on_v3_table.sql
    presto-cli --catalog iceberg --schema tpch -f test_v3_data_types.sql
+   presto-cli --catalog iceberg --schema tpch -f test_v3_advanced_types.sql
    ```
 
 2. **Product Tests Framework**: These tests can be integrated into the Presto product tests framework using Tempto

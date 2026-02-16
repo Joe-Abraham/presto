@@ -236,4 +236,159 @@ public class TestIcebergV3
         Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
         return catalogDirectory.toFile();
     }
+
+    @Test
+    public void testV3TableWithComplexTypes()
+    {
+        String tableName = "test_v3_complex_types";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id integer, " +
+                    "name varchar, " +
+                    "scores array(integer), " +
+                    "metadata map(varchar, varchar), " +
+                    "details row(field1 integer, field2 varchar)) " +
+                    "WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, 'test1', ARRAY[10, 20, 30], MAP(ARRAY['key1'], ARRAY['value1']), ROW(100, 'detail1'))", 1);
+            assertQuery("SELECT id, name FROM " + tableName, "VALUES (1, 'test1')");
+            assertQuery("SELECT id, scores[1] FROM " + tableName, "VALUES (1, 10)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3TableWithTimestampTypes()
+    {
+        String tableName = "test_v3_timestamp_types";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id integer, " +
+                    "event_time timestamp, " +
+                    "event_time_tz timestamp with time zone) " +
+                    "WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, TIMESTAMP '2024-01-15 10:30:45.123456', TIMESTAMP '2024-01-15 10:30:45.123456 UTC')", 1);
+            assertQuery("SELECT id FROM " + tableName + " WHERE event_time = TIMESTAMP '2024-01-15 10:30:45.123456'", 
+                    "VALUES (1)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3TableWithAllPrimitiveTypes()
+    {
+        String tableName = "test_v3_all_primitives";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "col_boolean boolean, " +
+                    "col_integer integer, " +
+                    "col_bigint bigint, " +
+                    "col_real real, " +
+                    "col_double double, " +
+                    "col_decimal decimal(10,2), " +
+                    "col_varchar varchar, " +
+                    "col_varbinary varbinary, " +
+                    "col_date date, " +
+                    "col_time time, " +
+                    "col_timestamp timestamp) " +
+                    "WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" +
+                    "true, 42, 9223372036854775807, REAL '3.14', 2.718, DECIMAL '123.45', " +
+                    "'test', X'DEADBEEF', DATE '2024-01-15', TIME '14:30:00', TIMESTAMP '2024-01-15 14:30:00')", 1);
+            assertQuery("SELECT col_boolean, col_integer FROM " + tableName, "VALUES (true, 42)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3TableWithNullValues()
+    {
+        String tableName = "test_v3_nulls";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id integer, " +
+                    "nullable_int integer, " +
+                    "nullable_varchar varchar, " +
+                    "nullable_array array(integer)) " +
+                    "WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL, NULL, NULL)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 100, 'value', ARRAY[1, 2])", 1);
+            assertQuery("SELECT id FROM " + tableName + " WHERE nullable_int IS NULL", "VALUES (1)");
+            assertQuery("SELECT id FROM " + tableName + " WHERE nullable_int IS NOT NULL", "VALUES (2)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3TableWithNestedComplexTypes()
+    {
+        String tableName = "test_v3_nested_complex";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id integer, " +
+                    "nested_array array(array(integer)), " +
+                    "nested_map map(varchar, array(integer)), " +
+                    "nested_row row(field1 varchar, field2 array(integer))) " +
+                    "WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" +
+                    "1, " +
+                    "ARRAY[ARRAY[1, 2], ARRAY[3, 4]], " +
+                    "MAP(ARRAY['key1'], ARRAY[ARRAY[10, 20]]), " +
+                    "ROW('text', ARRAY[100, 200]))", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES (1)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3TableWithPartitionedComplexTypes()
+    {
+        String tableName = "test_v3_partitioned_complex";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id integer, " +
+                    "category varchar, " +
+                    "data array(integer), " +
+                    "created_date date) " +
+                    "WITH (\"format-version\" = '3', partitioning = ARRAY['category'])");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, 'A', ARRAY[1, 2, 3], DATE '2024-01-01'), " +
+                    "(2, 'B', ARRAY[4, 5, 6], DATE '2024-01-02'), " +
+                    "(3, 'A', ARRAY[7, 8, 9], DATE '2024-01-03')", 3);
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'A' ORDER BY id", 
+                    "VALUES (1), (3)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 }
