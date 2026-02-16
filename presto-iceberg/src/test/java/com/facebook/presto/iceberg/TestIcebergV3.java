@@ -264,8 +264,8 @@ public class TestIcebergV3
             assertEquals(currentMetadata.formatVersion(), 3);
             
             // Note: To add column defaults, external tools would need to:
-            // 1. Create new Schema with NestedField.optional(...).withInitialDefault(...).withWriteDefault(...)
-            // 2. Update metadata: TableMetadata updated = current.updateSchema(newSchema, lastColumnId)
+            // 1. Create new Schema with NestedField configurations that include defaults
+            // 2. Build updated metadata: TableMetadata.buildFrom(current).setCurrentSchema(newSchema).build()
             // 3. Commit changes: operations.commit(current, updated)
             // 4. After that, Presto queries would fail with "Iceberg v3 column default values are not supported"
             

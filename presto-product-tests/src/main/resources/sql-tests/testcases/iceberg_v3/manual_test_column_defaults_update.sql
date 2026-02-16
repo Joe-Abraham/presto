@@ -68,9 +68,11 @@ TableMetadata current = ops.current();
 
 // Create a new schema with default values
 // Note: The exact API for setting defaults depends on Iceberg version
+// The following is conceptual pseudocode - actual implementation varies
 Schema newSchema = new Schema(
     Types.NestedField.optional(1, "id", Types.IntegerType.get()),
-    // In Iceberg 1.4+, use withInitialDefault and withWriteDefault
+    // In Iceberg 1.4+, configure fields with defaults before adding to schema
+    // Exact syntax may vary - this is illustrative
     Types.NestedField.optional(2, "name", Types.StringType.get())
         .withInitialDefault("default_name")
         .withWriteDefault("default_name"),
@@ -79,6 +81,14 @@ Schema newSchema = new Schema(
         .withWriteDefault("active"),
     Types.NestedField.optional(4, "created_date", Types.DateType.get())
 );
+
+// Alternative approach - build fields list first:
+// List<Types.NestedField> fields = Arrays.asList(
+//     Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+//     configureFieldWithDefaults(2, "name", ...),
+//     ...
+// );
+// Schema newSchema = new Schema(fields);
 
 // Update the table metadata with new schema
 // API may vary by version - consult Iceberg documentation for your version
