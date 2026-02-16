@@ -198,4 +198,8 @@ DROP TABLE iceberg.tpch.test_v3_supported;
 -- 3. MERGE on v3 tables: FAILS with "format version 3 are not supported yet"
 -- 4. OPTIMIZE on v3 tables: FAILS with "format version > 2" not supported
 -- 5. CREATE, INSERT, SELECT on v3 tables: WORKS successfully
+-- 
+-- Note: For comprehensive data type testing with v3 tables, see test_v3_data_types.sql
+-- which validates all Presto data types (primitive, string, temporal, UUID, and 
+-- complex types like ARRAY, MAP, ROW) work correctly with format version 3.
 -- ============================================================================

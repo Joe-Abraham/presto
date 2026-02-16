@@ -69,6 +69,25 @@ A complete test suite containing all tests in a single file for easy execution. 
 
 **Description**: This test documents the behavior when Presto encounters a v3 table with deletion vectors stored in PUFFIN format. Note: This requires external table creation with deletion vectors.
 
+#### 7. Data Types Support (`test_v3_data_types.sql`)
+
+**Purpose**: Verify that all Presto data types work correctly with Iceberg v3 tables.
+
+**Description**: This comprehensive test validates that v3 tables support all data types including:
+- **Primitive types**: BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL
+- **String types**: VARCHAR, CHAR, VARBINARY
+- **Temporal types**: DATE, TIME, TIMESTAMP, TIMESTAMP WITH TIME ZONE
+- **Special types**: UUID
+- **Complex types**: ARRAY, MAP, ROW (including nested structures)
+
+The test includes:
+- Creating v3 tables with all data types
+- Inserting and querying data for each type
+- Testing NULL values
+- Testing complex nested structures (nested arrays, maps, rows)
+- Testing partitioned tables with various data types
+- Testing edge cases (empty collections, max/min values, special floating point values)
+
 ## How to Run These Tests
 
 These SQL test cases are designed for manual execution and testing. 
@@ -96,6 +115,7 @@ You can run individual test files to test specific features:
    presto-cli --catalog iceberg --schema tpch -f test_update_on_v3_table.sql
    presto-cli --catalog iceberg --schema tpch -f test_merge_on_v3_table.sql
    presto-cli --catalog iceberg --schema tpch -f test_optimize_on_v3_table.sql
+   presto-cli --catalog iceberg --schema tpch -f test_v3_data_types.sql
    ```
 
 2. **Product Tests Framework**: These tests can be integrated into the Presto product tests framework using Tempto
@@ -143,6 +163,7 @@ While these tests focus on unsupported features, Iceberg v3 also includes featur
 - INSERT operations into v3 tables
 - SELECT queries from v3 tables
 - Partitioned v3 tables
+- **All standard Presto data types** (primitive, string, temporal, complex types)
 
 Other v3-specific features not currently supported:
 - Column default values (initial and write defaults)
