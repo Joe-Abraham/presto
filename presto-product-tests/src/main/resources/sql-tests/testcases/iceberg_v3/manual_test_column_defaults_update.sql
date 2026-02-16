@@ -3,6 +3,10 @@
 -- Expected behavior: Presto should return an error when attempting to read tables with column default values
 -- Expected error: "Iceberg v3 column default values are not supported"
 
+-- IMPORTANT NOTE: This is a manual test case providing conceptual guidance.
+-- The exact Iceberg API methods may vary depending on the Iceberg library version you are using.
+-- Always consult the Iceberg documentation for your specific version for accurate API usage.
+
 -- ============================================================================
 -- MANUAL TEST: Update Iceberg Table Metadata with Column Default Values
 -- ============================================================================
@@ -43,7 +47,7 @@ SELECT * FROM iceberg.tpch.test_metadata_update_defaults ORDER BY id;
 
 /*
 The following code snippets show how to update the table metadata externally
-using different Iceberg API approaches:
+using different Iceberg API approaches. Note: The exact API may vary by Iceberg version.
 
 -- METHOD A: Using Iceberg Java API --
 
@@ -63,8 +67,10 @@ TableOperations ops = baseTable.operations();
 TableMetadata current = ops.current();
 
 // Create a new schema with default values
+// Note: The exact API for setting defaults depends on Iceberg version
 Schema newSchema = new Schema(
     Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+    // In Iceberg 1.4+, use withInitialDefault and withWriteDefault
     Types.NestedField.optional(2, "name", Types.StringType.get())
         .withInitialDefault("default_name")
         .withWriteDefault("default_name"),
@@ -75,13 +81,15 @@ Schema newSchema = new Schema(
 );
 
 // Update the table metadata with new schema
-TableMetadata updated = current.updateSchema(newSchema, current.lastColumnId());
+// API may vary by version - consult Iceberg documentation for your version
+TableMetadata updated = TableMetadata.buildFrom(current)
+    .setCurrentSchema(newSchema)
+    .build();
 ops.commit(current, updated);
 
 -- METHOD B: Using PyIceberg (Python) --
 
 from pyiceberg.catalog import load_catalog
-from pyiceberg.schema import Schema
 from pyiceberg.types import NestedField, IntegerType, StringType, DateType
 
 # Load the catalog
@@ -93,31 +101,29 @@ catalog = load_catalog("my_catalog", **{
 # Load the table
 table = catalog.load_table(("tpch", "test_metadata_update_defaults"))
 
-# Create updated schema with default values
-new_schema = Schema(
-    NestedField(field_id=1, name="id", field_type=IntegerType(), required=False),
-    NestedField(
-        field_id=2, 
-        name="name", 
-        field_type=StringType(), 
-        required=False,
-        initial_default="default_name",
-        write_default="default_name"
-    ),
-    NestedField(
-        field_id=3, 
-        name="status", 
-        field_type=StringType(), 
-        required=False,
-        initial_default="pending",
-        write_default="active"
-    ),
-    NestedField(field_id=4, name="created_date", field_type=DateType(), required=False)
-)
+# Note: PyIceberg schema evolution API varies by version
+# The following is conceptual - consult PyIceberg docs for your version
+# Approach: Add columns with default values one at a time
 
-# Update the table with new schema
-with table.update_schema() as update:
-    update.set_schema(new_schema)
+# Example: Update existing column to have defaults (conceptual)
+# with table.update_schema() as update:
+#     # Remove old column
+#     update.drop_column("name")
+#     # Add back with defaults
+#     update.add_column(
+#         field=NestedField(
+#             field_id=2,
+#             name="name",
+#             field_type=StringType(),
+#             required=False,
+#             initial_default="default_name",
+#             write_default="default_name"
+#         )
+#     )
+
+# Alternative: Direct schema replacement (if supported by version)
+# This is version-dependent and may not be available
+# Check PyIceberg documentation for schema.update() or similar methods
 
 -- METHOD C: Direct Metadata File Edit (Advanced) --
 
@@ -229,23 +235,26 @@ Schema cleanSchema = new Schema(
     Types.NestedField.optional(4, "created_date", Types.DateType.get())
 );
 
-TableMetadata updated = current.updateSchema(cleanSchema, current.lastColumnId());
+// Build updated metadata without defaults
+TableMetadata updated = TableMetadata.buildFrom(current)
+    .setCurrentSchema(cleanSchema)
+    .build();
 ops.commit(current, updated);
 */
 
--- Method 2: Remove defaults using PyIceberg
+-- Method 2: Remove defaults using PyIceberg (conceptual)
 /*
+# Note: Exact API depends on PyIceberg version
 table = catalog.load_table(("tpch", "test_metadata_update_defaults"))
 
-clean_schema = Schema(
-    NestedField(field_id=1, name="id", field_type=IntegerType(), required=False),
-    NestedField(field_id=2, name="name", field_type=StringType(), required=False),
-    NestedField(field_id=3, name="status", field_type=StringType(), required=False),
-    NestedField(field_id=4, name="created_date", field_type=DateType(), required=False)
-)
+# Option: Drop and re-add columns without defaults
+# with table.update_schema() as update:
+#     update.drop_column("name")
+#     update.drop_column("status")
+#     update.add_column(field_id=2, name="name", field_type=StringType(), required=False)
+#     update.add_column(field_id=3, name="status", field_type=StringType(), required=False)
 
-with table.update_schema() as update:
-    update.set_schema(clean_schema)
+# Consult PyIceberg documentation for schema evolution methods in your version
 */
 
 -- After removing defaults, the table should be accessible again
