@@ -8,7 +8,7 @@ CREATE TABLE iceberg.tpch.test_v3_merge_target (
     name VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.update.mode" = 'merge-on-read'
 );
 

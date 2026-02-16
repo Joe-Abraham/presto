@@ -41,7 +41,7 @@ CREATE TABLE iceberg.tpch.test_v3_all_types (
     col_map MAP(VARCHAR, INTEGER),
     col_row ROW(field1 INTEGER, field2 VARCHAR, field3 DOUBLE)
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert test data covering all types
@@ -148,7 +148,7 @@ CREATE TABLE iceberg.tpch.test_v3_nested_types (
         row_field ROW(x INTEGER, y INTEGER)
     )
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert nested data
@@ -192,7 +192,7 @@ CREATE TABLE iceberg.tpch.test_v3_partitioned_types (
     tags ARRAY(VARCHAR),
     metadata MAP(VARCHAR, VARCHAR)
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     partitioning = ARRAY['category', 'bucket(id, 4)']
 );
 
@@ -238,7 +238,7 @@ CREATE TABLE iceberg.tpch.test_v3_edge_cases (
     special_double DOUBLE,
     negative_decimal DECIMAL(10, 2)
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert edge case values

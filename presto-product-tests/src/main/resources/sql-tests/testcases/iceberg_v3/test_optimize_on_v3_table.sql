@@ -8,7 +8,7 @@ CREATE TABLE iceberg.tpch.test_v3_optimize_table (
     category VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert multiple small files to create a scenario for optimization

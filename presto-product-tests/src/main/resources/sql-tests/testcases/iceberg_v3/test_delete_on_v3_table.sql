@@ -8,7 +8,7 @@ CREATE TABLE iceberg.tpch.test_v3_delete_table (
     name VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.delete.mode" = 'merge-on-read'
 );
 

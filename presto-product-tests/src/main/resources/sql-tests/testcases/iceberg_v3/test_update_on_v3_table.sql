@@ -9,7 +9,7 @@ CREATE TABLE iceberg.tpch.test_v3_update_table (
     status VARCHAR,
     score DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.update.mode" = 'merge-on-read'
 );
 

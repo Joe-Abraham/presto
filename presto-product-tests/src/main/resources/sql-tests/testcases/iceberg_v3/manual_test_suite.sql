@@ -23,7 +23,7 @@ CREATE TABLE iceberg.tpch.test_v3_delete (
     name VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.delete.mode" = 'merge-on-read'
 );
 
@@ -52,7 +52,7 @@ CREATE TABLE iceberg.tpch.test_v3_update (
     status VARCHAR,
     score DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.update.mode" = 'merge-on-read'
 );
 
@@ -82,7 +82,7 @@ CREATE TABLE iceberg.tpch.test_v3_merge_target (
     name VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     "write.update.mode" = 'merge-on-read'
 );
 
@@ -127,7 +127,7 @@ CREATE TABLE iceberg.tpch.test_v3_optimize (
     category VARCHAR,
     value DOUBLE
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert multiple times to create small files
@@ -156,7 +156,7 @@ CREATE TABLE iceberg.tpch.test_v3_supported (
     created_date DATE,
     amount DECIMAL(10,2)
 ) WITH (
-    format_version = '3',
+    "format-version" = '3',
     partitioning = ARRAY['created_date']
 );
 

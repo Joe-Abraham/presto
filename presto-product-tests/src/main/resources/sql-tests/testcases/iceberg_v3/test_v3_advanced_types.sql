@@ -12,7 +12,7 @@ CREATE TABLE iceberg.tpch.test_v3_unknown_type (
     name VARCHAR,
     unknown_col UNKNOWN
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert data with UNKNOWN column (always NULL)
@@ -46,7 +46,7 @@ DROP TABLE iceberg.tpch.test_v3_unknown_type;
 --     location VARCHAR,
 --     point_geom GEOMETRY
 -- ) WITH (
---     format_version = '3'
+--     "format-version" = '3'
 -- );
 
 -- If the above creation fails, it indicates that GEOMETRY types are not 
@@ -60,7 +60,7 @@ CREATE TABLE iceberg.tpch.test_v3_geometry_workaround (
     point_wkt VARCHAR,  -- Well-Known Text representation
     point_wkb VARBINARY -- Well-Known Binary representation
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert geometry data as text/binary
@@ -88,7 +88,7 @@ CREATE TABLE iceberg.tpch.test_v3_timestamp_precision (
     event_timestamp TIMESTAMP,
     event_timestamp_tz TIMESTAMP WITH TIME ZONE
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert timestamp data (microsecond precision)
@@ -123,7 +123,7 @@ DROP TABLE iceberg.tpch.test_v3_timestamp_precision;
 --     id INTEGER,
 --     json_data VARIANT
 -- ) WITH (
---     format_version = '3'
+--     "format-version" = '3'
 -- );
 
 -- Workaround: Use VARCHAR/JSON type for flexible schema data
@@ -132,7 +132,7 @@ CREATE TABLE iceberg.tpch.test_v3_json_workaround (
     name VARCHAR,
     metadata VARCHAR  -- Store JSON as string
 ) WITH (
-    format_version = '3'
+    "format-version" = '3'
 );
 
 -- Insert JSON-like data as strings
