@@ -84,9 +84,11 @@ public class TestIcebergColumnHandle
         assertTrue(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
         assertFalse(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isRowIdColumn());
 
-        // Verify these are not treated as metadata column IDs (they are row-level fields)
+        // Verify that _row_id is not a metadata column ID (it is computed per-row, not per-file)
         assertFalse(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
-        assertFalse(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
+        // Verify that _last_updated_sequence_number IS treated as a metadata column ID so that
+        // IcebergPartitionInsertingPageSource can inject it as a per-file constant
+        assertTrue(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)
