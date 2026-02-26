@@ -48,6 +48,7 @@ public enum IcebergMetadataColumn
             Stream.of(values()).map(IcebergMetadataColumn::getId),
             Stream.of(
                     MetadataColumns.SPEC_ID.fieldId(),
+                    MetadataColumns.ROW_ID.fieldId(),
                     MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId())).collect(toImmutableSet());
     private final int id;
     private final String columnName;
