@@ -2631,6 +2631,19 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testRowLineageHiddenColumns()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_row_lineage_hidden");
+        assertUpdate("CREATE TABLE test_row_lineage_hidden AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_row_lineage_hidden SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        // For non-V3 tables, _row_id and _last_updated_sequence_number return null
+        assertEquals(computeActual("SELECT \"_row_id\", * FROM test_row_lineage_hidden").getRowCount(), 2);
+        assertQuery("SELECT \"_row_id\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+        assertQuery("SELECT \"_last_updated_sequence_number\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+    }
+
+    @Test
     public void testDeleteWithSpecialCharacterColumnName()
     {
         assertUpdate("CREATE TABLE test_special_character_column_name (\"<age>\" int, name varchar)");
