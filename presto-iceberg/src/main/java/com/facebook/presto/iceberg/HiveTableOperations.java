@@ -488,7 +488,8 @@ public class HiveTableOperations
                             TableMetadataParser.read(fileIO, fileIO.newCachedInputFile(metadataLocation))));
         }
         catch (RuntimeException e) {
-            throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing", e);
+            throw new TableNotFoundException(getSchemaTableName(),
+                    format("Table metadata is missing. Failed to read metadata from %s: %s", newLocation, e.getMessage()), e);
         }
 
         if (newMetadata.get() == null) {
