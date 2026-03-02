@@ -450,23 +450,54 @@ public class IcebergUpdateablePageSource
 
     /**
      * Computes the _last_updated_sequence_number block. If the data file contains physical values
-     * (e.g. from a COW rewrite), those are used. Otherwise, uses the file's dataSequenceNumber.
+     * (e.g. from a COW rewrite), those are used. Null values within the block are replaced with
+     * the file's dataSequenceNumber (per the Iceberg spec, null means "set by the commit").
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeLastUpdatedSeqBlock(Page page)
     {
-        Block fileSeqBlock = page.getBlock(outputColumnToDelegateMapping[lastUpdatedSeqOutputIndex]);
-
-        // Check if the file provided non-null values (COW-rewritten files store per-row sequence numbers)
-        if (!isAllNull(fileSeqBlock)) {
-            return fileSeqBlock;
-        }
-
-        // Fallback: use the file's data sequence number for V3 tables, null for V1/V2
+        // V1/V2 table: return null for all rows
         if (firstRowId < 0) {
             return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
         }
-        return RunLengthEncodedBlock.create(BIGINT, dataSequenceNumber, page.getPositionCount());
+
+        Block fileSeqBlock = page.getBlock(outputColumnToDelegateMapping[lastUpdatedSeqOutputIndex]);
+
+        // If the file provided all non-null values, use them directly
+        if (!hasAnyNull(fileSeqBlock)) {
+            return fileSeqBlock;
+        }
+
+        // If the file provided all nulls, use the file's data sequence number for all rows
+        if (isAllNull(fileSeqBlock)) {
+            return RunLengthEncodedBlock.create(BIGINT, dataSequenceNumber, page.getPositionCount());
+        }
+
+        // Mixed case: COW file with some preserved values and some nulls (updated rows).
+        // Replace nulls with the file's dataSequenceNumber per the Iceberg spec.
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+        for (int i = 0; i < page.getPositionCount(); i++) {
+            if (fileSeqBlock.isNull(i)) {
+                BIGINT.writeLong(builder, dataSequenceNumber);
+            }
+            else {
+                BIGINT.writeLong(builder, BIGINT.getLong(fileSeqBlock, i));
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean hasAnyNull(Block block)
+    {
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0);
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isAllNull(Block block)
