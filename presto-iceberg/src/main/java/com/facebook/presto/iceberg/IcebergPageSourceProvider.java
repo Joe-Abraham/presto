@@ -759,7 +759,7 @@ public class IcebergPageSourceProvider
 
         // The update row id and merge target table row id aren't valid columns that can be read from storage.
         // _row_id and _last_updated_sequence_number are kept in columnsToReadFromStorage so that
-        // the Parquet/ORC reader can read them from the data file when present (e.g. COW-rewritten files).
+        // the Parquet/ORC reader can read them from the data file when present.
         // When absent, IcebergUpdateablePageSource applies fallback computation.
         Set<IcebergColumnHandle> columnsToReadFromStorage = icebergColumns.stream()
                 .filter(not(column -> column.isUpdateRowIdColumn() || column.isMergeTargetTableRowIdColumn()))

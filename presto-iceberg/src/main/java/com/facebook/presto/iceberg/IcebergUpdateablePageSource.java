@@ -421,8 +421,8 @@ public class IcebergUpdateablePageSource
     }
 
     /**
-     * Computes the _row_id block. If the data file contains physical _row_id values (e.g. from
-     * a COW rewrite), those are used. Otherwise, _row_id is computed as firstRowId + _pos.
+     * Computes the _row_id block. If the data file contains physical _row_id values,
+	 * those are used. Otherwise, _row_id is computed as firstRowId + _pos.
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeRowIdBlock(Page page)
