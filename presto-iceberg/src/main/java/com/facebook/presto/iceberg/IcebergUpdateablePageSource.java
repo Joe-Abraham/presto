@@ -450,8 +450,8 @@ public class IcebergUpdateablePageSource
 
     /**
      * Computes the _last_updated_sequence_number block. If the data file contains physical values
-     * (e.g. from a COW rewrite), those are used. Null values within the block are replaced with
-     * the file's dataSequenceNumber (per the Iceberg spec, null means "set by the commit").
+     * those are used. Null values within the block are replaced with the file's dataSequenceNumber
+	 * (per the Iceberg spec, null means "set by the commit").
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeLastUpdatedSeqBlock(Page page)
