@@ -1004,6 +1004,7 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         test.accept("1", "copy-on-write");
         test.accept("2", "merge-on-read");
+        test.accept("3", "merge-on-read");
     }
 
     @Test
@@ -2132,7 +2133,8 @@ public abstract class IcebergDistributedSmokeTestBase
         return new Object[][] {
                 {"1", "copy-on-write"},
                 {"1", "merge-on-read"},
-                {"2", "copy-on-write"}};
+                {"2", "copy-on-write"},
+                {"3", "copy-on-write"}};
     }
 
     @Test(dataProvider = "version_and_mode")
