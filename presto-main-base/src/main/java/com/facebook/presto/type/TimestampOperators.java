@@ -229,6 +229,13 @@ public final class TimestampOperators
         return AbstractLongType.hash(value);
     }
 
+    @ScalarOperator(CAST)
+    @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS)
+    public static long castToTimestampMicroseconds(@SqlType(StandardTypes.TIMESTAMP) long epochMillis)
+    {
+        return TimeUnit.MILLISECONDS.toMicros(epochMillis);
+    }
+
     @ScalarOperator(IS_DISTINCT_FROM)
     public static class TimestampDistinctFromOperator
     {

@@ -183,6 +183,70 @@ public final class DateTimeUtils
     }
 
     /**
+     * Returns true if the timestamp string has more than 3 fractional-second digits,
+     * indicating microsecond (or finer) precision.
+     */
+    public static boolean hasMicrosecondPrecision(String value)
+    {
+        int dotIndex = value.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return false;
+        }
+        int count = 0;
+        for (int i = dotIndex + 1; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                break;
+            }
+            count++;
+        }
+        return count > 3;
+    }
+
+    /**
+     * Parse a timestamp string (without time zone) to microseconds since epoch.
+     * Handles sub-millisecond precision that Joda Time's {@code parseMillis} would lose.
+     *
+     * @return epoch microseconds
+     */
+    public static long parseTimestampLiteralMicros(String value)
+    {
+        int dotIndex = value.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return TimeUnit.MILLISECONDS.toMicros(TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value));
+        }
+
+        // Extract the fractional-seconds digits (stop at any non-digit like timezone separator)
+        int end = dotIndex + 1;
+        while (end < value.length() && Character.isDigit(value.charAt(end))) {
+            end++;
+        }
+        String fracStr = value.substring(dotIndex + 1, end);
+
+        // Build a timestamp string with exactly 3 fractional digits for the millis parser.
+        // padTo3Digits truncates if longer, zero-pads if shorter.
+        String millisFrac = padTo3Digits(fracStr);
+        String millisValue = value.substring(0, dotIndex + 1) + millisFrac + value.substring(end);
+        long epochMillis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(millisValue);
+        long epochMicros = TimeUnit.MILLISECONDS.toMicros(epochMillis);
+
+        // Add the sub-millisecond part: digits at positions 3-5 of the fractional string,
+        // normalized to 3 digits, represent the extra microseconds (0-999) within the millisecond.
+        if (fracStr.length() > 3) {
+            epochMicros += Long.parseLong(padTo3Digits(fracStr.substring(3)));
+        }
+
+        return epochMicros;
+    }
+
+    /**
+     * Returns the first 3 characters of {@code s}, right-padded with '0' if shorter than 3.
+     */
+    private static String padTo3Digits(String s)
+    {
+        return (s + "000").substring(0, 3);
+    }
+
+    /**
      * Parse a string (optionally containing a zone) as a value of either TIMESTAMP or TIMESTAMP WITH TIME ZONE type.
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
      *

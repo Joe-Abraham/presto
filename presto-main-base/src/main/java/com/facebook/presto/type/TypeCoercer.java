@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -272,6 +273,8 @@ public class TypeCoercer
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                         return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
+                    case StandardTypes.TIMESTAMP_MICROSECONDS:
+                        return Optional.of(TIMESTAMP_MICROSECONDS);
                     default:
                         return Optional.empty();
                 }

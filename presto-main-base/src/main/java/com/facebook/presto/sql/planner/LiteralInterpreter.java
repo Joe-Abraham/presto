@@ -78,15 +78,17 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.DateTimeUtils.hasMicrosecondPrecision;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteralMicros;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
+import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class LiteralInterpreter
 {
@@ -147,11 +149,12 @@ public final class LiteralInterpreter
             return new SqlTime((long) node.getValue());
         }
         if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
             try {
                 if (properties.isLegacyTimestamp()) {
-                    return new SqlTimestamp((long) node.getValue(), properties.getTimeZoneKey(), MILLISECONDS);
+                    return new SqlTimestamp((long) node.getValue(), properties.getTimeZoneKey(), timestampType.getPrecision());
                 }
-                return new SqlTimestamp((long) node.getValue(), MILLISECONDS);
+                return new SqlTimestamp((long) node.getValue(), timestampType.getPrecision());
             }
             catch (RuntimeException e) {
                 throw new PrestoException(GENERIC_USER_ERROR, format("'%s' is not a valid timestamp literal", (String) node.getValue()));
@@ -286,6 +289,9 @@ public final class LiteralInterpreter
             try {
                 if (properties.isLegacyTimestamp()) {
                     return parseTimestampLiteral(properties.getTimeZoneKey(), node.getValue());
+                }
+                else if (!timestampHasTimeZone(node.getValue()) && hasMicrosecondPrecision(node.getValue())) {
+                    return parseTimestampLiteralMicros(node.getValue());
                 }
                 else {
                     return parseTimestampLiteral(node.getValue());
