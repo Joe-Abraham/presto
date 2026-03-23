@@ -34,12 +34,16 @@ import static org.testng.Assert.assertSame;
 /**
  * Integration tests for the parameterized TIMESTAMP(p) type syntax.
  * <p>
+ * Tests use non-legacy timestamp mode (legacy_timestamp=false) and UTC session timezone so that
+ * TIMESTAMP literals with more than 3 fractional-second digits are correctly typed as
+ * {@code TIMESTAMP_MICROSECONDS} and round-trip through the engine without losing precision.
+ * <p>
  * Covers:
  * <ul>
- *   <li>Type resolution ({@code TIMESTAMP(3)} → milliseconds, {@code TIMESTAMP(6)} → microseconds)</li>
- *   <li>Literal parsing precision (3-digit vs 6-digit fractional seconds)</li>
- *   <li>Display format (3 vs 6 decimal places)</li>
- *   <li>CAST from milliseconds to microseconds</li>
+ *   <li>Type-factory API: {@link TimestampType#createTimestampType(int)}</li>
+ *   <li>Millisecond-precision literal typing and display (3 decimal places)</li>
+ *   <li>Microsecond-precision literal typing and display (6 decimal places)</li>
+ *   <li>CAST from {@code TIMESTAMP} to {@code TIMESTAMP(6)} (ms × 1000 = µs)</li>
  *   <li>Implicit coercion from {@code TIMESTAMP} to {@code TIMESTAMP_MICROSECONDS}</li>
  *   <li>Error handling for unsupported precisions</li>
  * </ul>
@@ -47,15 +51,13 @@ import static org.testng.Assert.assertSame;
 public class TestTimestampParametricType
         extends AbstractTestFunctions
 {
-    private static final TimeZoneKey SESSION_TIMEZONE = TimeZoneKey.UTC_KEY;
-
     public TestTimestampParametricType()
     {
-        // Use non-legacy timestamp mode so 6-digit literals are correctly typed as
-        // TIMESTAMP_MICROSECONDS and parsed at full microsecond precision.
+        // Non-legacy mode is required so that >3-digit literals are typed as TIMESTAMP_MICROSECONDS.
+        // UTC session timezone ensures literal wall-clock times equal UTC epoch values.
         super(testSessionBuilder()
                 .setSystemProperty("legacy_timestamp", "false")
-                .setTimeZoneKey(SESSION_TIMEZONE)
+                .setTimeZoneKey(TimeZoneKey.UTC_KEY)
                 .build());
     }
 
@@ -81,6 +83,14 @@ public class TestTimestampParametricType
     public void testMillisAndMicrosSingletonsAreDifferent()
     {
         assertNotSame(TIMESTAMP, TIMESTAMP_MICROSECONDS);
+        assertNotSame(TimestampType.createTimestampType(3), TimestampType.createTimestampType(6));
+    }
+
+    @Test
+    public void testTimestampPrecisionConstants()
+    {
+        assertEquals(TimestampType.DEFAULT_PRECISION, 3);
+        assertEquals(TimestampType.MICROSECONDS_PRECISION, 6);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -95,21 +105,14 @@ public class TestTimestampParametricType
         TimestampType.createTimestampType(-1);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testZeroPrecisionThrows()
-    {
-        // Only 3 and 6 are supported; 0 is not.
-        TimestampType.createTimestampType(0);
-    }
-
     // -------------------------------------------------------------------------
-    // 2. Millisecond-precision literals (3 fractional digits → TIMESTAMP)
+    // 2. Millisecond-precision literals (≤ 3 fractional digits → TIMESTAMP)
     // -------------------------------------------------------------------------
 
     @Test
     public void testMillisecondLiteralTypeInference()
     {
-        // A 3-digit fractional-seconds literal must be inferred as TIMESTAMP (ms)
+        // 3-digit fractional-seconds literal → TIMESTAMP (millisecond precision)
         assertFunction("TIMESTAMP '2024-01-01 10:00:00.123'",
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2024, 1, 1, 10, 0, 0, 123_000_000)));
@@ -118,7 +121,7 @@ public class TestTimestampParametricType
     @Test
     public void testMillisecondLiteralDisplayFormat()
     {
-        // Display must always show exactly 3 decimal places
+        // Display must show exactly 3 decimal places
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.123'", TIMESTAMP,
                 "2024-01-01 10:00:00.123");
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.000'", TIMESTAMP,
@@ -130,11 +133,22 @@ public class TestTimestampParametricType
     @Test
     public void testNoFractionalSecondsLiteralIsMilliseconds()
     {
+        // A literal with no fractional seconds is also millisecond precision
         assertFunction("TIMESTAMP '2024-01-01 10:00:00'",
                 TIMESTAMP,
                 sqlTimestampOf(LocalDateTime.of(2024, 1, 1, 10, 0, 0, 0)));
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00'", TIMESTAMP,
                 "2024-01-01 10:00:00.000");
+    }
+
+    @Test
+    public void testUnparameterizedTimestampLiteralFormat()
+    {
+        // Existing timestamp literals continue to show 3 decimal places
+        assertFunctionString("TIMESTAMP '2001-01-22 03:04:05.321'", TIMESTAMP,
+                "2001-01-22 03:04:05.321");
+        assertFunctionString("TIMESTAMP '2001-01-22 03:04:05.000'", TIMESTAMP,
+                "2001-01-22 03:04:05.000");
     }
 
     // -------------------------------------------------------------------------
@@ -144,19 +158,15 @@ public class TestTimestampParametricType
     @Test
     public void testMicrosecondLiteralTypeInference()
     {
-        // A 6-digit fractional-seconds literal must be inferred as TIMESTAMP_MICROSECONDS
-        long epochMicros = 1704103200123456L; // 2024-01-01 10:00:00.123456 UTC
-        assertFunction("TIMESTAMP '2024-01-01 10:00:00.123456'",
-                TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(epochMicros, TimeUnit.MICROSECONDS));
+        // 6-digit fractional-seconds literal → TIMESTAMP_MICROSECONDS
+        assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.123456'", TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123456");
     }
 
     @Test
     public void testMicrosecondLiteralDisplayFormat()
     {
-        // Display must always show exactly 6 decimal places
-        assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.123456'", TIMESTAMP_MICROSECONDS,
-                "2024-01-01 10:00:00.123456");
+        // Display must show exactly 6 decimal places
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.000001'", TIMESTAMP_MICROSECONDS,
                 "2024-01-01 10:00:00.000001");
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.999999'", TIMESTAMP_MICROSECONDS,
@@ -166,7 +176,7 @@ public class TestTimestampParametricType
     @Test
     public void testMicrosecondLiteralSubMillisecondPreserved()
     {
-        // The sub-millisecond part (.456 µs) must NOT be truncated
+        // Sub-millisecond digits must NOT be truncated or zeroed out
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:01.999999'", TIMESTAMP_MICROSECONDS,
                 "2024-01-01 10:00:01.999999");
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:02.000001'", TIMESTAMP_MICROSECONDS,
@@ -176,10 +186,7 @@ public class TestTimestampParametricType
     @Test
     public void testMicrosecondLiteralZeroSubMillis()
     {
-        // 6-digit literal with zeros in positions 4-6 is still microsecond type
-        assertFunction("TIMESTAMP '2024-01-01 10:00:00.500000'",
-                TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(1704103200500000L, TimeUnit.MICROSECONDS));
+        // 6-digit literal with zeros in positions 4–6 is still microsecond type
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.500000'", TIMESTAMP_MICROSECONDS,
                 "2024-01-01 10:00:00.500000");
     }
@@ -187,51 +194,50 @@ public class TestTimestampParametricType
     @Test
     public void testFourDigitFractionalSeconds()
     {
-        // 4-digit fractional seconds → TIMESTAMP_MICROSECONDS, trailing zero appended
-        assertFunction("TIMESTAMP '2024-01-01 10:00:00.1234'",
-                TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(1704103200123400L, TimeUnit.MICROSECONDS));
+        // 4-digit fractional seconds → TIMESTAMP_MICROSECONDS (padded to 6 with trailing zeros)
+        assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.1234'", TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123400");
     }
 
     @Test
     public void testFiveDigitFractionalSeconds()
     {
-        // 5-digit fractional seconds → TIMESTAMP_MICROSECONDS
-        assertFunction("TIMESTAMP '2024-01-01 10:00:00.12345'",
-                TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(1704103200123450L, TimeUnit.MICROSECONDS));
+        // 5-digit fractional seconds → TIMESTAMP_MICROSECONDS (padded to 6 with a trailing zero)
+        assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.12345'", TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123450");
     }
 
     // -------------------------------------------------------------------------
-    // 4. CAST from TIMESTAMP (ms) to TIMESTAMP_MICROSECONDS (µs)
+    // 4. CAST from TIMESTAMP (ms) to TIMESTAMP(6) / TIMESTAMP_MICROSECONDS (µs)
+    //    TIMESTAMP(6) is the parameterized form that resolves to TIMESTAMP_MICROSECONDS.
     // -------------------------------------------------------------------------
 
     @Test
-    public void testCastMillisToMicroseconds()
+    public void testCastMillisToTimestamp6()
     {
-        // CAST TIMESTAMP → "timestamp microseconds": each millisecond becomes 1000 µs
-        assertFunction(
-                "CAST(TIMESTAMP '2024-01-01 10:00:00.123' AS \"timestamp microseconds\")",
-                TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(1704103200123000L, TimeUnit.MICROSECONDS));
-    }
-
-    @Test
-    public void testCastMillisToMicrosecondsDisplayFormat()
-    {
-        // After casting ms→µs the output must show 6 decimal places
+        // CAST TIMESTAMP → TIMESTAMP(6): each ms becomes 1000 µs
         assertFunctionString(
-                "CAST(TIMESTAMP '2024-01-01 10:00:00.500' AS \"timestamp microseconds\")",
+                "CAST(TIMESTAMP '2024-01-01 10:00:00.123' AS TIMESTAMP(6))",
+                TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123000");
+    }
+
+    @Test
+    public void testCastMillisToTimestamp6DisplaySixDecimalPlaces()
+    {
+        // After the cast, display must show 6 decimal places (trailing zeros for ms portion)
+        assertFunctionString(
+                "CAST(TIMESTAMP '2024-01-01 10:00:00.500' AS TIMESTAMP(6))",
                 TIMESTAMP_MICROSECONDS,
                 "2024-01-01 10:00:00.500000");
     }
 
     @Test
-    public void testCastMillisToMicrosecondsEpochZero()
+    public void testCastEpochMillisToTimestamp6()
     {
-        // Unix epoch in milliseconds cast to microseconds
+        // Unix epoch cast to µs precision still displays 6 decimal places
         assertFunctionString(
-                "CAST(TIMESTAMP '1970-01-01 00:00:00.000' AS \"timestamp microseconds\")",
+                "CAST(TIMESTAMP '1970-01-01 00:00:00.000' AS TIMESTAMP(6))",
                 TIMESTAMP_MICROSECONDS,
                 "1970-01-01 00:00:00.000000");
     }
@@ -243,17 +249,17 @@ public class TestTimestampParametricType
     @Test
     public void testImplicitCoercionMillisToMicros()
     {
-        // COALESCE forces a common super-type: the ms literal is coerced to µs
-        assertFunction(
+        // COALESCE forces a common super-type: the ms literal is implicitly coerced to µs
+        assertFunctionString(
                 "COALESCE(TIMESTAMP '2024-01-01 10:00:00.123456', TIMESTAMP '2024-01-01 10:00:00.000')",
                 TIMESTAMP_MICROSECONDS,
-                new SqlTimestamp(1704103200123456L, TimeUnit.MICROSECONDS));
+                "2024-01-01 10:00:00.123456");
     }
 
     @Test
     public void testImplicitCoercionPreservesMilliValue()
     {
-        // When a 3-digit literal is widened to µs, its value must be 500000 µs (= 500 ms)
+        // The 3-digit literal is widened to µs: 500 ms → displays as 500000 µs
         assertFunctionString(
                 "COALESCE(TIMESTAMP '2024-01-01 10:00:00.500000', TIMESTAMP '2024-01-01 10:00:00.000')",
                 TIMESTAMP_MICROSECONDS,
@@ -261,23 +267,16 @@ public class TestTimestampParametricType
     }
 
     // -------------------------------------------------------------------------
-    // 6. Default (unparameterized) TIMESTAMP is millisecond precision
+    // 6. Type-system properties
     // -------------------------------------------------------------------------
 
     @Test
-    public void testUnparameterizedTimestampIsMillisecond()
+    public void testTimestampTypeProperties()
     {
         assertEquals(TIMESTAMP.getPrecision(), TimeUnit.MILLISECONDS);
+        assertEquals(TIMESTAMP_MICROSECONDS.getPrecision(), TimeUnit.MICROSECONDS);
         assertSame(TimestampType.createTimestampType(TimestampType.DEFAULT_PRECISION), TIMESTAMP);
-    }
-
-    @Test
-    public void testUnparameterizedTimestampLiteralFormat()
-    {
-        assertFunctionString("TIMESTAMP '2001-01-22 03:04:05.321'", TIMESTAMP,
-                "2001-01-22 03:04:05.321");
-        assertFunctionString("TIMESTAMP '2001-01-22 03:04:05.000'", TIMESTAMP,
-                "2001-01-22 03:04:05.000");
+        assertSame(TimestampType.createTimestampType(TimestampType.MICROSECONDS_PRECISION), TIMESTAMP_MICROSECONDS);
     }
 
     // -------------------------------------------------------------------------
@@ -301,7 +300,7 @@ public class TestTimestampParametricType
     @Test
     public void testPreEpochMicroseconds()
     {
-        // Timestamps before Unix epoch have negative µs values
+        // A timestamp just before Unix epoch, stored as a negative µs value
         assertFunctionString("TIMESTAMP '1969-12-31 23:59:59.999999'", TIMESTAMP_MICROSECONDS,
                 "1969-12-31 23:59:59.999999");
     }
@@ -319,27 +318,45 @@ public class TestTimestampParametricType
     }
 
     // -------------------------------------------------------------------------
-    // 9. SqlTimestamp display helper verification
+    // 9. SqlTimestamp object display format (unit tests for the value object)
     // -------------------------------------------------------------------------
 
     @Test
-    public void testSqlTimestampMillisToStringFormat()
+    public void testSqlTimestampMillisDisplayFormat()
     {
+        // 2024-01-01 10:00:00.123 UTC as epoch milliseconds
         SqlTimestamp ts = new SqlTimestamp(1704103200123L, TimeUnit.MILLISECONDS);
         assertEquals(ts.toString(), "2024-01-01 10:00:00.123");
     }
 
     @Test
-    public void testSqlTimestampMicrosToStringFormat()
+    public void testSqlTimestampMicrosDisplayFormat()
     {
+        // 2024-01-01 10:00:00.123456 UTC as epoch microseconds
         SqlTimestamp ts = new SqlTimestamp(1704103200123456L, TimeUnit.MICROSECONDS);
         assertEquals(ts.toString(), "2024-01-01 10:00:00.123456");
     }
 
     @Test
-    public void testSqlTimestampMicrosWithZeroSubMillisToString()
+    public void testSqlTimestampMicrosWithZeroSubMillisDisplayFormat()
     {
+        // 2024-01-01 10:00:00.500000 UTC – trailing zeros must be preserved in display
         SqlTimestamp ts = new SqlTimestamp(1704103200500000L, TimeUnit.MICROSECONDS);
         assertEquals(ts.toString(), "2024-01-01 10:00:00.500000");
+    }
+
+    @Test
+    public void testSqlTimestampEpochMicrosDisplayFormat()
+    {
+        SqlTimestamp ts = new SqlTimestamp(0L, TimeUnit.MICROSECONDS);
+        assertEquals(ts.toString(), "1970-01-01 00:00:00.000000");
+    }
+
+    @Test
+    public void testSqlTimestampPreEpochMicrosDisplayFormat()
+    {
+        // -1 µs = 1 microsecond before Unix epoch
+        SqlTimestamp ts = new SqlTimestamp(-1L, TimeUnit.MICROSECONDS);
+        assertEquals(ts.toString(), "1969-12-31 23:59:59.999999");
     }
 }

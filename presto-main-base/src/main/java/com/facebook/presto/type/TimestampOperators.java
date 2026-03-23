@@ -47,6 +47,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithoutTimeZone;
@@ -282,6 +283,119 @@ public final class TimestampOperators
     @ScalarOperator(XX_HASH_64)
     @SqlType(StandardTypes.BIGINT)
     public static long xxHash64(@SqlType(StandardTypes.TIMESTAMP) long value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    // =========================================================================
+    // Operators for TIMESTAMP_MICROSECONDS (epoch microseconds, stored as long)
+    // The comparison semantics are identical to TIMESTAMP: direct long comparison.
+    // =========================================================================
+
+    @ScalarOperator(EQUAL)
+    @SqlType(StandardTypes.BOOLEAN)
+    @SqlNullable
+    public static Boolean equalMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left == right;
+    }
+
+    @ScalarOperator(NOT_EQUAL)
+    @SqlType(StandardTypes.BOOLEAN)
+    @SqlNullable
+    public static Boolean notEqualMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left != right;
+    }
+
+    @ScalarOperator(LESS_THAN)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThanMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean lessThanOrEqualMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left <= right;
+    }
+
+    @ScalarOperator(GREATER_THAN)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left > right;
+    }
+
+    @ScalarOperator(GREATER_THAN_OR_EQUAL)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean greaterThanOrEqualMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
+        return left >= right;
+    }
+
+    @ScalarOperator(BETWEEN)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean betweenMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long min, @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long max)
+    {
+        return min <= value && value <= max;
+    }
+
+    @ScalarOperator(HASH_CODE)
+    @SqlType(StandardTypes.BIGINT)
+    public static long hashCodeMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
+    {
+        return AbstractLongType.hash(value);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    public static class TimestampMicrosecondsDistinctFromOperator
+    {
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
+                @IsNull boolean leftNull,
+                @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right,
+                @IsNull boolean rightNull)
+        {
+            if (leftNull != rightNull) {
+                return true;
+            }
+            if (leftNull) {
+                return false;
+            }
+            return left != right;
+        }
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean isDistinctFrom(
+                @BlockPosition @SqlType(value = StandardTypes.TIMESTAMP_MICROSECONDS, nativeContainerType = long.class) Block left,
+                @BlockIndex int leftPosition,
+                @BlockPosition @SqlType(value = StandardTypes.TIMESTAMP_MICROSECONDS, nativeContainerType = long.class) Block right,
+                @BlockIndex int rightPosition)
+        {
+            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
+                return true;
+            }
+            if (left.isNull(leftPosition)) {
+                return false;
+            }
+            return TIMESTAMP_MICROSECONDS.getLong(left, leftPosition) != TIMESTAMP_MICROSECONDS.getLong(right, rightPosition);
+        }
+    }
+
+    @ScalarOperator(INDETERMINATE)
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean indeterminateMicros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value, @IsNull boolean isNull)
+    {
+        return isNull;
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    @SqlType(StandardTypes.BIGINT)
+    public static long xxHash64Micros(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
     {
         return XxHash64.hash(value);
     }

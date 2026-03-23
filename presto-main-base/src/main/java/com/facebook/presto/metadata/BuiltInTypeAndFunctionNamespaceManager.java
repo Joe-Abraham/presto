@@ -330,6 +330,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -644,6 +645,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(TIME);
         addType(TIME_WITH_TIME_ZONE);
         addType(TIMESTAMP_WITH_TIME_ZONE);
+        addType(TIMESTAMP_MICROSECONDS);
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
@@ -833,6 +835,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeOperators.TimeDistinctFromOperator.class)
                 .scalars(TimestampOperators.class)
                 .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
+                .scalar(TimestampOperators.TimestampMicrosecondsDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
