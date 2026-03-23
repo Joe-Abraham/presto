@@ -32,6 +32,7 @@ public final class TimestampType
         extends AbstractLongType
 {
     public static final int DEFAULT_PRECISION = 3;
+    public static final int MICROSECONDS_PRECISION = 6;
 
     public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
     public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
@@ -46,14 +47,19 @@ public final class TimestampType
 
     /**
      * Creates a {@link TimestampType} with the given fractional-seconds precision.
-     * Currently only precision 3 (milliseconds) is supported, which maps to the standard {@code timestamp} type.
+     * Precision 3 (milliseconds) maps to {@code timestamp} and precision 6 (microseconds)
+     * maps to {@code timestamp microseconds}.
      */
     public static TimestampType createTimestampType(int precision)
     {
         if (precision == DEFAULT_PRECISION) {
             return TIMESTAMP;
         }
-        throw new IllegalArgumentException("Unsupported timestamp precision: " + precision + ". Only precision " + DEFAULT_PRECISION + " (3 fractional seconds digits, milliseconds) is currently supported.");
+        if (precision == MICROSECONDS_PRECISION) {
+            return TIMESTAMP_MICROSECONDS;
+        }
+        throw new IllegalArgumentException("Unsupported timestamp precision: " + precision + ". Supported precisions are "
+                + DEFAULT_PRECISION + " (milliseconds) and " + MICROSECONDS_PRECISION + " (microseconds).");
     }
 
     @Override
