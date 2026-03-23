@@ -16,7 +16,6 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -32,6 +31,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public final class TimestampType
         extends AbstractLongType
 {
+    public static final int DEFAULT_PRECISION = 3;
+
     public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
     public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
 
@@ -39,8 +40,20 @@ public final class TimestampType
 
     private TimestampType(TimeUnit precision)
     {
-        super(parseTypeSignature(getType(precision)));
+        super(parseTypeSignature(getTypeName(precision)));
         this.precision = precision;
+    }
+
+    /**
+     * Creates a {@link TimestampType} with the given fractional-seconds precision.
+     * Currently only precision 3 (milliseconds) is supported, which maps to the standard {@code timestamp} type.
+     */
+    public static TimestampType createTimestampType(int precision)
+    {
+        if (precision == DEFAULT_PRECISION) {
+            return TIMESTAMP;
+        }
+        throw new IllegalArgumentException("Unsupported timestamp precision: " + precision + ". Only precision " + DEFAULT_PRECISION + " (3 fractional seconds digits, milliseconds) is currently supported.");
     }
 
     @Override
@@ -79,7 +92,7 @@ public final class TimestampType
     @Override
     public int hashCode()
     {
-        return Objects.hash(getClass(), precision);
+        return getTypeSignature().hashCode();
     }
 
     /**
@@ -106,7 +119,7 @@ public final class TimestampType
         return (int) precision.toNanos(timestamp % unitsPerSecond);
     }
 
-    private static String getType(TimeUnit precision)
+    private static String getTypeName(TimeUnit precision)
     {
         if (precision == MICROSECONDS) {
             return StandardTypes.TIMESTAMP_MICROSECONDS;
