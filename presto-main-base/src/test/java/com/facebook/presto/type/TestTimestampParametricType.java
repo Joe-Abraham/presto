@@ -186,7 +186,7 @@ public class TestTimestampParametricType
     @Test
     public void testMicrosecondLiteralZeroSubMillis()
     {
-        // 6-digit literal with zeros in positions 4–6 is still microsecond type
+        // 6-digit literal with zeros in positions 4-6 is still microsecond type
         assertFunctionString("TIMESTAMP '2024-01-01 10:00:00.500000'", TIMESTAMP_MICROSECONDS,
                 "2024-01-01 10:00:00.500000");
     }
@@ -340,7 +340,7 @@ public class TestTimestampParametricType
     @Test
     public void testSqlTimestampMicrosWithZeroSubMillisDisplayFormat()
     {
-        // 2024-01-01 10:00:00.500000 UTC – trailing zeros must be preserved in display
+        // 2024-01-01 10:00:00.500000 UTC - trailing zeros must be preserved in display
         SqlTimestamp ts = new SqlTimestamp(1704103200500000L, TimeUnit.MICROSECONDS);
         assertEquals(ts.toString(), "2024-01-01 10:00:00.500000");
     }
