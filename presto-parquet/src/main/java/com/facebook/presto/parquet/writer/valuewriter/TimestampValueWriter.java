@@ -14,6 +14,7 @@
 package com.facebook.presto.parquet.writer.valuewriter;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.OriginalType;
@@ -22,6 +23,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TimestampValueWriter
@@ -29,12 +31,16 @@ public class TimestampValueWriter
 {
     private final Type type;
     private final boolean writeMicroseconds;
+    private final boolean isInputMicroseconds;
 
     public TimestampValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
         this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
+        // TIMESTAMP_MICROSECONDS values are already in µs; TIMESTAMP values are in ms.
+        this.isInputMicroseconds = type instanceof TimestampType
+                && ((TimestampType) type).getPrecision() == MICROSECONDS;
     }
 
     @Override
@@ -43,7 +49,11 @@ public class TimestampValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 long value = type.getLong(block, i);
-                long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
+                // When the Presto type is TIMESTAMP_MICROSECONDS the block already holds µs;
+                // convert ms → µs only for TIMESTAMP (ms) blocks targeting a µs Parquet column.
+                long scaledValue = (!isInputMicroseconds && writeMicroseconds)
+                        ? MILLISECONDS.toMicros(value)
+                        : value;
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
             }

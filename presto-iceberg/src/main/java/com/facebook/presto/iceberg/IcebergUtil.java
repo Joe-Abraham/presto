@@ -777,7 +777,13 @@ public final class IcebergUtil
             case BOOLEAN:
                 return singleValue(prestoType, value);
             case TIME:
+                return singleValue(prestoType, MICROSECONDS.toMillis((Long) value));
             case TIMESTAMP:
+                // Iceberg stores timestamp partition values in microseconds.
+                // TIMESTAMP_MICROSECONDS prestoType expects µs; TIMESTAMP expects ms.
+                if (TIMESTAMP_MICROSECONDS.equals(prestoType)) {
+                    return singleValue(prestoType, value);
+                }
                 return singleValue(prestoType, MICROSECONDS.toMillis((Long) value));
             case STRING:
                 return singleValue(prestoType, utf8Slice(value.toString()));

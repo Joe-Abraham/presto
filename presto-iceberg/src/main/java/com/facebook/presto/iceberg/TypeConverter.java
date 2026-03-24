@@ -61,6 +61,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -123,7 +124,8 @@ public final class TypeConverter
                 if (timestampType.shouldAdjustToUTC()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                return TimestampType.TIMESTAMP;
+                // Iceberg stores all timestamps in microseconds; represent with full precision.
+                return TIMESTAMP_MICROSECONDS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -343,7 +345,7 @@ public final class TypeConverter
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

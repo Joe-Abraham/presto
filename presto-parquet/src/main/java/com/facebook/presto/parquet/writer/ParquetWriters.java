@@ -59,6 +59,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.UuidType.UUID;
@@ -211,7 +212,7 @@ class ParquetWriters
         if (REAL.equals(type)) {
             return new RealValueWriter(valuesWriterSupplier, parquetType);
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
             return new TimestampValueWriter(valuesWriterSupplier, type, parquetType);
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {

@@ -57,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -201,7 +202,15 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType) {
+            // TIMESTAMP_MICROSECONDS stores values in µs (Iceberg native unit) - pass through directly.
+            // TIMESTAMP stores values in ms - convert to µs for Iceberg.
+            if (((TimestampType) type).getPrecision() == MICROSECONDS) {
+                return (Long) marker.getValue();
+            }
+            return MILLISECONDS.toMicros((Long) marker.getValue());
+        }
+        if (type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
