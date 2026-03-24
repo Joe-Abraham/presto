@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -23,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
@@ -207,6 +209,64 @@ public class TestMemorySmoke
         assertQuerySucceeds("ALTER VIEW IF EXISTS test_rename_view_not_exist RENAME TO test_renamed_view_not_exist");
     }
 
+    @Test
+    public void testTimestampParametricType()
+    {
+        // Non-legacy mode is required so that 6-digit literals are typed as TIMESTAMP_MICROSECONDS.
+        Session session = testSessionBuilder()
+                .setCatalog("memory")
+                .setSchema("default")
+                .setSystemProperty("legacy_timestamp", "false")
+                .build();
+
+        // DDL: create a table with millisecond-precision (TIMESTAMP(3)) and
+        // microsecond-precision (TIMESTAMP(6)) columns.
+        assertUpdate(session,
+                "CREATE TABLE test_timestamp_precision (\n" +
+                "    id INTEGER,\n" +
+                "    ts_millis TIMESTAMP(3),\n" +
+                "    ts_micros TIMESTAMP(6)\n" +
+                ")");
+
+        // DML: insert rows that exercise every sub-case from the user's test scenario.
+        assertUpdate(session,
+                "INSERT INTO test_timestamp_precision VALUES\n" +
+                "(1, TIMESTAMP '2024-01-01 10:00:00.123',    TIMESTAMP '2024-01-01 10:00:00.123456'),\n" +
+                "(2, TIMESTAMP '2024-01-01 10:00:01.999',    TIMESTAMP '2024-01-01 10:00:01.999999'),\n" +
+                "(3, TIMESTAMP '2024-01-01 10:00:02.000',    TIMESTAMP '2024-01-01 10:00:02.000001'),\n" +
+                "(4, TIMESTAMP '2024-01-01 10:00:00.500',    TIMESTAMP '2024-01-01 10:00:00.500000')",
+                4);
+
+        // All 4 rows were inserted.
+        assertQueryResult("SELECT count(*) FROM test_timestamp_precision", 4L);
+
+        // ts_millis stores exact millisecond precision.
+        // Equality with the exact ms value must hold.
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision WHERE ts_millis = TIMESTAMP '2024-01-01 10:00:00.123'", 1L);
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision WHERE ts_millis = TIMESTAMP '2024-01-01 10:00:01.999'", 1L);
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision WHERE ts_millis = TIMESTAMP '2024-01-01 10:00:02.000'", 1L);
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision WHERE ts_millis = TIMESTAMP '2024-01-01 10:00:00.500'", 1L);
+
+        // ts_micros preserves sub-millisecond precision.
+        // Row 1: .123456 µs — strictly between .123 ms and .124 ms.
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision\n" +
+                "WHERE ts_micros > TIMESTAMP '2024-01-01 10:00:00.123'\n" +
+                "  AND ts_micros < TIMESTAMP '2024-01-01 10:00:00.124'", 1L);
+        // Row 2: .999999 µs — strictly greater than .999 ms.
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision\n" +
+                "WHERE ts_micros > TIMESTAMP '2024-01-01 10:00:01.999'\n" +
+                "  AND ts_micros < TIMESTAMP '2024-01-01 10:00:02.000'", 1L);
+        // Row 3: .000001 µs — strictly greater than .000 ms.
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision\n" +
+                "WHERE ts_micros > TIMESTAMP '2024-01-01 10:00:02.000'\n" +
+                "  AND ts_micros < TIMESTAMP '2024-01-01 10:00:02.001'", 1L);
+        // Row 4: .500000 µs — exactly equal to .500 ms (no fractional part beyond ms).
+        assertQueryResult(session, "SELECT count(*) FROM test_timestamp_precision\n" +
+                "WHERE ts_micros = TIMESTAMP '2024-01-01 10:00:00.500000'", 1L);
+
+        assertUpdate("DROP TABLE test_timestamp_precision");
+    }
+
     private List<QualifiedObjectName> listMemoryTables()
     {
         return getQueryRunner().listTables(getSession(), "memory", "default");
@@ -224,6 +284,20 @@ public class TestMemorySmoke
             Object value = materializedRow.getField(0);
             assertEquals(value, expected[i]);
             assertTrue(materializedRow.getFieldCount() == 1);
+        }
+    }
+
+    private void assertQueryResult(Session session, @Language("SQL") String sql, Object... expected)
+    {
+        MaterializedResult rows = computeActual(session, sql);
+        assertEquals(rows.getRowCount(), expected.length);
+
+        for (int i = 0; i < expected.length; i++) {
+            MaterializedRow materializedRow = rows.getMaterializedRows().get(i);
+            int fieldCount = materializedRow.getFieldCount();
+            assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
+            Object value = materializedRow.getField(0);
+            assertEquals(value, expected[i]);
         }
     }
 }
