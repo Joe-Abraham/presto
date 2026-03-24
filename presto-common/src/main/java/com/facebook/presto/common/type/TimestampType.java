@@ -33,6 +33,7 @@ public final class TimestampType
 {
     public static final int DEFAULT_PRECISION = 3;
     public static final int MICROSECONDS_PRECISION = 6;
+    public static final int MAX_PRECISION = 12;
 
     public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
     public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
@@ -47,19 +48,29 @@ public final class TimestampType
 
     /**
      * Creates a {@link TimestampType} with the given fractional-seconds precision.
-     * Precision 3 (milliseconds) maps to {@code timestamp} and precision 6 (microseconds)
-     * maps to {@code timestamp microseconds}.
+     * <p>
+     * Precision values 0–3 map to {@code timestamp} (millisecond-backed); precision values 4–12
+     * map to {@code timestamp microseconds} (microsecond-backed).  Presto's internal storage tops
+     * out at microseconds, so precisions 7–12 are accepted but stored at µs resolution (i.e. the
+     * effective precision is 6 for any p > 6).
+     * <p>
+     * This range matches the SQL standard and is consistent with Trino's TIMESTAMP(p) semantics,
+     * minus nanosecond support (p > 6).
+     *
+     * @param precision fractional-seconds digits, 0 ≤ precision ≤ 12
+     * @return the appropriate {@link TimestampType} singleton
+     * @throws IllegalArgumentException if precision is outside the range [0, 12]
      */
     public static TimestampType createTimestampType(int precision)
     {
-        if (precision == DEFAULT_PRECISION) {
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException("TIMESTAMP precision must be between 0 and " + MAX_PRECISION + ", got: " + precision);
+        }
+        // p=0..3 → millisecond backing store; p=4..12 → microsecond backing store
+        if (precision <= DEFAULT_PRECISION) {
             return TIMESTAMP;
         }
-        if (precision == MICROSECONDS_PRECISION) {
-            return TIMESTAMP_MICROSECONDS;
-        }
-        throw new IllegalArgumentException("Unsupported timestamp precision: " + precision + ". Supported precisions are "
-                + DEFAULT_PRECISION + " (milliseconds) and " + MICROSECONDS_PRECISION + " (microseconds).");
+        return TIMESTAMP_MICROSECONDS;
     }
 
     @Override

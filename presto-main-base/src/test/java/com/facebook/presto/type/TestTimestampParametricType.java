@@ -91,12 +91,34 @@ public class TestTimestampParametricType
     {
         assertEquals(TimestampType.DEFAULT_PRECISION, 3);
         assertEquals(TimestampType.MICROSECONDS_PRECISION, 6);
+        assertEquals(TimestampType.MAX_PRECISION, 12);
+    }
+
+    @Test
+    public void testPrecisionsZeroToThreeMapsToTimestamp()
+    {
+        // p = 0, 1, 2, 3 all map to the TIMESTAMP (millisecond-backed) singleton
+        for (int p = 0; p <= 3; p++) {
+            assertSame(TimestampType.createTimestampType(p), TIMESTAMP,
+                    "Expected p=" + p + " to map to TIMESTAMP");
+        }
+    }
+
+    @Test
+    public void testPrecisionsFourToTwelveMapsToMicroseconds()
+    {
+        // p = 4 .. 12 all map to the TIMESTAMP_MICROSECONDS (microsecond-backed) singleton
+        for (int p = 4; p <= 12; p++) {
+            assertSame(TimestampType.createTimestampType(p), TIMESTAMP_MICROSECONDS,
+                    "Expected p=" + p + " to map to TIMESTAMP_MICROSECONDS");
+        }
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testUnsupportedPrecisionThrows()
+    public void testPrecisionAboveMaxThrows()
     {
-        TimestampType.createTimestampType(9);
+        // Precision 13 exceeds the maximum allowed (12) and must throw.
+        TimestampType.createTimestampType(13);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -358,5 +380,94 @@ public class TestTimestampParametricType
         // -1 µs = 1 microsecond before Unix epoch
         SqlTimestamp ts = new SqlTimestamp(-1L, TimeUnit.MICROSECONDS);
         assertEquals(ts.toString(), "1969-12-31 23:59:59.999999");
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. Full TIMESTAMP(p) range: p = 0-12
+    //
+    // Presto supports TIMESTAMP(p) for any p in [0, 12], matching the SQL standard
+    // and Trino's API surface.  Internally, p=0..3 uses millisecond storage and
+    // p=4..12 uses microsecond storage (Presto caps at µs; true nanosecond precision
+    // is not available, so p=7..12 are stored and displayed at 6 decimal places).
+    // -------------------------------------------------------------------------
+
+    /** p=0 is the minimum SQL standard precision; maps to ms-backed TIMESTAMP. */
+    @Test
+    public void testTimestamp0IsMillisecondBacked()
+    {
+        assertSame(TimestampType.createTimestampType(0), TIMESTAMP);
+        // A literal with explicit zero sub-second digits is accepted and stored as ms
+        assertFunctionString("CAST(TIMESTAMP '2024-06-15 12:00:00.000' AS TIMESTAMP(0))",
+                TIMESTAMP,
+                "2024-06-15 12:00:00.000");
+    }
+
+    /** p=1 and p=2 are intermediate ms precisions; they resolve to TIMESTAMP. */
+    @Test
+    public void testTimestamp1And2AreMillisecondBacked()
+    {
+        assertSame(TimestampType.createTimestampType(1), TIMESTAMP);
+        assertSame(TimestampType.createTimestampType(2), TIMESTAMP);
+        // CAST to p=1 / p=2 should succeed (both map to TIMESTAMP)
+        assertFunctionString("CAST(TIMESTAMP '2024-06-15 12:00:00.123' AS TIMESTAMP(1))",
+                TIMESTAMP,
+                "2024-06-15 12:00:00.123");
+        assertFunctionString("CAST(TIMESTAMP '2024-06-15 12:00:00.123' AS TIMESTAMP(2))",
+                TIMESTAMP,
+                "2024-06-15 12:00:00.123");
+    }
+
+    /** p=4 and p=5 are intermediate µs precisions; they resolve to TIMESTAMP_MICROSECONDS. */
+    @Test
+    public void testTimestamp4And5AreMicrosecondBacked()
+    {
+        assertSame(TimestampType.createTimestampType(4), TIMESTAMP_MICROSECONDS);
+        assertSame(TimestampType.createTimestampType(5), TIMESTAMP_MICROSECONDS);
+        // CAST a 6-digit literal to p=4 / p=5 — both resolve to TIMESTAMP_MICROSECONDS
+        assertFunctionString("CAST(TIMESTAMP '2024-01-01 10:00:00.123456' AS TIMESTAMP(4))",
+                TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123456");
+        assertFunctionString("CAST(TIMESTAMP '2024-01-01 10:00:00.123456' AS TIMESTAMP(5))",
+                TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123456");
+    }
+
+    /**
+     * p=7..12 are accepted (matches Trino's API), but Presto's max storage
+     * precision is microseconds (p=6), so they all resolve to TIMESTAMP_MICROSECONDS.
+     */
+    @Test
+    public void testTimestamp7To12AreMicrosecondBacked()
+    {
+        for (int p = 7; p <= 12; p++) {
+            assertSame(TimestampType.createTimestampType(p), TIMESTAMP_MICROSECONDS,
+                    "Expected p=" + p + " to resolve to TIMESTAMP_MICROSECONDS");
+        }
+    }
+
+    /** TIMESTAMP(7) to TIMESTAMP(12) should be usable in CAST expressions. */
+    @Test
+    public void testCastToTimestamp9Works()
+    {
+        // CAST to TIMESTAMP(9) resolves to µs-backed TIMESTAMP_MICROSECONDS
+        assertFunctionString("CAST(TIMESTAMP '2024-01-01 10:00:00.123' AS TIMESTAMP(9))",
+                TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123000");
+    }
+
+    @Test
+    public void testCastToTimestamp12Works()
+    {
+        assertFunctionString("CAST(TIMESTAMP '2024-01-01 10:00:00.123456' AS TIMESTAMP(12))",
+                TIMESTAMP_MICROSECONDS,
+                "2024-01-01 10:00:00.123456");
+    }
+
+    /** Precision 13 exceeds the maximum and must produce an error at the DDL/CAST level. */
+    @Test
+    public void testTimestamp13IsRejected()
+    {
+        assertInvalidFunction("CAST(TIMESTAMP '2024-01-01 10:00:00.123' AS TIMESTAMP(13))",
+                SemanticErrorCode.TYPE_MISMATCH);
     }
 }

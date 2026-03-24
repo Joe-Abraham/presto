@@ -203,13 +203,17 @@ Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 Instant in time that includes the date and time of day without a time zone.
 Values of this type are parsed and rendered in the session time zone.
 
-The precision ``p`` can be optionally specified using ``TIMESTAMP(p)`` syntax.
-Presto supports two precision values:
+The precision ``p`` can be optionally specified using ``TIMESTAMP(p)`` syntax,
+where ``p`` is the number of fractional-second digits (0-12).  Presto's internal
+storage tops out at microsecond resolution, so the effective precisions are:
 
-* ``TIMESTAMP(3)`` — millisecond precision (the default; equivalent to ``TIMESTAMP``).
+* ``TIMESTAMP(0)`` - ``TIMESTAMP(3)`` -- millisecond precision.
   Values are stored as a 64-bit epoch millisecond count.
-* ``TIMESTAMP(6)`` — microsecond precision (equivalent to ``timestamp microseconds``).
-  Values are stored as a 64-bit epoch microsecond count.
+  ``TIMESTAMP(3)`` is the default and is equivalent to unparameterized ``TIMESTAMP``.
+* ``TIMESTAMP(4)`` - ``TIMESTAMP(12)`` -- microsecond precision.
+  Values are stored as a 64-bit epoch microsecond count (equivalent to
+  ``timestamp microseconds``).  For ``p > 6`` the digits beyond the sixth are
+  always zero because Presto does not support nanosecond-level storage.
 
 Timestamp literals with more than three fractional-second digits (e.g.
 ``TIMESTAMP '2001-08-22 03:04:05.123456'``) are automatically assigned
@@ -221,9 +225,12 @@ both precision values can be used together in the same expression (e.g. in
 
 .. note::
 
-    Only precisions 3 (milliseconds) and 6 (microseconds) are supported.
-    Other values such as ``TIMESTAMP(0)``, ``TIMESTAMP(9)``, or
-    ``TIMESTAMP(12)`` are not supported and will cause an error.
+    Precisions 0-12 are all accepted, matching the SQL standard and Trino's
+    ``TIMESTAMP(p)`` API surface.  However, Presto's maximum storage precision is
+    microseconds (6 fractional-second digits).  A column or expression declared
+    as ``TIMESTAMP(7)`` through ``TIMESTAMP(12)`` behaves identically to
+    ``TIMESTAMP(6)`` — the extra precision digits are silently zeroed.  Precisions
+    above 12 and negative precisions will cause an error.
 
 Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
 
