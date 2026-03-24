@@ -203,7 +203,31 @@ Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 Instant in time that includes the date and time of day without a time zone.
 Values of this type are parsed and rendered in the session time zone.
 
+The precision ``p`` can be optionally specified using ``TIMESTAMP(p)`` syntax.
+Presto supports two precision values:
+
+* ``TIMESTAMP(3)`` — millisecond precision (the default; equivalent to ``TIMESTAMP``).
+  Values are stored as a 64-bit epoch millisecond count.
+* ``TIMESTAMP(6)`` — microsecond precision (equivalent to ``timestamp microseconds``).
+  Values are stored as a 64-bit epoch microsecond count.
+
+Timestamp literals with more than three fractional-second digits (e.g.
+``TIMESTAMP '2001-08-22 03:04:05.123456'``) are automatically assigned
+``TIMESTAMP(6)`` type when not in legacy-timestamp mode.
+
+Implicit coercion from ``TIMESTAMP(3)`` to ``TIMESTAMP(6)`` is supported, so
+both precision values can be used together in the same expression (e.g. in
+``COALESCE``).
+
+.. note::
+
+    Only precisions 3 (milliseconds) and 6 (microseconds) are supported.
+    Other values such as ``TIMESTAMP(0)``, ``TIMESTAMP(9)``, or
+    ``TIMESTAMP(12)`` are not supported and will cause an error.
+
 Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
+
+Example (microsecond precision): ``TIMESTAMP '2001-08-22 03:04:05.123456'``
 
 ``TIMESTAMP WITH TIME ZONE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
