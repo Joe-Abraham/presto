@@ -345,9 +345,9 @@ public final class DateTimeUtils
         // Extract up to 6 fractional digits and normalise to 6 digits (padding or truncating).
         int takeDigits = Math.min(fractionalDigits, 6);
         String fracStr = value.substring(dotIndex + 1, dotIndex + 1 + takeDigits);
-        // Pad to 6 digits if fewer were present.
-        while (fracStr.length() < 6) {
-            fracStr += "0";
+        // Pad to exactly 6 digits if fewer were present.
+        if (fracStr.length() < 6) {
+            fracStr = String.format("%-6s", fracStr).replace(' ', '0');
         }
         long microsFraction = Long.parseLong(fracStr);
 

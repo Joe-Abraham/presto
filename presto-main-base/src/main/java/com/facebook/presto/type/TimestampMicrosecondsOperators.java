@@ -152,7 +152,7 @@ public final class TimestampMicrosecondsOperators
         String formatted = String.format("%04d-%02d-%02d %02d:%02d:%02d.%06d",
                 ldt.getYear(), ldt.getMonthValue(), ldt.getDayOfMonth(),
                 ldt.getHour(), ldt.getMinute(), ldt.getSecond(),
-                TimeUnit.NANOSECONDS.toMicros(ldt.getNano()));
+                ldt.getNano() / 1000);
         return utf8Slice(formatted);
     }
 
