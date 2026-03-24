@@ -13,14 +13,13 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import org.joda.time.DateTimeZone;
-
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 
 public final class BatchStreamReaders
 {
@@ -52,7 +51,7 @@ public final class BatchStreamReaders
                 return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext, options.getMaxSliceSize(), options.isResetAllReaders());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS:
-                boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;
+                boolean enableMicroPrecision = type instanceof TimestampType && ((TimestampType) type).isLongTimestamp();
                 return new TimestampBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, enableMicroPrecision);
             case LIST:
                 return new ListBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);

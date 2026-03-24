@@ -19,28 +19,71 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 //
-// TIMESTAMP is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
-// TIMESTAMP_MICROSECONDS is stored as microseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
+// TIMESTAMP(p) stores epoch milliseconds for p <= 3, and epoch microseconds for p > 3.
+// This covers precision 0 through 12.  The two widely-used singletons TIMESTAMP (p=3, ms)
+// and TIMESTAMP_MICROSECONDS (p=6, µs) are kept for backward compatibility.
 //
 public final class TimestampType
         extends AbstractLongType
 {
-    public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
-    public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
+    public static final int DEFAULT_PRECISION = 3;
+    public static final int MAX_PRECISION = 12;
 
-    private final TimeUnit precision;
+    // Precision boundary: p <= SHORT_PRECISION uses ms storage, p > SHORT_PRECISION uses µs.
+    private static final int SHORT_PRECISION = DEFAULT_PRECISION;
 
-    private TimestampType(TimeUnit precision)
+    // One singleton per precision to avoid redundant instances.
+    private static final TimestampType[] INSTANCES;
+
+    static {
+        INSTANCES = new TimestampType[MAX_PRECISION + 1];
+        for (int p = 0; p <= MAX_PRECISION; p++) {
+            INSTANCES[p] = new TimestampType(p);
+        }
+    }
+
+    // Backward-compatible constants.
+    public static final TimestampType TIMESTAMP = createTimestampType(DEFAULT_PRECISION);
+    public static final TimestampType TIMESTAMP_MICROSECONDS = createTimestampType(6);
+
+    private final int precision;
+
+    private TimestampType(int precision)
     {
-        super(parseTypeSignature(getType(precision)));
+        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.of((long) precision)));
         this.precision = precision;
+    }
+
+    /**
+     * Creates a {@code TimestampType} for the given fractional-seconds precision {@code p} (0–12).
+     * Precision 0–3 uses millisecond storage; precision 4–12 uses microsecond storage.
+     */
+    public static TimestampType createTimestampType(int precision)
+    {
+        checkArgument(precision >= 0 && precision <= MAX_PRECISION,
+                "Invalid TIMESTAMP precision %s; must be in range [0, %s]", precision, MAX_PRECISION);
+        return INSTANCES[precision];
+    }
+
+    /**
+     * Returns the fractional-seconds precision of this type (0–12).
+     */
+    public int getPrecision()
+    {
+        return precision;
+    }
+
+    /**
+     * Returns {@code true} if this timestamp uses microsecond storage (i.e. precision &gt; 3).
+     */
+    public boolean isLongTimestamp()
+    {
+        return precision > SHORT_PRECISION;
     }
 
     @Override
@@ -50,70 +93,42 @@ public final class TimestampType
             return null;
         }
 
+        TimeUnit unit = isLongTimestamp() ? MICROSECONDS : MILLISECONDS;
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
+            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), unit);
         }
         else {
-            return new SqlTimestamp(block.getLong(position), precision);
+            return new SqlTimestamp(block.getLong(position), unit);
         }
     }
 
-    public TimeUnit getPrecision()
+    /**
+     * Gets the timestamp's total epoch seconds.
+     */
+    public long getEpochSecond(long timestamp)
     {
-        return this.precision;
+        return isLongTimestamp() ? MICROSECONDS.toSeconds(timestamp) : MILLISECONDS.toSeconds(timestamp);
+    }
+
+    /**
+     * Gets the timestamp's nanosecond portion (sub-second).
+     */
+    public int getNanos(long timestamp)
+    {
+        TimeUnit unit = isLongTimestamp() ? MICROSECONDS : MILLISECONDS;
+        long unitsPerSecond = unit.convert(1, TimeUnit.SECONDS);
+        return (int) unit.toNanos(timestamp % unitsPerSecond);
     }
 
     @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        if (precision == MICROSECONDS) {
-            return other == TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return other == TIMESTAMP;
-        }
-        throw new UnsupportedOperationException("Unsupported precision " + precision);
+        return other instanceof TimestampType && ((TimestampType) other).precision == this.precision;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getClass(), precision);
-    }
-
-    /**
-     * Gets the timestamp's number of total seconds.
-     * The epoch second count is a simple incrementing count of seconds where second 0 is 1970-01-01T00:00:00Z.
-     *
-     * Returns:
-     * the total seconds in timestamp
-     */
-    public long getEpochSecond(long timestamp)
-    {
-        return this.precision.toSeconds(timestamp);
-    }
-
-    /**
-     * Gets the timestamp's nanosecond portion.
-     *
-     * Returns:
-     * this timestamp's fractional seconds component
-     */
-    public int getNanos(long timestamp)
-    {
-        long unitsPerSecond = precision.convert(1, TimeUnit.SECONDS);
-        return (int) precision.toNanos(timestamp % unitsPerSecond);
-    }
-
-    private static String getType(TimeUnit precision)
-    {
-        if (precision == MICROSECONDS) {
-            return StandardTypes.TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return StandardTypes.TIMESTAMP;
-        }
-        throw new IllegalArgumentException("Unsupported precision " + precision);
+        return Objects.hash(TimestampType.class, precision);
     }
 }

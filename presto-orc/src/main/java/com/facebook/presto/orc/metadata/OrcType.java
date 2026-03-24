@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
@@ -231,10 +232,10 @@ public class OrcType
         if (DATE.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DATE));
         }
-        if (TIMESTAMP.equals(type)) {
+        if (type instanceof TimestampType && !((TimestampType) type).isLongTimestamp()) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
         }
-        if (TIMESTAMP_MICROSECONDS.equals(type)) {
+        if (type instanceof TimestampType && ((TimestampType) type).isLongTimestamp()) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP_MICROSECONDS));
         }
         if (type instanceof DecimalType) {

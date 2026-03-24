@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
@@ -20,10 +21,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.TimestampType.MAX_PRECISION;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
-import static com.facebook.presto.type.TimestampParametricType.MAX_PRECISION;
-import static com.facebook.presto.type.TimestampParametricType.MICROSECONDS_PRECISION_BOUNDARY;
 import static com.facebook.presto.type.TimestampParametricType.TIMESTAMP_PARAMETRIC_TYPE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
@@ -43,12 +43,6 @@ public class TestTimestampParametricType
     }
 
     @Test
-    public void testMicrosecondsBoundary()
-    {
-        assertEquals(MICROSECONDS_PRECISION_BOUNDARY, 3);
-    }
-
-    @Test
     public void testDefaultPrecision()
     {
         // No parameters → default precision (3, milliseconds).
@@ -59,23 +53,32 @@ public class TestTimestampParametricType
     @Test
     public void testMillisecondPrecisions()
     {
-        // Precision 0, 1, 2, 3 should all resolve to TIMESTAMP (millisecond storage).
+        // Precision 0–3 should all resolve to a ms-precision TimestampType.
         for (int p = 0; p <= 3; p++) {
             List<TypeParameter> params = ImmutableList.of(longParameter(p));
             Type type = TIMESTAMP_PARAMETRIC_TYPE.createType(params);
-            assertSame(type, TIMESTAMP, "Expected TIMESTAMP for precision " + p);
+            assertEquals(type, TimestampType.createTimestampType(p),
+                    "Expected timestamp(" + p + ") for precision " + p);
         }
     }
 
     @Test
     public void testMicrosecondPrecisions()
     {
-        // Precision 4–12 should resolve to TIMESTAMP_MICROSECONDS (microsecond storage).
+        // Precision 4–12 should resolve to a µs-precision TimestampType.
         for (int p = 4; p <= 12; p++) {
             List<TypeParameter> params = ImmutableList.of(longParameter(p));
             Type type = TIMESTAMP_PARAMETRIC_TYPE.createType(params);
-            assertSame(type, TIMESTAMP_MICROSECONDS, "Expected TIMESTAMP_MICROSECONDS for precision " + p);
+            assertEquals(type, TimestampType.createTimestampType(p),
+                    "Expected timestamp(" + p + ") for precision " + p);
         }
+    }
+
+    @Test
+    public void testMicrosecondConstant()
+    {
+        // TIMESTAMP_MICROSECONDS should be precision 6.
+        assertEquals(TIMESTAMP_MICROSECONDS.getPrecision(), 6);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

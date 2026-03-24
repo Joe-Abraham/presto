@@ -442,7 +442,9 @@ public class IcebergPageSink
         }
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            TimestampType tsType = (TimestampType) type;
+            // Iceberg stores timestamps as epoch microseconds; convert ms→µs if needed.
+            return tsType.isLongTimestamp() ? timestamp : MILLISECONDS.toMicros(timestamp);
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -456,14 +458,20 @@ public class IcebergPageSink
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            Instant instant = Instant.ofEpochSecond(timestampType.getEpochSecond(timestampValue),
+                    timestampType.getNanos(timestampValue));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            long epochSeconds = localDateTime.toEpochSecond(ZoneOffset.UTC);
+            int nanoOfSecond = localDateTime.getNano();
+            if (timestampType.isLongTimestamp()) {
+                return java.util.concurrent.TimeUnit.SECONDS.toMicros(epochSeconds)
+                        + java.util.concurrent.TimeUnit.NANOSECONDS.toMicros(nanoOfSecond);
+            }
+            return java.util.concurrent.TimeUnit.SECONDS.toMillis(epochSeconds)
+                    + java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanoOfSecond);
         }
         return value;
     }

@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -44,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
@@ -109,11 +108,11 @@ public class TimestampColumnWriter
         this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
-        if (type == TIMESTAMP) {
+        if (type instanceof TimestampType && !((TimestampType) type).isLongTimestamp()) {
             this.unitsPerSecond = MILLIS_PER_SECOND;
             this.trailingZeros = MILLIS_TO_NANOS_TRAILING_ZEROS;
         }
-        else if (type == TIMESTAMP_MICROSECONDS) {
+        else if (type instanceof TimestampType && ((TimestampType) type).isLongTimestamp()) {
             this.unitsPerSecond = MICROS_PER_SECOND;
             this.trailingZeros = MICROS_TO_NANOS_TRAILING_ZEROS;
         }

@@ -573,8 +573,11 @@ public class IOPlanPrinter
             }
             if (type instanceof TimestampType) {
                 TimestampType timestampType = (TimestampType) type;
-                long timestampValue = timestampType.getPrecision().toMillis((Long) value);
-                return printTimestampWithoutTimeZone(timestampValue);
+                long rawValue = (Long) value;
+                long timestampMs = timestampType.isLongTimestamp()
+                        ? java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(rawValue)
+                        : rawValue;
+                return printTimestampWithoutTimeZone(timestampMs);
             }
             if (type instanceof TimestampWithTimeZoneType) {
                 return printTimestampWithTimeZone((Long) value);

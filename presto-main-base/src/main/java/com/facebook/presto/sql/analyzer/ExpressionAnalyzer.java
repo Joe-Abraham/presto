@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -147,7 +148,6 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -460,16 +460,12 @@ public class ExpressionAnalyzer
                     type = TIME;
                     break;
                 case TIMESTAMP:
-                    if (node.getPrecision() != null && node.getPrecision() > 3) {
-                        type = TIMESTAMP_MICROSECONDS;
-                    }
-                    else {
-                        type = TIMESTAMP_WITH_TIME_ZONE;
-                    }
+                    // CURRENT_TIMESTAMP always returns timestamp with time zone.
+                    type = TIMESTAMP_WITH_TIME_ZONE;
                     break;
                 case LOCALTIMESTAMP:
-                    if (node.getPrecision() != null && node.getPrecision() > 3) {
-                        type = TIMESTAMP_MICROSECONDS;
+                    if (node.getPrecision() != null) {
+                        type = TimestampType.createTimestampType(Math.min(node.getPrecision(), TimestampType.MAX_PRECISION));
                     }
                     else {
                         type = TIMESTAMP;
@@ -983,13 +979,12 @@ public class ExpressionAnalyzer
             if (timestampHasTimeZone(node.getValue())) {
                 type = TIMESTAMP_WITH_TIME_ZONE;
             }
-            else if (timestampLiteralPrecision(node.getValue()) > 3) {
-                // Literals with more than 3 fractional-seconds digits are typed as TIMESTAMP_MICROSECONDS
-                // to preserve sub-millisecond information (up to microsecond precision).
-                type = TIMESTAMP_MICROSECONDS;
-            }
             else {
-                type = TIMESTAMP;
+                // Type the literal based on the number of fractional-second digits.
+                int litPrecision = timestampLiteralPrecision(node.getValue());
+                // Clamp to microsecond precision (max precision stored in a 64-bit long).
+                litPrecision = Math.min(litPrecision, 6);
+                type = TimestampType.createTimestampType(litPrecision);
             }
             return setExpressionType(node, type);
         }

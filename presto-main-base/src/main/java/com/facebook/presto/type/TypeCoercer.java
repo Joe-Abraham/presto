@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -387,6 +388,17 @@ public class TypeCoercer
             if (fromTypeBaseName.equals(StandardTypes.CHAR) && !functionsConfig.isLegacyCharToVarcharCoercion()) {
                 Type commonSuperType = getCommonSuperTypeForChar((CharType) standardFromType, (CharType) standardToType);
                 return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) {
+                // Allow coercion between timestamp precisions: timestamp(p1) → timestamp(p2) when p2 >= p1.
+                if (standardFromType instanceof TimestampType && standardToType instanceof TimestampType) {
+                    TimestampType fromTs = (TimestampType) standardFromType;
+                    TimestampType toTs = (TimestampType) standardToType;
+                    if (fromTs.getPrecision() <= toTs.getPrecision()) {
+                        return TypeCompatibility.compatible(toSemanticType(toType, standardToType), true);
+                    }
+                    return TypeCompatibility.incompatible();
+                }
             }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {
                 return typeCompatibilityForRow((RowType) standardFromType, (RowType) standardToType).toSemanticTypeCompatibility(toType);

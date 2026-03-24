@@ -103,7 +103,7 @@ public final class SelectiveStreamReaders
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory, options.getMaxSliceSize(), options.isResetAllReaders());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS: {
-                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() == TIMESTAMP_MICROSECONDS;
+                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() instanceof TimestampType && ((TimestampType) outputType.get()).isLongTimestamp();
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
                 return new TimestampSelectiveStreamReader(

@@ -345,7 +345,7 @@ public final class TypeConverter
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
+        if (type instanceof TimestampType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

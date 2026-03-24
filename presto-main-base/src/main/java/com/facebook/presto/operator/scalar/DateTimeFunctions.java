@@ -20,6 +20,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
@@ -1088,7 +1089,7 @@ public final class DateTimeFunctions
     public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
         if (properties.isLegacyTimestamp()) {
-            long date = TimestampOperators.castToDate(properties, timestamp);
+            long date = TimestampOperators.castToDate((long) TimestampType.DEFAULT_PRECISION, properties, timestamp);
             return lastDayOfMonthFromDate(date);
         }
         long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;

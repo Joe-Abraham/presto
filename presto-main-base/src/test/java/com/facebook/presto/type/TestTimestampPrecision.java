@@ -14,6 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -75,22 +76,21 @@ public class TestTimestampPrecision
     @Test
     public void testCastToTimestamp0()
     {
-        // TIMESTAMP(0) resolves to the millisecond-precision TIMESTAMP type (seconds only).
+        // TIMESTAMP(0) resolves to a ms-precision TimestampType with p=0.
         assertFunction(
                 "CAST('2001-01-22 03:04:05' AS TIMESTAMP(0))",
-                TIMESTAMP,
+                TimestampType.createTimestampType(0),
                 sqlTimestampOf(LocalDateTime.of(2001, 1, 22, 3, 4, 5, 0)));
     }
 
     @Test
     public void testCastToTimestamp12()
     {
-        // TIMESTAMP(12) resolves to TIMESTAMP_MICROSECONDS (microsecond storage; precision
-        // 7-12 is stored with 6 significant fractional digits due to microsecond storage limit).
+        // TIMESTAMP(12) resolves to a µs-precision TimestampType with p=12.
         long expectedMicros = parseTimestampLiteralMicros("2001-01-22 03:04:05.123456");
         assertFunction(
                 "CAST('2001-01-22 03:04:05.123456' AS TIMESTAMP(12))",
-                TIMESTAMP_MICROSECONDS,
+                TimestampType.createTimestampType(12),
                 new SqlTimestamp(expectedMicros, TimeUnit.MICROSECONDS));
     }
 
@@ -176,7 +176,7 @@ public class TestTimestampPrecision
     }
 
     // -------------------------------------------------------------------------
-    // Literal typing: literals with > 3 fractional digits -> TIMESTAMP_MICROSECONDS
+    // Literal typing: literals auto-detect precision
     // -------------------------------------------------------------------------
 
     @Test
