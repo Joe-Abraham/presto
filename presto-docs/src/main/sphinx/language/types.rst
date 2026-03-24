@@ -200,10 +200,28 @@ Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 ``TIMESTAMP``
 ^^^^^^^^^^^^^
 
+``TIMESTAMP(p)``
+
 Instant in time that includes the date and time of day without a time zone.
 Values of this type are parsed and rendered in the session time zone.
 
-Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
+The optional precision parameter ``p`` specifies the number of fractional
+seconds digits, and must be an integer in the range 0–12 (inclusive).
+The default precision is 3 (milliseconds).
+
+* Precision 0–3: values are stored as epoch **milliseconds** (identical to
+  the unparameterised ``TIMESTAMP`` type).
+* Precision 4–12: values are stored as epoch **microseconds** (identical to
+  the ``TIMESTAMP MICROSECONDS`` type).  Literals or expressions with
+  precision higher than 6 are accepted but the stored value retains at most
+  6 significant fractional-second digits.
+
+Examples:
+
+* ``TIMESTAMP '2001-08-22 03:04:05.321'`` — millisecond literal, equivalent to ``TIMESTAMP(3)``
+* ``TIMESTAMP '2001-08-22 03:04:05.321456'`` — microsecond literal, typed as ``TIMESTAMP(6)``
+* ``CAST(x AS TIMESTAMP(6))`` — explicit cast to microsecond precision
+* ``CAST(x AS TIMESTAMP(12))`` — accepted; stored at microsecond precision
 
 ``TIMESTAMP WITH TIME ZONE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -120,6 +120,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -158,6 +159,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteralMicros;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -467,14 +469,20 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTimestampLiteral(TimestampLiteral node, Context context)
         {
+            Type type = getType(node);
             long value;
-            if (sqlFunctionProperties.isLegacyTimestamp()) {
+            if (TIMESTAMP_MICROSECONDS.equals(type)) {
+                // When the ExpressionAnalyzer has inferred TIMESTAMP_MICROSECONDS (precision > 3),
+                // parse the literal as epoch microseconds.
+                value = parseTimestampLiteralMicros(node.getValue());
+            }
+            else if (sqlFunctionProperties.isLegacyTimestamp()) {
                 value = parseTimestampLiteral(sqlFunctionProperties.getTimeZoneKey(), node.getValue());
             }
             else {
                 value = parseTimestampLiteral(node.getValue());
             }
-            return constant(value, getType(node));
+            return constant(value, type);
         }
 
         @Override

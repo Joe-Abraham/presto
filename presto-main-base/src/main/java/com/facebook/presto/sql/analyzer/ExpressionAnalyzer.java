@@ -147,6 +147,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -194,6 +195,7 @@ import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
+import static com.facebook.presto.util.DateTimeUtils.timestampLiteralPrecision;
 import static com.facebook.presto.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -436,7 +438,14 @@ public class ExpressionAnalyzer
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
             if (node.getPrecision() != null) {
-                throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
+                // Precision is only supported for CURRENT_TIMESTAMP and LOCALTIMESTAMP.
+                switch (node.getFunction()) {
+                    case TIMESTAMP:
+                    case LOCALTIMESTAMP:
+                        break;
+                    default:
+                        throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported for %s", node.getFunction().getName());
+                }
             }
 
             Type type;
@@ -451,10 +460,20 @@ public class ExpressionAnalyzer
                     type = TIME;
                     break;
                 case TIMESTAMP:
-                    type = TIMESTAMP_WITH_TIME_ZONE;
+                    if (node.getPrecision() != null && node.getPrecision() > 3) {
+                        type = TIMESTAMP_MICROSECONDS;
+                    }
+                    else {
+                        type = TIMESTAMP_WITH_TIME_ZONE;
+                    }
                     break;
                 case LOCALTIMESTAMP:
-                    type = TIMESTAMP;
+                    if (node.getPrecision() != null && node.getPrecision() > 3) {
+                        type = TIMESTAMP_MICROSECONDS;
+                    }
+                    else {
+                        type = TIMESTAMP;
+                    }
                     break;
                 default:
                     throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
@@ -963,6 +982,11 @@ public class ExpressionAnalyzer
             Type type;
             if (timestampHasTimeZone(node.getValue())) {
                 type = TIMESTAMP_WITH_TIME_ZONE;
+            }
+            else if (timestampLiteralPrecision(node.getValue()) > 3) {
+                // Literals with more than 3 fractional-seconds digits are typed as TIMESTAMP_MICROSECONDS
+                // to preserve sub-millisecond information (up to microsecond precision).
+                type = TIMESTAMP_MICROSECONDS;
             }
             else {
                 type = TIMESTAMP;
