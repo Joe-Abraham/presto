@@ -28,6 +28,8 @@ import static java.lang.Math.floorMod;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class SqlTimestamp
 {
@@ -37,11 +39,17 @@ public final class SqlTimestamp
     public static final int MICROSECONDS_PER_MILLISECOND = 1_000;
 
     // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
+    private static final String JSON_SECONDS_FORMAT = "uuuu-MM-dd HH:mm:ss";
+    public static final DateTimeFormatter JSON_SECONDS_FORMATTER = DateTimeFormatter.ofPattern(JSON_SECONDS_FORMAT);
+
     private static final String JSON_MILLIS_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS";
     public static final DateTimeFormatter JSON_MILLIS_FORMATTER = DateTimeFormatter.ofPattern(JSON_MILLIS_FORMAT);
 
     private static final String JSON_MICROS_FORMAT = "uuuu-MM-dd HH:mm:ss.SSSSSS";
     public static final DateTimeFormatter JSON_MICROS_FORMATTER = DateTimeFormatter.ofPattern(JSON_MICROS_FORMAT);
+
+    private static final String JSON_NANOS_FORMAT = "uuuu-MM-dd HH:mm:ss.SSSSSSSSS";
+    public static final DateTimeFormatter JSON_NANOS_FORMATTER = DateTimeFormatter.ofPattern(JSON_NANOS_FORMAT);
 
     private final long value;
     private final Optional<TimeZoneKey> sessionTimeZoneKey;
@@ -127,11 +135,17 @@ public final class SqlTimestamp
     @Override
     public String toString()
     {
+        if (precision == SECONDS) {
+            return formatInstant(secondsToInstant(value), JSON_SECONDS_FORMATTER);
+        }
         if (precision == MILLISECONDS) {
             return formatInstant(millisToInstant(value), JSON_MILLIS_FORMATTER);
         }
         if (precision == MICROSECONDS) {
             return formatInstant(microsToInstant(value), JSON_MICROS_FORMATTER);
+        }
+        if (precision == NANOSECONDS) {
+            return formatInstant(nanosToInstant(value), JSON_NANOS_FORMATTER);
         }
         throw new UnsupportedOperationException("Precision not supported " + precision);
     }
@@ -149,10 +163,15 @@ public final class SqlTimestamp
     private static TimeUnit validatePrecision(TimeUnit precision)
     {
         requireNonNull(precision, "precision");
-        if (precision == MILLISECONDS || precision == MICROSECONDS) {
+        if (precision == SECONDS || precision == MILLISECONDS || precision == MICROSECONDS || precision == NANOSECONDS) {
             return precision;
         }
         throw new UnsupportedOperationException("Precision not supported " + precision);
+    }
+
+    private static Instant secondsToInstant(long epochSeconds)
+    {
+        return Instant.ofEpochSecond(epochSeconds);
     }
 
     private static Instant millisToInstant(long epochMillis)
@@ -165,6 +184,13 @@ public final class SqlTimestamp
         long seconds = floorDiv(epochMicros, MICROS_PER_SECOND);
         long micros = floorMod(epochMicros, MICROS_PER_SECOND);
         return Instant.ofEpochSecond(seconds, micros * NANOS_PER_MICROS);
+    }
+
+    private static Instant nanosToInstant(long epochNanos)
+    {
+        long seconds = floorDiv(epochNanos, MICROS_PER_SECOND * NANOS_PER_MICROS);
+        long nanos = floorMod(epochNanos, MICROS_PER_SECOND * NANOS_PER_MICROS);
+        return Instant.ofEpochSecond(seconds, nanos);
     }
 
     private static void checkState(boolean condition, String message)

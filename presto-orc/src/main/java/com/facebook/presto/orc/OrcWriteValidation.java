@@ -695,7 +695,7 @@ public class OrcWriteValidation
                 }
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP_MICROSECONDS)) {
+            if (type.equals(TIMESTAMP_MICROSECONDS)) {
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.

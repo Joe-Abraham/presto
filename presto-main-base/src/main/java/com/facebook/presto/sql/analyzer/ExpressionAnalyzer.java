@@ -147,6 +147,8 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_NANOS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -191,6 +193,7 @@ import static com.facebook.presto.sql.tree.WindowFrame.Type.ROWS;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.util.DateTimeUtils.getTimestampPrecision;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
@@ -965,7 +968,18 @@ public class ExpressionAnalyzer
                 type = TIMESTAMP_WITH_TIME_ZONE;
             }
             else {
-                type = TIMESTAMP;
+                // Choose the timestamp type based on the number of fractional-second digits
+                // in the literal so that precision is not silently lost.
+                int fractionalDigits = getTimestampPrecision(node.getValue());
+                if (fractionalDigits <= 3) {
+                    type = TIMESTAMP;           // default millisecond precision
+                }
+                else if (fractionalDigits <= 6) {
+                    type = TIMESTAMP_MICROSECONDS;
+                }
+                else {
+                    type = TIMESTAMP_NANOS;
+                }
             }
             return setExpressionType(node, type);
         }

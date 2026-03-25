@@ -266,6 +266,113 @@ public final class DateTimeUtils
         return LEGACY_TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).print(timestamp);
     }
 
+    // -----------------------------------------------------------------------
+    // Microsecond-precision timestamp parsing and printing
+    // -----------------------------------------------------------------------
+
+    private static final java.time.format.DateTimeFormatter MICROS_PRINTER =
+            java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
+
+    private static final java.time.format.DateTimeFormatter MICROS_LEGACY_PRINTER =
+            java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS");
+
+    /**
+     * Parses a timestamp string into <em>microseconds</em> since the epoch.
+     *
+     * <p>The string may contain up to 6 fractional-second digits. If fewer digits are
+     * supplied the value is right-padded with zeros. The string must <em>not</em>
+     * include a timezone component; if a timezone is present it is silently ignored
+     * and the local-time interpretation is used (consistent with non-legacy TIMESTAMP
+     * semantics).
+     */
+    public static long parseTimestampLiteralMicros(String value)
+    {
+        // Determine the position of the fractional-seconds dot (if any).
+        int dotIndex = value.indexOf('.');
+        if (dotIndex < 0) {
+            // No fractional part – parse as milliseconds and scale up.
+            long millis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+            return millis * 1_000L;
+        }
+
+        // Find the end of the fractional-digit run (timezone info follows).
+        int fracStart = dotIndex + 1;
+        int fracEnd = fracStart;
+        while (fracEnd < value.length() && Character.isDigit(value.charAt(fracEnd))) {
+            fracEnd++;
+        }
+        String fractional = value.substring(fracStart, fracEnd);
+
+        // Build a truncated string containing only the first 3 fractional digits
+        // so that Joda-Time can parse it to milliseconds reliably.
+        String truncated;
+        String suffix = value.substring(fracEnd); // timezone suffix, e.g. " +07:00"
+        if (fractional.length() <= 3) {
+            truncated = value.substring(0, dotIndex + 1 + fractional.length()) + suffix;
+        }
+        else {
+            truncated = value.substring(0, dotIndex + 4) + suffix;
+        }
+
+        long millis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(truncated);
+
+        if (fractional.length() <= 3) {
+            // All sub-second precision is already captured in millis.
+            return millis * 1_000L;
+        }
+
+        // Extract sub-millisecond microseconds (fractional digits 4–6).
+        String microStr = (fractional + "000").substring(3, 6);
+        long microsPart = Long.parseLong(microStr);
+
+        return millis * 1_000L + microsPart;
+    }
+
+    /**
+     * Formats a microsecond-precision timestamp (µs since epoch) as a string.
+     */
+    public static String printTimestampMicrosWithoutTimeZone(long epochMicros)
+    {
+        long seconds = Math.floorDiv(epochMicros, 1_000_000L);
+        long micros = Math.floorMod(epochMicros, 1_000_000L);
+        java.time.Instant instant = java.time.Instant.ofEpochSecond(seconds, micros * 1_000L);
+        return instant.atZone(java.time.ZoneOffset.UTC).format(MICROS_PRINTER);
+    }
+
+    /**
+     * Formats a microsecond-precision timestamp (µs since epoch) as a string,
+     * interpreting the value in the given session time zone (legacy-timestamp mode).
+     */
+    @Deprecated
+    public static String printTimestampMicrosWithoutTimeZone(TimeZoneKey timeZoneKey, long epochMicros)
+    {
+        long seconds = Math.floorDiv(epochMicros, 1_000_000L);
+        long micros = Math.floorMod(epochMicros, 1_000_000L);
+        java.time.Instant instant = java.time.Instant.ofEpochSecond(seconds, micros * 1_000L);
+        return instant.atZone(java.time.ZoneId.of(timeZoneKey.getId())).format(MICROS_LEGACY_PRINTER);
+    }
+
+    /**
+     * Returns the number of fractional-second digits in a timestamp literal string,
+     * or 0 if no fractional part is present.
+     *
+     * <p>This is used by the expression analyser to determine the appropriate
+     * {@code TIMESTAMP} precision.
+     */
+    public static int getTimestampPrecision(String value)
+    {
+        int dotIndex = value.indexOf('.');
+        if (dotIndex < 0) {
+            return 0;
+        }
+        int fracStart = dotIndex + 1;
+        int fracEnd = fracStart;
+        while (fracEnd < value.length() && Character.isDigit(value.charAt(fracEnd))) {
+            fracEnd++;
+        }
+        return fracEnd - fracStart;
+    }
+
     public static boolean timestampHasTimeZone(String value)
     {
         try {

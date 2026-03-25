@@ -66,6 +66,7 @@ public final class StandardTypes
     public static final Set<String> USER_DEFINED_TYPES = unmodifiableSet(new HashSet<>(asList(BIGINT_ENUM, VARCHAR_ENUM, DISTINCT_TYPE)));
 
     public static final Set<String> PARAMETRIC_TYPES = unmodifiableSet(new HashSet<>(asList(
+            TIMESTAMP,
             VARCHAR,
             CHAR,
             DECIMAL,
