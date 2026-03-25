@@ -150,12 +150,13 @@ public class TestTimestampParametricType
     public void testLiteralMicrosecondPrecision()
     {
         // 6 fractional digits → TIMESTAMP_MICROSECONDS
-        // Epoch itself with microseconds: 0s + 123456µs = 123456µs since epoch.
-        // In UTC the string representation must include 6 fractional digits.
+        // Epoch + 0.123456 s = 123456 µs since epoch.
+        // The expected value uses the session connector session so that the legacy/non-legacy
+        // timezone treatment matches what the engine produces.
         assertFunction(
                 "TIMESTAMP '1970-01-01 00:00:00.123456'",
                 TIMESTAMP_MICROSECONDS,
-                new com.facebook.presto.common.type.SqlTimestamp(123456L, java.util.concurrent.TimeUnit.MICROSECONDS));
+                sqlTimestampOf(123456L, session.toConnectorSession(), MICROSECONDS));
     }
 
     // -----------------------------------------------------------------------

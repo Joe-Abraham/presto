@@ -196,6 +196,26 @@ public final class TimestampMicrosecondsOperators
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Cross-precision casts: TIMESTAMP (ms) ↔ timestamp(6) (µs)
+    // -----------------------------------------------------------------------
+
+    /** Widens a millisecond-precision TIMESTAMP to timestamp(6) (microseconds). */
+    @ScalarOperator(CAST)
+    @SqlType(TIMESTAMP_MICROS)
+    public static long castFromTimestamp(@SqlType("timestamp") long valueMillis)
+    {
+        return valueMillis * MICROSECONDS_PER_MILLISECOND;
+    }
+
+    /** Narrows a timestamp(6) (microseconds) to a millisecond-precision TIMESTAMP. */
+    @ScalarOperator(CAST)
+    @SqlType("timestamp")
+    public static long castToTimestamp(@SqlType(TIMESTAMP_MICROS) long valueMicros)
+    {
+        return valueMicros / MICROSECONDS_PER_MILLISECOND;
+    }
+
     @ScalarOperator(HASH_CODE)
     @SqlType("bigint")
     public static long hashCode(@SqlType(TIMESTAMP_MICROS) long value)

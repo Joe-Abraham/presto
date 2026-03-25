@@ -78,10 +78,13 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.DateTimeUtils.getTimestampPrecision;
 import static com.facebook.presto.util.DateTimeUtils.parseDayTimeInterval;
 import static com.facebook.presto.util.DateTimeUtils.parseTimeLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
+import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteralMicros;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
+import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.intBitsToFloat;
@@ -284,6 +287,12 @@ public final class LiteralInterpreter
             SqlFunctionProperties properties = session.getSqlFunctionProperties();
 
             try {
+                // Route through the microsecond parser when the literal has more than 3
+                // fractional-second digits and does NOT contain a time zone component,
+                // so precision is not silently lost.
+                if (getTimestampPrecision(node.getValue()) > 3 && !timestampHasTimeZone(node.getValue())) {
+                    return parseTimestampLiteralMicros(node.getValue());
+                }
                 if (properties.isLegacyTimestamp()) {
                     return parseTimestampLiteral(properties.getTimeZoneKey(), node.getValue());
                 }

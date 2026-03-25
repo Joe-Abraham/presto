@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -392,6 +393,15 @@ public class TypeCoercer
                 return typeCompatibilityForRow((RowType) standardFromType, (RowType) standardToType).toSemanticTypeCompatibility(toType);
             }
 
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) {
+                // Higher precision (finer grain) is the common super type.
+                // TimeUnit ordinal: NANOSECONDS=0, MICROSECONDS=1, MILLISECONDS=2, SECONDS=3
+                // Smaller ordinal means finer precision, so it is the common super type.
+                Type commonSuperType = getCommonSuperTypeForTimestamp(
+                        (TimestampType) standardFromType, (TimestampType) standardToType);
+                return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
+            }
+
             if (isCovariantParametrizedType(standardFromType)) {
                 return typeCompatibilityForCovariantParametrizedType(standardFromType, standardToType).toSemanticTypeCompatibility(toType);
             }
@@ -422,6 +432,23 @@ public class TypeCoercer
         //we allow potential loss of precision here. Overflow checking is done in operators.
         targetPrecision = Math.min(38, targetPrecision);
         return createDecimalType(targetPrecision, targetScale);
+    }
+
+    /**
+     * Returns the common super type for two TIMESTAMP types with (potentially different) precisions.
+     * The common super type is the one with the finer granularity (higher precision), because a
+     * lower-precision value can always be losslessly widened to a higher-precision type.
+     *
+     * <p>{@link java.util.concurrent.TimeUnit} ordinal values: NANOSECONDS=0, MICROSECONDS=1,
+     * MILLISECONDS=2, SECONDS=3 – so a <em>smaller</em> ordinal corresponds to finer precision.
+     */
+    private static Type getCommonSuperTypeForTimestamp(TimestampType firstType, TimestampType secondType)
+    {
+        // Smaller TimeUnit ordinal → finer precision → wins as the common super type.
+        if (firstType.getPrecision().ordinal() <= secondType.getPrecision().ordinal()) {
+            return firstType;
+        }
+        return secondType;
     }
 
     private static Type getCommonSuperTypeForVarchar(VarcharType firstType, VarcharType secondType)
