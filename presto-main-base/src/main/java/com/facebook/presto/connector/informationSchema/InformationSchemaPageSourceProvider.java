@@ -21,6 +21,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.InternalTable;
@@ -75,6 +78,7 @@ import static com.facebook.presto.metadata.MetadataListing.listTablePrivileges;
 import static com.facebook.presto.metadata.MetadataListing.listTables;
 import static com.facebook.presto.metadata.MetadataListing.listViews;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static com.google.common.collect.Sets.union;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -168,6 +172,7 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildColumns(Session session, Set<QualifiedTablePrefix> prefixes)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_COLUMNS));
+        boolean omitDatetimeTypePrecision = isOmitDateTimeTypePrecision(session);
         for (QualifiedTablePrefix prefix : prefixes) {
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
                 SchemaTableName tableName = entry.getKey();
@@ -175,6 +180,15 @@ public class InformationSchemaPageSourceProvider
                 for (ColumnMetadata column : entry.getValue()) {
                     if (column.isHidden()) {
                         continue;
+                    }
+                    String typeName = column.getType().getDisplayName();
+                    if (omitDatetimeTypePrecision) {
+                        if (column.getType() instanceof TimestampType && column.getType().equals(TimestampType.TIMESTAMP)) {
+                            typeName = StandardTypes.TIMESTAMP;
+                        }
+                        else if (column.getType() instanceof TimestampWithTimeZoneType && column.getType().equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+                            typeName = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+                        }
                     }
                     table.add(
                             prefix.getCatalogName(),
@@ -184,7 +198,7 @@ public class InformationSchemaPageSourceProvider
                             ordinalPosition,
                             null,
                             column.isNullable() ? "YES" : "NO",
-                            column.getType().getDisplayName(),
+                            typeName,
                             column.getComment().orElse(null),
                             column.getExtraInfo().orElse(null),
                             getPrecision(column.getType()),

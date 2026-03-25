@@ -171,6 +171,7 @@ public final class SystemSessionProperties
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
+    public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
@@ -921,6 +922,11 @@ public final class SystemSessionProperties
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         functionsConfig.isLegacyTimestamp(),
                         true),
+                booleanProperty(
+                        OMIT_DATETIME_TYPE_PRECISION,
+                        "Omit precision when rendering datetime type names with default precision",
+                        functionsConfig.isOmitDateTimeTypePrecision(),
+                        false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
@@ -2612,6 +2618,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyTimestamp(Session session)
     {
         return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
+    }
+
+    public static boolean isOmitDateTimeTypePrecision(Session session)
+    {
+        return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
     }
 
     public static Duration getOptimizerTimeout(Session session)

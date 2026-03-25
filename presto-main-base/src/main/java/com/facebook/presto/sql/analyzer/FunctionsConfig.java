@@ -42,6 +42,7 @@ public class FunctionsConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyTimestamp = true;
+    private boolean omitDateTimeTypePrecision;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean fieldNamesInJsonCastEnabled;
     private boolean warnOnPossibleNans;
@@ -246,6 +247,18 @@ public class FunctionsConfig
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
+    }
+
+    public boolean isOmitDateTimeTypePrecision()
+    {
+        return omitDateTimeTypePrecision;
+    }
+
+    @Config("deprecated.omit-datetime-type-precision")
+    public FunctionsConfig setOmitDateTimeTypePrecision(boolean value)
+    {
+        this.omitDateTimeTypePrecision = value;
+        return this;
     }
 
     @Config("parse-decimal-literals-as-double")

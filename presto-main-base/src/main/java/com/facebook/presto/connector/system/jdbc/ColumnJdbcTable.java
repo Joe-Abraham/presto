@@ -19,6 +19,9 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
@@ -61,6 +64,7 @@ import static com.facebook.presto.connector.system.jdbc.FilterUtil.stringFilter;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listTableColumns;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static com.facebook.presto.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -118,23 +122,33 @@ public class ColumnJdbcTable
         Optional<String> catalogFilter = stringFilter(constraint, 0);
         Optional<String> schemaFilter = stringFilter(constraint, 1);
         Optional<String> tableFilter = stringFilter(constraint, 2);
+        boolean omitDatetimeTypePrecision = isOmitDateTimeTypePrecision(session);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = FilterUtil.tablePrefix(catalog, schemaFilter, tableFilter);
             for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
-                addColumnRows(table, catalog, entry.getKey(), entry.getValue());
+                addColumnRows(table, catalog, entry.getKey(), entry.getValue(), omitDatetimeTypePrecision);
             }
         }
         return table.build().cursor();
     }
 
-    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns, boolean omitDatetimeTypePrecision)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
             if (column.isHidden()) {
                 continue;
+            }
+            String typeName = column.getType().getDisplayName();
+            if (omitDatetimeTypePrecision) {
+                if (column.getType() instanceof TimestampType && column.getType().equals(TIMESTAMP)) {
+                    typeName = StandardTypes.TIMESTAMP;
+                }
+                else if (column.getType() instanceof TimestampWithTimeZoneType && column.getType().equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    typeName = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+                }
             }
             builder.addRow(
                     catalog,
@@ -142,7 +156,7 @@ public class ColumnJdbcTable
                     tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
-                    column.getType().getDisplayName(),
+                    typeName,
                     columnSize(column.getType()),
                     0,
                     decimalDigits(column.getType()),
