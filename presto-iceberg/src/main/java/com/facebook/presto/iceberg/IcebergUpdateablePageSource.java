@@ -422,28 +422,51 @@ public class IcebergUpdateablePageSource
 
     /**
      * Computes the _row_id block. If the data file contains physical _row_id values,
-     * those are used. Otherwise, _row_id is computed as firstRowId + _pos.
+     * those are used. Null values within the block are replaced with firstRowId + _pos
+     * (per the Iceberg spec, null means "set by the commit").
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeRowIdBlock(Page page)
     {
+        // V1/V2 table: return null for all rows
+        if (firstRowId < 0) {
+            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        }
+
         // Get the file-read block for _row_id
         Block fileRowIdBlock = page.getBlock(outputColumnToDelegateMapping[rowLineageRowIdOutputIndex]);
 
-        // Check if the file provided non-null values (COW-rewritten files store _row_id physically)
-        if (!isAllNull(fileRowIdBlock)) {
+        // If the file provided all non-null values, use them directly (COW-rewritten files)
+        if (!hasAnyNull(fileRowIdBlock)) {
             return fileRowIdBlock;
         }
 
-        // Fallback: compute _row_id = firstRowId + _pos
-        if (rowPositionDelegateIndex < 0 || firstRowId < 0) {
-            // V1/V2 table or no first_row_id assigned: return null
-            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        // Fallback needed: compute _row_id = firstRowId + _pos for null rows
+        if (rowPositionDelegateIndex < 0) {
+            // No ROW_POSITION available: return file values as-is (nulls remain)
+            return fileRowIdBlock;
         }
+
+        // If the file provided all nulls, compute _row_id for all rows
         Block rowPositionBlock = page.getBlock(rowPositionDelegateIndex);
+        if (isAllNull(fileRowIdBlock)) {
+            BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+            for (int i = 0; i < page.getPositionCount(); i++) {
+                BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+            }
+            return builder.build();
+        }
+
+        // Mixed case: COW file with some preserved values and some nulls.
+        // Replace nulls with firstRowId + _pos.
         BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
         for (int i = 0; i < page.getPositionCount(); i++) {
-            BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+            if (fileRowIdBlock.isNull(i)) {
+                BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+            }
+            else {
+                BIGINT.writeLong(builder, BIGINT.getLong(fileRowIdBlock, i));
+            }
         }
         return builder.build();
     }

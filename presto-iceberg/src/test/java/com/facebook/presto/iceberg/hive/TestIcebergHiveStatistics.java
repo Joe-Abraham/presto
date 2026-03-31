@@ -456,12 +456,8 @@ public class TestIcebergHiveStatistics
             assertTrue(partialMiss.getCount() > 0);
 
             statistics.getColumnStatistics().forEach((handle, stats) -> {
-                IcebergColumnHandle icebergHandle = (IcebergColumnHandle) handle;
-                if (icebergHandle.isRowIdColumn() || icebergHandle.isLastUpdatedSequenceNumberColumn()) {
-                    return;
-                }
                 assertFalse(stats.getDistinctValuesCount().isUnknown());
-                if (isKllHistogramSupportedType(icebergHandle.getType())) {
+                if (isKllHistogramSupportedType(((IcebergColumnHandle) handle).getType())) {
                     assertTrue(stats.getHistogram().isPresent());
                 }
             });
@@ -691,10 +687,6 @@ public class TestIcebergHiveStatistics
     static void assertNDVsPresent(TableStatistics stats)
     {
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
-            IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
-            if (handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
-                continue;
-            }
             assertFalse(entry.getValue().getDistinctValuesCount().isUnknown(), entry.getKey() + " NDVs are unknown");
         }
     }
