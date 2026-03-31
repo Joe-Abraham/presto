@@ -435,9 +435,10 @@ public class IcebergUpdateablePageSource
 
         // Get the file-read block for _row_id
         Block fileRowIdBlock = page.getBlock(outputColumnToDelegateMapping[rowLineageRowIdOutputIndex]);
+        NullStatus nullStatus = classifyNulls(fileRowIdBlock);
 
         // If the file provided all non-null values, use them directly (COW-rewritten files)
-        if (!hasAnyNull(fileRowIdBlock)) {
+        if (nullStatus == NullStatus.NO_NULLS) {
             return fileRowIdBlock;
         }
 
@@ -449,7 +450,7 @@ public class IcebergUpdateablePageSource
 
         // If the file provided all nulls, compute _row_id for all rows
         Block rowPositionBlock = page.getBlock(rowPositionDelegateIndex);
-        if (isAllNull(fileRowIdBlock)) {
+        if (nullStatus == NullStatus.ALL_NULLS) {
             BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
             for (int i = 0; i < page.getPositionCount(); i++) {
                 BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
@@ -485,14 +486,15 @@ public class IcebergUpdateablePageSource
         }
 
         Block fileSeqBlock = page.getBlock(outputColumnToDelegateMapping[lastUpdatedSeqOutputIndex]);
+        NullStatus nullStatus = classifyNulls(fileSeqBlock);
 
         // If the file provided all non-null values, use them directly
-        if (!hasAnyNull(fileSeqBlock)) {
+        if (nullStatus == NullStatus.NO_NULLS) {
             return fileSeqBlock;
         }
 
         // If the file provided all nulls, use the file's data sequence number for all rows
-        if (isAllNull(fileSeqBlock)) {
+        if (nullStatus == NullStatus.ALL_NULLS) {
             return RunLengthEncodedBlock.create(BIGINT, dataSequenceNumber, page.getPositionCount());
         }
 
@@ -510,30 +512,39 @@ public class IcebergUpdateablePageSource
         return builder.build();
     }
 
-    private static boolean hasAnyNull(Block block)
+    private enum NullStatus
     {
-        if (block instanceof RunLengthEncodedBlock) {
-            return block.isNull(0);
-        }
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                return true;
-            }
-        }
-        return false;
+        NO_NULLS,
+        ALL_NULLS,
+        MIXED
     }
 
-    private static boolean isAllNull(Block block)
+    /**
+     * Classifies a block's null content in a single pass. Uses {@code mayHaveNull()}
+     * to short-circuit when the block is known to contain no nulls, avoiding a full scan.
+     */
+    private static NullStatus classifyNulls(Block block)
     {
-        if (block instanceof RunLengthEncodedBlock) {
-            return block.isNull(0);
+        if (!block.mayHaveNull()) {
+            return NullStatus.NO_NULLS;
         }
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0) ? NullStatus.ALL_NULLS : NullStatus.NO_NULLS;
+        }
+        boolean hasNull = false;
+        boolean hasNonNull = false;
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
-                return false;
+            if (block.isNull(i)) {
+                hasNull = true;
+            }
+            else {
+                hasNonNull = true;
+            }
+            if (hasNull && hasNonNull) {
+                return NullStatus.MIXED;
             }
         }
-        return true;
+        return hasNull ? NullStatus.ALL_NULLS : NullStatus.NO_NULLS;
     }
 
     private int getDelegateColumnId(Predicate<IcebergColumnHandle> columnPredicate)
