@@ -49,6 +49,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TimestampSelectiveStreamReader
         implements SelectiveStreamReader
@@ -64,6 +66,7 @@ public class TimestampSelectiveStreamReader
     private final long baseTimestampInSeconds;
     private final boolean nonDeterministicFilter;
     private final DecodeTimestampOptions decodeTimestampOptions;
+    private final boolean enableMicroPrecision;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     private InputStreamSource<LongInputStream> secondsStreamSource = getLongMissingStreamSource();
@@ -95,6 +98,7 @@ public class TimestampSelectiveStreamReader
             boolean enableMicroPrecision)
     {
         this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
+        this.enableMicroPrecision = enableMicroPrecision;
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -210,7 +214,9 @@ public class TimestampSelectiveStreamReader
                 }
             }
             else {
-                long value = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                long decoded = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                // Decoded value is in ms or µs; convert to nanoseconds (unified storage unit).
+                long value = enableMicroPrecision ? MICROSECONDS.toNanos(decoded) : MILLISECONDS.toNanos(decoded);
                 if (filter.testLong(value)) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
@@ -287,7 +293,9 @@ public class TimestampSelectiveStreamReader
                 nulls[i] = true;
             }
             else {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                long decoded = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                // Decoded value is in ms or µs; convert to nanoseconds (unified storage unit).
+                values[i] = enableMicroPrecision ? MICROSECONDS.toNanos(decoded) : MILLISECONDS.toNanos(decoded);
                 if (presentStream != null) {
                     nulls[i] = false;
                 }

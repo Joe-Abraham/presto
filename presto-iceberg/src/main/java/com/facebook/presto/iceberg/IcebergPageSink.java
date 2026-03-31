@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
@@ -442,7 +443,8 @@ public class IcebergPageSink
         }
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            // TIMESTAMP_NANO (p>6) stores nanoseconds natively; TIMESTAMP (p<=6) stores microseconds.
+            return ((TimestampType) type).getPrecision() > 6 ? timestamp : NANOSECONDS.toMicros(timestamp);
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -456,14 +458,15 @@ public class IcebergPageSink
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            TimeUnit storageUnit = timestampType.getStorageUnit();
+            Instant instant = Instant.ofEpochSecond(storageUnit.toSeconds(timestampValue),
+                    storageUnit.toNanos(timestampValue % storageUnit.convert(1, SECONDS)));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            return storageUnit.convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
+                    storageUnit.convert(localDateTime.getNano(), NANOSECONDS);
         }
         return value;
     }
@@ -481,7 +484,7 @@ public class IcebergPageSink
                     checkArgument(channel != null, "partition field not found: %s", field);
                     Type inputType = handles.get(channel).getType();
                     ColumnTransform transform = getColumnTransform(field, inputType);
-                    return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getTransform());
+                    return new PartitionColumn(field, channel, inputType, transform.type(), transform.transform());
                 })
                 .collect(toImmutableList());
     }

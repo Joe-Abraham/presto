@@ -21,7 +21,7 @@ import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -79,8 +79,6 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
@@ -685,23 +683,14 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
-                // A flaw in ORC encoding makes it impossible to represent timestamp
-                // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
+            if (type instanceof TimestampType) {
+                // A flaw in ORC encoding makes it impossible to represent timestamps
+                // between 1969-12-31 23:59:59.000000000, exclusive, and 1970-01-01 00:00:00.000000000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = TIMESTAMP.getLong(block, position);
-                if (mills > -1000 && mills < 0) {
-                    return AbstractLongType.hash(mills + 1000);
-                }
-            }
-
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP_MICROSECONDS)) {
-                // A flaw in ORC encoding makes it impossible to represent timestamp
-                // between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
-                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long micros = TIMESTAMP_MICROSECONDS.getLong(block, position);
-                if (micros > -1_000_000 && micros < 0) {
-                    return AbstractLongType.hash(micros + 1_000_000);
+                // All timestamp precisions store nanoseconds, so the threshold is 1 second = 1_000_000_000 ns.
+                long nanos = type.getLong(block, position);
+                if (nanos > -1_000_000_000L && nanos < 0) {
+                    return AbstractLongType.hash(nanos + 1_000_000_000L);
                 }
             }
 
@@ -827,7 +816,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type) || TIMESTAMP_MICROSECONDS.equals(type)) {
+            else if (type instanceof TimestampType) {
                 statisticsBuilder = new CountStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();

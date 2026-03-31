@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.parquet.ColumnReader;
 import com.facebook.presto.parquet.DataPage;
 import com.facebook.presto.parquet.DictionaryPage;
@@ -41,6 +42,8 @@ import static com.facebook.presto.parquet.batchreader.decoders.Decoders.readFlat
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class Int64TimeAndTimestampMicrosFlatBatchReader
         implements ColumnReader
@@ -54,6 +57,8 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
     protected FlatDefinitionLevelDecoder definitionLevelDecoder;
     protected Int64TimeAndTimestampMicrosValuesDecoder valuesDecoder;
     protected int remainingCountInPage;
+    // True when the output Presto type is a timestamp (all precisions store nanoseconds)
+    protected boolean outputIsNanos;
 
     private Dictionary dictionary;
     private int readOffset;
@@ -77,6 +82,7 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         checkArgument(pageReader.getValueCountInColumnChunk() > 0, "page is empty");
         this.field = requireNonNull(field, "field is null");
+        this.outputIsNanos = field.getType() instanceof TimestampType;
 
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         if (dictionaryPage != null) {
@@ -191,6 +197,15 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
             return new ColumnChunk(block, new int[0], new int[0]);
         }
 
+        if (outputIsNanos) {
+            // Decoder produces milliseconds; all timestamp precisions store nanoseconds.
+            for (int i = 0; i < values.length; i++) {
+                if (!isNull[i]) {
+                    values[i] = MILLISECONDS.toNanos(values[i]);
+                }
+            }
+        }
+
         boolean hasNoNull = totalNonNullCount == nextBatchSize;
         Block block = new LongArrayBlock(nextBatchSize, hasNoNull ? Optional.empty() : Optional.of(isNull), values);
         return new ColumnChunk(block, new int[0], new int[0]);
@@ -219,6 +234,13 @@ public class Int64TimeAndTimestampMicrosFlatBatchReader
 
         if (remainingInBatch != 0) {
             throw new ParquetDecodingException(format("Corrupted Parquet file: extra %d values to be consumed when scanning current batch", remainingInBatch));
+        }
+
+        if (outputIsNanos) {
+            // Decoder produces milliseconds; all timestamp precisions store nanoseconds.
+            for (int i = 0; i < values.length; i++) {
+                values[i] = MILLISECONDS.toNanos(values[i]);
+            }
         }
 
         Block block = new LongArrayBlock(nextBatchSize, Optional.empty(), values);

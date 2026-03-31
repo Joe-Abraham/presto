@@ -284,6 +284,71 @@ public final class DateTimeUtils
         }
     }
 
+    /**
+     * Returns the number of fractional-seconds digits present in a timestamp literal string.
+     * For example, {@code "2024-01-01 00:00:00.123"} returns 3, and
+     * {@code "2024-01-01 00:00:00.123456"} returns 6. If the timestamp has no fractional part,
+     * returns 0.
+     */
+    public static int timestampLiteralPrecision(String value)
+    {
+        int dotIndex = value.lastIndexOf('.');
+        if (dotIndex < 0) {
+            return 0;
+        }
+        int precision = 0;
+        for (int i = dotIndex + 1; i < value.length() && Character.isDigit(value.charAt(i)); i++) {
+            precision++;
+        }
+        return precision;
+    }
+
+    /**
+     * Parse a string as a value of TIMESTAMP with microsecond precision (epoch microseconds).
+     * If the literal has fewer than 6 fractional-seconds digits the value is padded with zeros
+     * to produce a correct microsecond count.
+     *
+     * @return epoch microseconds
+     */
+    public static long parseTimestampLiteralMicros(String value)
+    {
+        int dotIndex = value.lastIndexOf('.');
+        if (dotIndex < 0) {
+            // No fractional part - fall back to milliseconds and convert.
+            long millis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+            return TimeUnit.MILLISECONDS.toMicros(millis);
+        }
+
+        // Count fractional digits and find where they end.
+        int digitEnd = dotIndex + 1;
+        while (digitEnd < value.length() && Character.isDigit(value.charAt(digitEnd))) {
+            digitEnd++;
+        }
+        int fractionalDigits = digitEnd - dotIndex - 1;
+
+        if (fractionalDigits <= 3) {
+            // Only millisecond precision - parse normally and convert.
+            long millis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(value);
+            return TimeUnit.MILLISECONDS.toMicros(millis);
+        }
+
+        // Build a millisecond-precision version (first 3 fractional digits) to get the
+        // epoch-second boundary, then compute the microsecond offset manually.
+        String msValue = value.substring(0, dotIndex + 4) + value.substring(digitEnd);
+        long epochMillis = TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.parseMillis(msValue);
+        long epochSeconds = TimeUnit.MILLISECONDS.toSeconds(epochMillis);
+
+        // Extract up to 6 fractional digits and normalise to 6 digits (padding or truncating).
+        int takeDigits = Math.min(fractionalDigits, 6);
+        String fracStr = value.substring(dotIndex + 1, dotIndex + 1 + takeDigits);
+        if (fracStr.length() < 6) {
+            fracStr = String.format("%-6s", fracStr).replace(' ', '0');
+        }
+        long microsFraction = Long.parseLong(fracStr);
+
+        return TimeUnit.SECONDS.toMicros(epochSeconds) + microsFraction;
+    }
+
     private static final DateTimeFormatter TIME_FORMATTER;
     private static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER;
 

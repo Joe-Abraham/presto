@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DynamicFilters;
@@ -54,7 +55,6 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
@@ -238,7 +238,7 @@ public class FilteringPageSource
 
     private static boolean testNonNullPosition(Block block, int position, Type type, TupleDomainFilter filter)
     {
-        if (type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT || type == TIMESTAMP || type == DATE) {
+        if (type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT || type instanceof TimestampType || type == DATE) {
             return filter.testLong(type.getLong(block, position));
         }
 

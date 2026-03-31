@@ -74,7 +74,7 @@ public class TestIcebergScalarFunctions
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast('nasdbsdnsdms' as varbinary), 8)", BIGINT, bucketVarbinary(utf8Slice("nasdbsdnsdms"), 8));
 
         functionAssertions.assertFunction(catalogSchema + ".bucket(cast('2018-04-06' as date), 9)", BIGINT, bucketDate(DateOperators.castFromSlice(utf8Slice("2018-04-06")), 9));
-        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000' AS TIMESTAMP),10)", BIGINT, bucketTimestamp(TimestampOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000")), 10));
+        functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000' AS TIMESTAMP),10)", BIGINT, bucketTimestamp(TimestampOperators.castFromSlice((long) com.facebook.presto.common.type.TimestampType.DEFAULT_PRECISION, TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000")), 10));
         functionAssertions.assertFunction(catalogSchema + ".bucket(CAST('2018-04-06 04:35:00.000 GMT' AS TIMESTAMP WITH TIME ZONE), 11)", BIGINT, bucketTimestampWithTimeZone(TimestampWithTimeZoneOperators.castFromSlice(TEST_SESSION.getSqlFunctionProperties(), utf8Slice("2018-04-06 04:35:00.000 GMT")), 11));
     }
 }

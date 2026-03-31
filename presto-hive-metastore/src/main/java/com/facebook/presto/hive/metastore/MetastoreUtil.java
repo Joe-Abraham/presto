@@ -104,7 +104,6 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -679,8 +678,10 @@ public class MetastoreUtil
             long days = type.getLong(block, position);
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
         }
-        if (TimestampType.TIMESTAMP.equals(type)) {
-            long millisUtc = type.getLong(block, position);
+        if (type instanceof TimestampType) {
+            long value = type.getLong(block, position);
+            // All timestamp precisions store nanoseconds; convert ns → ms for the metastore.
+            long millisUtc = TimeUnit.NANOSECONDS.toMillis(value);
             return new Timestamp(millisUtc);
         }
         if (type instanceof DecimalType) {
@@ -897,7 +898,7 @@ public class MetastoreUtil
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+        if (isNumericType(type) || type.equals(DATE) || type instanceof TimestampType) {
             // TODO #7122 support non-legacy TIMESTAMP
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }

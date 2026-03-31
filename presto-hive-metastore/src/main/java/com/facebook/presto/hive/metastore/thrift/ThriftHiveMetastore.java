@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -116,7 +117,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -451,7 +451,7 @@ public class ThriftHiveMetastore
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+        if (isNumericType(type) || type.equals(DATE) || type instanceof TimestampType) {
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (isVarcharType(type) || isCharType(type)) {
@@ -1801,20 +1801,20 @@ public class ThriftHiveMetastore
                                 }
                             })
                             .run("lock", stats.getLock().wrap(() ->
-                                getMetastoreClientThenCall(metastoreContext, client -> {
-                                    LockResponse response = client.checkLock(new CheckLockRequest(lockId));
-                                    LockState newState = response.getState();
-                                    if (newState.equals(WAITING)) {
-                                        throw new WaitingForLockException("Waiting for lock.");
-                                    }
-                                    else if (newState.equals(ACQUIRED)) {
-                                        acquired.set(true);
-                                    }
-                                    else {
-                                        throw new RuntimeException(String.format("Failed to acquire lock: %s", newState.name()));
-                                    }
-                                    return null;
-                                })));
+                                    getMetastoreClientThenCall(metastoreContext, client -> {
+                                        LockResponse response = client.checkLock(new CheckLockRequest(lockId));
+                                        LockState newState = response.getState();
+                                        if (newState.equals(WAITING)) {
+                                            throw new WaitingForLockException("Waiting for lock.");
+                                        }
+                                        else if (newState.equals(ACQUIRED)) {
+                                            acquired.set(true);
+                                        }
+                                        else {
+                                            throw new RuntimeException(String.format("Failed to acquire lock: %s", newState.name()));
+                                        }
+                                        return null;
+                                    })));
                 }
             }
             finally {
@@ -1844,10 +1844,10 @@ public class ThriftHiveMetastore
             retry()
                     .stopOnIllegalExceptions()
                     .run("unlock",
-                        stats.getUnlock().wrap(() -> getMetastoreClientThenCall(metastoreContext, client -> {
-                            client.unlock(new UnlockRequest(lockId));
-                            return null;
-                        })));
+                            stats.getUnlock().wrap(() -> getMetastoreClientThenCall(metastoreContext, client -> {
+                                client.unlock(new UnlockRequest(lockId));
+                                return null;
+                            })));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

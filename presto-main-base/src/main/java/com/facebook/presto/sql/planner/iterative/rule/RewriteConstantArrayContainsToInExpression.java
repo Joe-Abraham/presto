@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.expressions.RowExpressionRewriter;
@@ -34,8 +35,6 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isRewriteConstantArrayContainsToInExpressionEnabled;
 import static com.facebook.presto.common.type.DateType.DATE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TypeUtils.isExactNumericType;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -94,7 +93,7 @@ public class RewriteConstantArrayContainsToInExpression
         // We limit the optimization for simple primitive type here for safety and simplicity
         private boolean isSupportedType(Type type)
         {
-            return isExactNumericType(type) || type instanceof VarcharType || type.equals(DATE) || type.equals(TIMESTAMP) || type.equals(TIMESTAMP_MICROSECONDS);
+            return isExactNumericType(type) || type instanceof VarcharType || type.equals(DATE) || type instanceof TimestampType;
         }
 
         @Override

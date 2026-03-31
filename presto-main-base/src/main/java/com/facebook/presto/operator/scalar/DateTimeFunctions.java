@@ -66,7 +66,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeFunctions
 {
@@ -179,18 +181,22 @@ public final class DateTimeFunctions
 
     @Description("current timestamp without time zone")
     @ScalarFunction("localtimestamp")
-    @SqlType(StandardTypes.TIMESTAMP)
+    @SqlType("timestamp(3)")
     public static long localTimestamp(SqlFunctionProperties properties)
     {
+        long millis;
         if (properties.isLegacyTimestamp()) {
-            return properties.getSessionStartTime();
+            millis = properties.getSessionStartTime();
         }
-        ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
-        return localChronology.getZone().convertUTCToLocal(properties.getSessionStartTime());
+        else {
+            ISOChronology localChronology = getChronology(properties.getTimeZoneKey());
+            millis = localChronology.getZone().convertUTCToLocal(properties.getSessionStartTime());
+        }
+        return MILLISECONDS.toNanos(millis);
     }
 
     @ScalarFunction("from_unixtime")
-    @SqlType(StandardTypes.TIMESTAMP)
+    @SqlType("timestamp(3)")
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime)
     {
         // This implementation fixes previous issue of precision loss when it comes for some edge cases.
@@ -199,7 +205,8 @@ public final class DateTimeFunctions
         // 1704150709 goes to seconds and 0.580499887466 should be rounded to 580 milliseconds.
         // Previous implementation would wrongly result in 581 milliseconds.
         // Reference: https://github.com/prestodb/presto/issues/21891#issue-2126580070
-        return Math.round(Math.floor(unixTime) * 1000 + Math.round((unixTime - Math.floor(unixTime)) * 1000));
+        long millis = Math.round(Math.floor(unixTime) * 1000 + Math.round((unixTime - Math.floor(unixTime)) * 1000));
+        return MILLISECONDS.toNanos(millis);
     }
 
     @ScalarFunction("from_unixtime")
@@ -254,7 +261,7 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double toUnixTime(@SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
-        return timestamp / 1000.0;
+        return timestamp / 1_000_000_000.0;
     }
 
     @ScalarFunction("to_unixtime")
@@ -271,15 +278,16 @@ public final class DateTimeFunctions
     // the maximum year represented by 64bits timestamp is ~584944387 it may require up to 35 characters.
     public static Slice toISO8601FromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
             DateTimeFormatter formatter = ISODateTimeFormat.dateTime()
                     .withChronology(getChronology(properties.getTimeZoneKey()));
-            return utf8Slice(formatter.print(timestamp));
+            return utf8Slice(formatter.print(millis));
         }
         else {
             DateTimeFormatter formatter = ISODateTimeFormat.dateHourMinuteSecondMillis()
                     .withChronology(UTC_CHRONOLOGY);
-            return utf8Slice(formatter.print(timestamp));
+            return utf8Slice(formatter.print(millis));
         }
     }
 
@@ -433,16 +441,22 @@ public final class DateTimeFunctions
 
     @Description("truncate to the specified precision in the session timezone")
     @ScalarFunction("date_trunc")
-    @LiteralParameters("x")
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long truncateTimestamp(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+    @LiteralParameters({"x", "p"})
+    @SqlType("timestamp(p)")
+    public static long truncateTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType("varchar(x)") Slice unit,
+            @SqlType("timestamp(p)") long timestamp)
     {
+        long ts = NANOSECONDS.toMillis(timestamp);
+        long result;
         if (properties.isLegacyTimestamp()) {
-            return getTimestampField(getChronology(properties.getTimeZoneKey()), unit).roundFloor(timestamp);
+            result = getTimestampField(getChronology(properties.getTimeZoneKey()), unit).roundFloor(ts);
         }
         else {
-            return getTimestampField(UTC_CHRONOLOGY, unit).roundFloor(timestamp);
+            result = getTimestampField(UTC_CHRONOLOGY, unit).roundFloor(ts);
         }
+        return MILLISECONDS.toNanos(result);
     }
 
     @Description("truncate to the specified precision")
@@ -494,20 +508,24 @@ public final class DateTimeFunctions
     }
 
     @Description("add the specified amount of time to the given timestamp")
-    @LiteralParameters("x")
+    @LiteralParameters({"x", "p"})
     @ScalarFunction("date_add")
-    @SqlType(StandardTypes.TIMESTAMP)
+    @SqlType("timestamp(p)")
     public static long addFieldValueTimestamp(
             SqlFunctionProperties properties,
             @SqlType("varchar(x)") Slice unit,
             @SqlType(StandardTypes.BIGINT) long value,
-            @SqlType(StandardTypes.TIMESTAMP) long timestamp)
+            @SqlType("timestamp(p)") long timestamp)
     {
+        long ts = NANOSECONDS.toMillis(timestamp);
+        long result;
         if (properties.isLegacyTimestamp()) {
-            return getTimestampField(getChronology(properties.getTimeZoneKey()), unit).add(timestamp, toIntExact(value));
+            result = getTimestampField(getChronology(properties.getTimeZoneKey()), unit).add(ts, toIntExact(value));
         }
-
-        return getTimestampField(UTC_CHRONOLOGY, unit).add(timestamp, toIntExact(value));
+        else {
+            result = getTimestampField(UTC_CHRONOLOGY, unit).add(ts, toIntExact(value));
+        }
+        return MILLISECONDS.toNanos(result);
     }
 
     @Description("add the specified amount of time to the given timestamp")
@@ -569,11 +587,13 @@ public final class DateTimeFunctions
             @SqlType(StandardTypes.TIMESTAMP) long timestamp1,
             @SqlType(StandardTypes.TIMESTAMP) long timestamp2)
     {
+        long millis1 = NANOSECONDS.toMillis(timestamp1);
+        long millis2 = NANOSECONDS.toMillis(timestamp2);
         if (properties.isLegacyTimestamp()) {
-            return getTimestampField(getChronology(properties.getTimeZoneKey()), unit).getDifferenceAsLong(timestamp2, timestamp1);
+            return getTimestampField(getChronology(properties.getTimeZoneKey()), unit).getDifferenceAsLong(millis2, millis1);
         }
 
-        return getTimestampField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(timestamp2, timestamp1);
+        return getTimestampField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(millis2, millis1);
     }
 
     @Description("difference of the given times in the given unit")
@@ -689,15 +709,16 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice formatDatetime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return formatDatetime(getChronology(properties.getTimeZoneKey()), properties.getSessionLocale(), timestamp, formatString);
+            return formatDatetime(getChronology(properties.getTimeZoneKey()), properties.getSessionLocale(), millis, formatString);
         }
         else {
             if (datetimeFormatSpecifiesZone(formatString)) {
                 // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
             }
-            return formatDatetime(UTC_CHRONOLOGY, properties.getSessionLocale(), timestamp, formatString);
+            return formatDatetime(UTC_CHRONOLOGY, properties.getSessionLocale(), millis, formatString);
         }
     }
 
@@ -759,11 +780,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice dateFormat(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return dateFormat(getChronology(properties.getTimeZoneKey()), properties.getSessionLocale(), timestamp, formatString);
+            return dateFormat(getChronology(properties.getTimeZoneKey()), properties.getSessionLocale(), millis, formatString);
         }
         else {
-            return dateFormat(UTC_CHRONOLOGY, properties.getSessionLocale(), timestamp, formatString);
+            return dateFormat(UTC_CHRONOLOGY, properties.getSessionLocale(), millis, formatString);
         }
     }
 
@@ -789,7 +811,7 @@ public final class DateTimeFunctions
 
     @ScalarFunction
     @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.TIMESTAMP)
+    @SqlType("timestamp(3)")
     public static long dateParse(SqlFunctionProperties properties, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
@@ -797,7 +819,7 @@ public final class DateTimeFunctions
                 .withLocale(properties.getSessionLocale());
 
         try {
-            return formatter.parseMillis(dateTime.toStringUtf8());
+            return MILLISECONDS.toNanos(formatter.parseMillis(dateTime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -812,7 +834,7 @@ public final class DateTimeFunctions
         // No need to check isLegacyTimestamp:
         // * Under legacy semantics, the session zone matters. But a zone always has offset of whole minutes.
         // * Under new semantics, timestamp is agnostic to the session zone.
-        return MILLISECOND_OF_SECOND.get(timestamp);
+        return MILLISECOND_OF_SECOND.get(NANOSECONDS.toMillis(timestamp));
     }
 
     @Description("millisecond of the second of the given timestamp")
@@ -857,11 +879,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long secondFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).secondOfMinute().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).secondOfMinute().get(millis);
         }
         else {
-            return SECOND_OF_MINUTE.get(timestamp);
+            return SECOND_OF_MINUTE.get(millis);
         }
     }
 
@@ -907,11 +930,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long minuteFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).minuteOfHour().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).minuteOfHour().get(millis);
         }
         else {
-            return MINUTE_OF_HOUR.get(timestamp);
+            return MINUTE_OF_HOUR.get(millis);
         }
     }
 
@@ -957,11 +981,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long hourFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).hourOfDay().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).hourOfDay().get(millis);
         }
         else {
-            return HOUR_OF_DAY.get(timestamp);
+            return HOUR_OF_DAY.get(millis);
         }
     }
 
@@ -1007,11 +1032,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfWeekFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).dayOfWeek().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).dayOfWeek().get(millis);
         }
         else {
-            return DAY_OF_WEEK.get(timestamp);
+            return DAY_OF_WEEK.get(millis);
         }
     }
 
@@ -1036,11 +1062,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).dayOfMonth().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).dayOfMonth().get(millis);
         }
         else {
-            return DAY_OF_MONTH.get(timestamp);
+            return DAY_OF_MONTH.get(millis);
         }
     }
 
@@ -1087,12 +1114,13 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
             long date = TimestampOperators.castToDate(properties, timestamp);
             return lastDayOfMonthFromDate(date);
         }
-        long millis = UTC_CHRONOLOGY.monthOfYear().roundCeiling(timestamp + 1) - MILLISECONDS_IN_DAY;
-        return MILLISECONDS.toDays(millis);
+        long result = UTC_CHRONOLOGY.monthOfYear().roundCeiling(millis + 1) - MILLISECONDS_IN_DAY;
+        return MILLISECONDS.toDays(result);
     }
 
     @Description("last day of the month of the given date")
@@ -1109,11 +1137,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long dayOfYearFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).dayOfYear().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).dayOfYear().get(millis);
         }
         else {
-            return DAY_OF_YEAR.get(timestamp);
+            return DAY_OF_YEAR.get(millis);
         }
     }
 
@@ -1138,11 +1167,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long weekFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).weekOfWeekyear().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).weekOfWeekyear().get(millis);
         }
         else {
-            return WEEK_OF_YEAR.get(timestamp);
+            return WEEK_OF_YEAR.get(millis);
         }
     }
 
@@ -1167,11 +1197,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearOfWeekFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).weekyear().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).weekyear().get(millis);
         }
         else {
-            return YEAR_OF_WEEK.get(timestamp);
+            return YEAR_OF_WEEK.get(millis);
         }
     }
 
@@ -1196,11 +1227,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long monthFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).monthOfYear().get(millis);
         }
         else {
-            return MONTH_OF_YEAR.get(timestamp);
+            return MONTH_OF_YEAR.get(millis);
         }
     }
 
@@ -1233,11 +1265,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long quarterFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return QUARTER_OF_YEAR.getField(getChronology(properties.getTimeZoneKey())).get(timestamp);
+            return QUARTER_OF_YEAR.getField(getChronology(properties.getTimeZoneKey())).get(millis);
         }
         else {
-            return QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY).get(timestamp);
+            return QUARTER_OF_YEAR.getField(UTC_CHRONOLOGY).get(millis);
         }
     }
 
@@ -1262,11 +1295,12 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long timestamp)
     {
+        long millis = NANOSECONDS.toMillis(timestamp);
         if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).year().get(timestamp);
+            return getChronology(properties.getTimeZoneKey()).year().get(millis);
         }
         else {
-            return YEAR.get(timestamp);
+            return YEAR.get(millis);
         }
     }
 

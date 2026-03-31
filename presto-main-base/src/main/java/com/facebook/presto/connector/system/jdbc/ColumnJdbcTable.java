@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.Metadata;
@@ -50,7 +51,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -206,7 +206,7 @@ public class ColumnJdbcTable
         if (type.equals(TIME_WITH_TIME_ZONE)) {
             return Types.TIME_WITH_TIMEZONE;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return Types.TIMESTAMP;
         }
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
@@ -262,7 +262,7 @@ public class ColumnJdbcTable
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return 15 + 8;
         }
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {

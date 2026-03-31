@@ -16,6 +16,7 @@ package com.facebook.presto.operator.aggregation.sketch.kll;
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.AbstractVarcharType;
 import com.facebook.presto.common.type.BigintEnumType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.sketch.theta.ThetaSketchStateFactory;
 import com.facebook.presto.operator.aggregation.state.AbstractGroupedAccumulatorState;
@@ -48,7 +49,6 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -289,7 +289,7 @@ public interface KllSketchAggregationState
                 type.equals(BIGINT) ||
                 type instanceof BigintEnumType ||
                 type.equals(TIME) ||
-                type.equals(TIMESTAMP) ||
+                type instanceof TimestampType ||
                 type.equals(DATE) ||
                 type.equals(INTERVAL_YEAR_MONTH)) {
             return new SketchParameters<>(Long::compareTo, new ArrayOfLongsSerDe());

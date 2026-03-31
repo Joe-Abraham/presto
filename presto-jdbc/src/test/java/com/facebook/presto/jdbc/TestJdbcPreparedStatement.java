@@ -201,7 +201,7 @@ public class TestJdbcPreparedStatement
                 assertEquals(metadata.getColumnTypeName(17), "time with time zone");
 
                 assertEquals(metadata.getColumnName(18), "c_timestamp");
-                assertEquals(metadata.getColumnTypeName(18), "timestamp");
+                assertEquals(metadata.getColumnTypeName(18), "timestamp(3)");
 
                 assertEquals(metadata.getColumnName(19), "c_timestamp_with_time_zone");
                 assertEquals(metadata.getColumnTypeName(19), "timestamp with time zone");

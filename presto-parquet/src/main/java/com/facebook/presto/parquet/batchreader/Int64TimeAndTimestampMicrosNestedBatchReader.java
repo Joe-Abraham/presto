@@ -16,12 +16,16 @@ package com.facebook.presto.parquet.batchreader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 
 import java.io.IOException;
 import java.util.Optional;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class Int64TimeAndTimestampMicrosNestedBatchReader
         extends AbstractNestedBatchReader
@@ -84,6 +88,15 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
             offset += valuesDecoderContext.getValueCount();
         }
 
+        if (field.getType() instanceof TimestampType) {
+            // All timestamp precisions store nanoseconds; decoder produces milliseconds.
+            for (int i = 0; i < values.length; i++) {
+                if (!isNull[i]) {
+                    values[i] = MILLISECONDS.toNanos(values[i]);
+                }
+            }
+        }
+
         boolean hasNoNull = batchNonNullCount == newBatchSize;
         Block block = new LongArrayBlock(newBatchSize, hasNoNull ? Optional.empty() : Optional.of(isNull), values);
         return new ColumnChunk(block, definitionLevels, repetitionLevelDecodingContext.getRepetitionLevels());
@@ -114,6 +127,13 @@ public class Int64TimeAndTimestampMicrosNestedBatchReader
         for (ValuesDecoderContext valuesDecoderContext : definitionLevelDecodingContext.getValuesDecoderContexts()) {
             ((Int64TimeAndTimestampMicrosValuesDecoder) valuesDecoderContext.getValuesDecoder()).readNext(values, offset, valuesDecoderContext.getNonNullCount());
             offset += valuesDecoderContext.getValueCount();
+        }
+
+        if (field.getType() instanceof TimestampType) {
+            // All timestamp precisions store nanoseconds; decoder produces milliseconds.
+            for (int i = 0; i < values.length; i++) {
+                values[i] = MILLISECONDS.toNanos(values[i]);
+            }
         }
 
         Block block = new LongArrayBlock(newBatchSize, Optional.empty(), values);

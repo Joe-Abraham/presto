@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import io.airlift.slice.Murmur3Hash32;
@@ -42,7 +43,6 @@ import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -52,6 +52,7 @@ import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public final class PartitionTransforms
@@ -83,11 +84,12 @@ public final class PartitionTransforms
                             block -> transformBlock(DATE, block, transformYear),
                             ValueTransform.from(DATE, transformYear));
                 }
-                if (type.equals(TIMESTAMP)) {
-                    LongUnaryOperator transformYear = value -> epochYear(value);
+                if (type instanceof TimestampType) {
+                    // All timestamp precisions store nanoseconds; convert ns → ms for epoch calculations.
+                    LongUnaryOperator transformYear = value -> epochYear(NANOSECONDS.toMillis(value));
                     return new ColumnTransform(transform, INTEGER,
-                            block -> transformBlock(TIMESTAMP, block, transformYear),
-                            ValueTransform.from(TIMESTAMP, transformYear));
+                            block -> transformBlock(type, block, transformYear),
+                            ValueTransform.from(type, transformYear));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             case "month":
@@ -97,11 +99,12 @@ public final class PartitionTransforms
                             block -> transformBlock(DATE, block, transformMonth),
                             ValueTransform.from(DATE, transformMonth));
                 }
-                if (type.equals(TIMESTAMP)) {
-                    LongUnaryOperator transformMonth = value -> epochMonth(value);
+                if (type instanceof TimestampType) {
+                    // All timestamp precisions store nanoseconds; convert ns → ms for epoch calculations.
+                    LongUnaryOperator transformMonth = value -> epochMonth(NANOSECONDS.toMillis(value));
                     return new ColumnTransform(transform, INTEGER,
-                            block -> transformBlock(TIMESTAMP, block, transformMonth),
-                            ValueTransform.from(TIMESTAMP, transformMonth));
+                            block -> transformBlock(type, block, transformMonth),
+                            ValueTransform.from(type, transformMonth));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             case "day":
@@ -111,19 +114,21 @@ public final class PartitionTransforms
                             block -> transformBlock(DATE, block, transformDay),
                             ValueTransform.from(DATE, transformDay));
                 }
-                if (type.equals(TIMESTAMP)) {
-                    LongUnaryOperator transformDay = value -> epochDay(value);
+                if (type instanceof TimestampType) {
+                    // All timestamp precisions store nanoseconds; convert ns → ms for epoch calculations.
+                    LongUnaryOperator transformDay = value -> epochDay(NANOSECONDS.toMillis(value));
                     return new ColumnTransform(transform, INTEGER,
-                            block -> transformBlock(TIMESTAMP, block, transformDay),
-                            ValueTransform.from(TIMESTAMP, transformDay));
+                            block -> transformBlock(type, block, transformDay),
+                            ValueTransform.from(type, transformDay));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
-                if (type.equals(TIMESTAMP)) {
-                    LongUnaryOperator transformHour = value -> epochHour(value);
+                if (type instanceof TimestampType) {
+                    // All timestamp precisions store nanoseconds; convert ns → ms for epoch calculations.
+                    LongUnaryOperator transformHour = value -> epochHour(NANOSECONDS.toMillis(value));
                     return new ColumnTransform(transform, INTEGER,
-                            block -> transformBlock(TIMESTAMP, block, transformHour),
-                            ValueTransform.from(TIMESTAMP, transformHour));
+                            block -> transformBlock(type, block, transformHour),
+                            ValueTransform.from(type, transformHour));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
         }
@@ -559,13 +564,8 @@ public final class PartitionTransforms
         return builder.build();
     }
 
-    public static class ColumnTransform
+    public record ColumnTransform(String transformName, Type type, Function<Block, Block> transform, ValueTransform valueTransform)
     {
-        private final String transformName;
-        private final Type type;
-        private final Function<Block, Block> transform;
-        private final ValueTransform valueTransform;
-
         public ColumnTransform(String transformName,
                 Type type,
                 Function<Block, Block> transform,
@@ -575,26 +575,6 @@ public final class PartitionTransforms
             this.type = requireNonNull(type, "resultType is null");
             this.transform = requireNonNull(transform, "transform is null");
             this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
-        }
-
-        public String getTransformName()
-        {
-            return transformName;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public Function<Block, Block> getTransform()
-        {
-            return transform;
-        }
-
-        public ValueTransform getValueTransform()
-        {
-            return valueTransform;
         }
     }
 

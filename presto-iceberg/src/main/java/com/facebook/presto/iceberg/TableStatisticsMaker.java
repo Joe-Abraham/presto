@@ -21,6 +21,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.KllSketchType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.statistics.KllHistogram;
@@ -89,7 +90,6 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -442,7 +442,7 @@ public class TableStatisticsMaker
     private static Blob generateKllSketchBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot, TypeManager typeManager)
     {
         Types.NestedField field = getField(metadata, icebergTable, snapshot);
-        KllSketchType sketchType = new KllSketchType(toPrestoType(field.type(), typeManager));
+        KllSketchType sketchType = new KllSketchType(toPrestoType(field.type(), Optional.ofNullable(field.doc()), typeManager));
         Slice sketchSlice = sketchType.getSlice(value, 0);
         if (value.isNull(0)) {
             // this can occur when all inputs to the sketch are null
@@ -674,7 +674,7 @@ public class TableStatisticsMaker
         ImmutableList.Builder<ColumnStatisticMetadata> supportedStatistics = ImmutableList.builder();
         // all types which support being passed to the sketch_theta function
         if (isNumericType(type) || type.equals(DATE) || isVarcharType(type) ||
-                type.equals(TIMESTAMP) ||
+                type instanceof TimestampType ||
                 type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(
                     columnName, format("RETURN sketch_theta(%s)", formatIdentifier(columnName)), ImmutableList.of(columnName)));

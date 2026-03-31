@@ -47,7 +47,6 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
@@ -103,7 +102,7 @@ public final class SelectiveStreamReaders
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext, isLowMemory, options.getMaxSliceSize(), options.isResetAllReaders());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS: {
-                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() == TIMESTAMP_MICROSECONDS;
+                boolean enableMicroPrecision = outputType.isPresent() && outputType.get() instanceof TimestampType && ((TimestampType) outputType.get()).isLongTimestamp();
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
                 return new TimestampSelectiveStreamReader(

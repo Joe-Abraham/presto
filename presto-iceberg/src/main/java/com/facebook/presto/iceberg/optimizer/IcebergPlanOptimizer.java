@@ -341,7 +341,7 @@ public class IcebergPlanOptimizer
             Range range,
             ConnectorSession session)
     {
-        if (transform.getTransformName().startsWith("bucket")) {
+        if (transform.transformName().startsWith("bucket")) {
             // bucketing transform could not be enforced
             return false;
         }
@@ -390,8 +390,8 @@ public class IcebergPlanOptimizer
                     timestampType,
                     second);
         }
-        Object firstTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, first), 0);
-        Object secondTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, second), 0);
+        Object firstTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, first), 0);
+        Object secondTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, second), 0);
         // The pushdown logic assumes NULLs and non-NULLs are segregated, so that we have to think about non-null values only.
         verify(firstTransformed != null && secondTransformed != null, "Transform for %s returned null for non-null input", field);
         try {

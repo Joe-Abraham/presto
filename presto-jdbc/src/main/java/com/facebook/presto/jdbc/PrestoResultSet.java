@@ -325,7 +325,7 @@ public class PrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("timestamp")) {
+        if (isTimestampType(columnInfo.getColumnTypeName())) {
             try {
                 return new Timestamp(TIMESTAMP_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
             }
@@ -1713,6 +1713,13 @@ public class PrestoResultSet
             throw new SQLException("Invalid column label: " + label);
         }
         return index;
+    }
+
+    private static boolean isTimestampType(String typeName)
+    {
+        // Handles both legacy "timestamp" and parametric "timestamp(p)" format.
+        String lower = typeName.toLowerCase(java.util.Locale.ENGLISH);
+        return lower.equals("timestamp") || (lower.startsWith("timestamp(") && !lower.contains("with time zone"));
     }
 
     private static Number toNumber(Object value)

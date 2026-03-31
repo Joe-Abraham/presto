@@ -16,12 +16,11 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
@@ -30,6 +29,9 @@ import static com.facebook.presto.common.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeOperators
 {
@@ -47,7 +49,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(right) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
-        return left + TimeUnit.MILLISECONDS.toDays(right);
+        return left + MILLISECONDS.toDays(right);
     }
 
     @ScalarOperator(ADD)
@@ -57,7 +59,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(left) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
-        return TimeUnit.MILLISECONDS.toDays(left) + right;
+        return MILLISECONDS.toDays(left) + right;
     }
 
     @ScalarOperator(ADD)
@@ -78,28 +80,35 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(left), unpackMillisUtc(left) + right), left);
+        return updateMillisUtc(modulo24Hour(unpackChronology(left), unpackMillisUtc(left) + right), left);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long intervalDayToSecondPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long right)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(right), left + unpackMillisUtc(right)), right);
+        return updateMillisUtc(modulo24Hour(unpackChronology(right), left + unpackMillisUtc(right)), right);
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long timestampPlusIntervalDayToSecond(
+            @SqlType("timestamp(p)") long left,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left + right;
+        // INTERVAL_DAY_TO_SECOND is in milliseconds; timestamps are stored in nanoseconds.
+        return left + MILLISECONDS.toNanos(right);
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalDayToSecondPlusTimestamp(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long intervalDayToSecondPlusTimestamp(
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left,
+            @SqlType("timestamp(p)") long right)
     {
-        return left + right;
+        return MILLISECONDS.toNanos(left) + right;
     }
 
     @ScalarOperator(ADD)
@@ -120,16 +129,16 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.DATE)
     public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), right);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        long millis = MONTH_OF_YEAR_UTC.add(DAYS.toMillis(left), right);
+        return MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
     public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DATE) long right)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(right), left);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        long millis = MONTH_OF_YEAR_UTC.add(DAYS.toMillis(right), left);
+        return MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
@@ -161,27 +170,33 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampPlusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long timestampPlusIntervalYearToMonth(SqlFunctionProperties properties,
+            @SqlType("timestamp(p)") long left,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, right);
-        }
-        else {
-            return MONTH_OF_YEAR_UTC.add(left, right);
-        }
+        // Timestamps are stored in nanoseconds; month arithmetic works in milliseconds.
+        long leftMs = NANOSECONDS.toMillis(left);
+        long resultMs = properties.isLegacyTimestamp()
+                ? getChronology(properties.getTimeZoneKey()).monthOfYear().add(leftMs, right)
+                : MONTH_OF_YEAR_UTC.add(leftMs, right);
+        return MILLISECONDS.toNanos(resultMs);
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long intervalYearToMonthPlusTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long intervalYearToMonthPlusTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left,
+            @SqlType("timestamp(p)") long right)
     {
-        if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(right, left);
-        }
-        else {
-            return MONTH_OF_YEAR_UTC.add(right, left);
-        }
+        long rightMs = NANOSECONDS.toMillis(right);
+        long resultMs = properties.isLegacyTimestamp()
+                ? getChronology(properties.getTimeZoneKey()).monthOfYear().add(rightMs, left)
+                : MONTH_OF_YEAR_UTC.add(rightMs, left);
+        return MILLISECONDS.toNanos(resultMs);
     }
 
     @ScalarOperator(ADD)
@@ -205,7 +220,7 @@ public final class DateTimeOperators
         if (MILLIS_OF_DAY.get(right) != 0) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
         }
-        return left - TimeUnit.MILLISECONDS.toDays(right);
+        return left - MILLISECONDS.toDays(right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -219,14 +234,17 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(left), unpackMillisUtc(left) - right), left);
+        return updateMillisUtc(modulo24Hour(unpackChronology(left), unpackMillisUtc(left) - right), left);
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalDayToSecond(@SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long timestampMinusIntervalDayToSecond(
+            @SqlType("timestamp(p)") long left,
+            @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left - right;
+        return left - MILLISECONDS.toNanos(right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -240,8 +258,8 @@ public final class DateTimeOperators
     @SqlType(StandardTypes.DATE)
     public static long dateMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(left), -right);
-        return TimeUnit.MILLISECONDS.toDays(millis);
+        long millis = MONTH_OF_YEAR_UTC.add(DAYS.toMillis(left), -right);
+        return MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -259,15 +277,18 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long timestampMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long timestampMinusIntervalYearToMonth(
+            SqlFunctionProperties properties,
+            @SqlType("timestamp(p)") long left,
+            @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        if (properties.isLegacyTimestamp()) {
-            return getChronology(properties.getTimeZoneKey()).monthOfYear().add(left, -right);
-        }
-        else {
-            return MONTH_OF_YEAR_UTC.add(left, -right);
-        }
+        long leftMs = NANOSECONDS.toMillis(left);
+        long resultMs = properties.isLegacyTimestamp()
+                ? getChronology(properties.getTimeZoneKey()).monthOfYear().add(leftMs, -right)
+                : MONTH_OF_YEAR_UTC.add(leftMs, -right);
+        return MILLISECONDS.toNanos(resultMs);
     }
 
     @ScalarOperator(SUBTRACT)

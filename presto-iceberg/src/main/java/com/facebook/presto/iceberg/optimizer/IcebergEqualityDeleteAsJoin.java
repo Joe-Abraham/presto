@@ -450,14 +450,14 @@ public class IcebergEqualityDeleteAsJoin
                             }
                             else if (!selectedFields.contains(sourceField.fieldId())) {
                                 unselectedAssignmentsBuilder.put(
-                                        variableAllocator.newVariable(sourceField.name(), toPrestoType(sourceField.type(), typeManager)),
+                                        variableAllocator.newVariable(sourceField.name(), toPrestoType(sourceField.type(), Optional.ofNullable(sourceField.doc()), typeManager)),
                                         IcebergColumnHandle.create(sourceField, typeManager, REGULAR));
                             }
                         }
                         else {
                             Types.NestedField schemaField = icebergTable.schema().findField(fieldId);
                             unselectedAssignmentsBuilder.put(
-                                    variableAllocator.newVariable(schemaField.name(), toPrestoType(schemaField.type(), typeManager)),
+                                    variableAllocator.newVariable(schemaField.name(), toPrestoType(schemaField.type(), Optional.ofNullable(schemaField.doc()), typeManager)),
                                     IcebergColumnHandle.create(schemaField, typeManager, REGULAR));
                         }
                     });
@@ -472,12 +472,12 @@ public class IcebergEqualityDeleteAsJoin
         private IcebergColumnHandle toIcebergColumnHandle(Types.NestedField field)
         {
             ColumnIdentity columnIdentity = new ColumnIdentity(field.fieldId(), field.name(), ColumnIdentity.TypeCategory.PRIMITIVE, Collections.emptyList());
-            return new IcebergColumnHandle(columnIdentity, toPrestoType(field.type(), typeManager), Optional.empty(), REGULAR);
+            return new IcebergColumnHandle(columnIdentity, toPrestoType(field.type(), Optional.ofNullable(field.doc()), typeManager), Optional.empty(), REGULAR);
         }
 
         private VariableReferenceExpression toVariableReference(Types.NestedField field)
         {
-            return variableAllocator.newVariable(field.name(), toPrestoType(field.type(), typeManager));
+            return variableAllocator.newVariable(field.name(), toPrestoType(field.type(), Optional.ofNullable(field.doc()), typeManager));
         }
 
         private static class PartitionFieldInfo

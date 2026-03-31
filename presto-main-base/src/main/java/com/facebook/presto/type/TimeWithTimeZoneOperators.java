@@ -31,6 +31,7 @@ import org.joda.time.chrono.ISOChronology;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoField;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.CAST;
@@ -125,12 +126,21 @@ public final class TimeWithTimeZoneOperators
     {
         // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
         // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
-        return castToTimestamp(properties, value);
+        return castToTimestampMs(properties, value);
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long castToTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    {
+        // Timestamps are stored in nanoseconds
+        return TimeUnit.MILLISECONDS.toNanos(castToTimestampMs(properties, value));
+    }
+
+    private static long castToTimestampMs(SqlFunctionProperties properties, long value)
     {
         if (properties.isLegacyTimestamp()) {
             return unpackMillisUtc(value);

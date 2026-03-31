@@ -122,8 +122,6 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -728,10 +726,15 @@ public final class IcebergUtil
             if (type.equals(DOUBLE)) {
                 return parseDouble(valueString);
             }
-            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+            if (type.equals(TIME)) {
                 return MICROSECONDS.toMillis(parseLong(valueString));
             }
-            if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
+            if (type instanceof TimestampType) {
+                long rawValue = parseLong(valueString);
+                // TIMESTAMP_NANO (p>6) partition values are nanoseconds; TIMESTAMP (p<=6) are microseconds.
+                return ((TimestampType) type).getPrecision() > 6 ? rawValue : MICROSECONDS.toNanos(rawValue);
+            }
+            if (type.equals(DATE)) {
                 return parseLong(valueString);
             }
             if (type instanceof VarcharType) {
@@ -777,8 +780,13 @@ public final class IcebergUtil
             case BOOLEAN:
                 return singleValue(prestoType, value);
             case TIME:
-            case TIMESTAMP:
                 return singleValue(prestoType, MICROSECONDS.toMillis((Long) value));
+            case TIMESTAMP:
+                // Iceberg TIMESTAMP stores microseconds; convert to nanoseconds for Presto.
+                return singleValue(prestoType, MICROSECONDS.toNanos((Long) value));
+            case TIMESTAMP_NANO:
+                // Iceberg TIMESTAMP_NANO stores nanoseconds natively; no conversion needed.
+                return singleValue(prestoType, (Long) value);
             case STRING:
                 return singleValue(prestoType, utf8Slice(value.toString()));
             case FLOAT:

@@ -957,7 +957,7 @@ public abstract class IcebergAbstractMetadata
         return table.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
-                        .setType(toPrestoType(column.type(), typeManager))
+                        .setType(toPrestoType(column.type(), Optional.ofNullable(column.doc()), typeManager))
                         .setNullable(column.isOptional())
                         .setComment(column.doc())
                         .setHidden(false)
@@ -974,7 +974,7 @@ public abstract class IcebergAbstractMetadata
         return view.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
-                        .setType(toPrestoType(column.type(), typeManager))
+                        .setType(toPrestoType(column.type(), Optional.ofNullable(column.doc()), typeManager))
                         .setComment(column.doc())
                         .setHidden(false)
                         .build())
@@ -1688,7 +1688,8 @@ public abstract class IcebergAbstractMetadata
             }
             else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
                 long timestampValue = (long) tableVersion.getTableVersion();
-                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
+                TimestampType tsType = (TimestampType) tableVersion.getVersionExpressionType();
+                long millisUtc = tsType.getStorageUnit().toMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());

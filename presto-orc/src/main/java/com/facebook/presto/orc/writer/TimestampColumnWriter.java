@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.writer;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.ColumnWriterOptions;
 import com.facebook.presto.orc.DwrfDataEncryptor;
@@ -44,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
@@ -56,6 +55,7 @@ import static com.facebook.presto.orc.writer.ColumnWriterUtils.buildRowGroupInde
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TimestampColumnWriter
         implements ColumnWriter
@@ -84,6 +84,7 @@ public class TimestampColumnWriter
     private final long baseTimestampInSeconds;
     private final long unitsPerSecond;
     private final int trailingZeros;
+    private final boolean useMicroPrecision;
 
     private int nonNullValueCount;
     private long rawSize;
@@ -109,13 +110,15 @@ public class TimestampColumnWriter
         this.sequence = sequence;
         this.type = requireNonNull(type, "type is null");
         this.compressed = columnWriterOptions.getCompressionKind() != NONE;
-        if (type == TIMESTAMP) {
+        if (type instanceof TimestampType && !((TimestampType) type).isLongTimestamp()) {
             this.unitsPerSecond = MILLIS_PER_SECOND;
             this.trailingZeros = MILLIS_TO_NANOS_TRAILING_ZEROS;
+            this.useMicroPrecision = false;
         }
-        else if (type == TIMESTAMP_MICROSECONDS) {
+        else if (type instanceof TimestampType && ((TimestampType) type).isLongTimestamp()) {
             this.unitsPerSecond = MICROS_PER_SECOND;
             this.trailingZeros = MICROS_TO_NANOS_TRAILING_ZEROS;
+            this.useMicroPrecision = true;
         }
         else {
             throw new UnsupportedOperationException("Unsupported Type: " + type);
@@ -164,7 +167,9 @@ public class TimestampColumnWriter
         int blockNonNullValueCount = 0;
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long nanos = type.getLong(block, position);
+                // All timestamps are stored in nanoseconds; convert to ORC encoding units (ms or µs).
+                long value = useMicroPrecision ? NANOSECONDS.toMicros(nanos) : NANOSECONDS.toMillis(nanos);
 
                 // It is a flaw in ORC encoding that uses normal integer division to compute seconds,
                 // and floor modulus to compute nano seconds.

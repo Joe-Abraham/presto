@@ -212,7 +212,7 @@ public class IcebergColumnHandle
     {
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
-                toPrestoType(column.type(), typeManager),
+                toPrestoType(column.type(), Optional.ofNullable(column.doc()), typeManager),
                 Optional.ofNullable(column.doc()),
                 columnType);
     }

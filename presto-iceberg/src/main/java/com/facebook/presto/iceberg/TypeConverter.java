@@ -61,6 +61,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.createTimestampType;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -93,9 +94,22 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
 
+    /**
+     * Key prefix used to encode Presto timestamp precision in an Iceberg column's doc string.
+     * Iceberg has no notion of timestamp precision (it always stores microseconds), so we persist
+     * the Presto precision as {@code [[presto:precision=N]]} appended to the column doc.
+     * When absent, the default Iceberg precision of 6 (microseconds) is assumed.
+     */
+    static final String PRESTO_TIMESTAMP_PRECISION_DOC_KEY = "[[presto:precision=";
+    static final String PRESTO_TIMESTAMP_PRECISION_DOC_SUFFIX = "]]";
+
     private TypeConverter() {}
 
-    public static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
+    /**
+     * Converts an Iceberg type to a Presto type, using the column's doc string to recover
+     * timestamp precision that is not representable in the Iceberg type system.
+     */
+    public static Type toPrestoType(org.apache.iceberg.types.Type type, Optional<String> columnDoc, TypeManager typeManager)
     {
         switch (type.typeId()) {
             case BOOLEAN:
@@ -123,27 +137,95 @@ public final class TypeConverter
                 if (timestampType.shouldAdjustToUTC()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                return TimestampType.TIMESTAMP;
+                // Iceberg always stores timestamps as microseconds (precision 6).
+                // Recover the declared Presto precision from the column doc metadata, if present.
+                int precision = extractTimestampPrecisionFromDoc(columnDoc).orElse(6);
+                return createTimestampType(precision);
+            case TIMESTAMP_NANO:
+                Types.TimestampNanoType tsNano = (Types.TimestampNanoType) type.asPrimitiveType();
+                if (tsNano.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
+                // Iceberg TIMESTAMP_NANO stores nanoseconds natively (default precision 9).
+                // Recover the declared Presto precision from the column doc metadata, if present.
+                return createTimestampType(extractTimestampPrecisionFromDoc(columnDoc).orElse(9));
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
                 return UuidType.UUID;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
-                return new ArrayType(toPrestoType(listType.elementType(), typeManager));
+                return new ArrayType(toPrestoType(listType.elementType(), Optional.empty(), typeManager));
             case MAP:
                 Types.MapType mapType = (Types.MapType) type;
-                TypeSignature keyType = toPrestoType(mapType.keyType(), typeManager).getTypeSignature();
-                TypeSignature valueType = toPrestoType(mapType.valueType(), typeManager).getTypeSignature();
+                TypeSignature keyType = toPrestoType(mapType.keyType(), Optional.empty(), typeManager).getTypeSignature();
+                TypeSignature valueType = toPrestoType(mapType.valueType(), Optional.empty(), typeManager).getTypeSignature();
                 return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()
-                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager)))
+                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), Optional.ofNullable(field.doc()), typeManager)))
                         .collect(toImmutableList()));
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
+    }
+
+    /**
+     * Backward-compatible overload: converts an Iceberg type to Presto without doc metadata.
+     * Timestamps default to precision 6 (microseconds, the Iceberg storage precision).
+     */
+    public static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
+    {
+        return toPrestoType(type, Optional.empty(), typeManager);
+    }
+
+    /**
+     * Extracts the Presto timestamp precision encoded in the column doc string.
+     * Returns empty if no precision metadata is present (caller should default to 6).
+     */
+    static Optional<Integer> extractTimestampPrecisionFromDoc(Optional<String> doc)
+    {
+        return doc.flatMap(d -> {
+            int start = d.indexOf(PRESTO_TIMESTAMP_PRECISION_DOC_KEY);
+            if (start < 0) {
+                return Optional.empty();
+            }
+            int valueStart = start + PRESTO_TIMESTAMP_PRECISION_DOC_KEY.length();
+            int end = d.indexOf(PRESTO_TIMESTAMP_PRECISION_DOC_SUFFIX, valueStart);
+            if (end < 0) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(Integer.parseInt(d.substring(valueStart, end)));
+            }
+            catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        });
+    }
+
+    /**
+     * Encodes a Presto timestamp precision into the column doc string.
+     * The precision tag is appended to any existing doc text so user comments are preserved.
+     * The tag is only written when precision differs from the Iceberg default of 6.
+     */
+    static String encodeTimestampPrecisionInDoc(Optional<String> existingDoc, int precision)
+    {
+        String tag = PRESTO_TIMESTAMP_PRECISION_DOC_KEY + precision + PRESTO_TIMESTAMP_PRECISION_DOC_SUFFIX;
+        // Replace existing precision tag if present, otherwise append.
+        return existingDoc.map(d -> {
+            int start = d.indexOf(PRESTO_TIMESTAMP_PRECISION_DOC_KEY);
+            if (start >= 0) {
+                int end = d.indexOf(PRESTO_TIMESTAMP_PRECISION_DOC_SUFFIX, start + PRESTO_TIMESTAMP_PRECISION_DOC_KEY.length());
+                if (end >= 0) {
+                    String before = d.substring(0, start).stripTrailing();
+                    String after = d.substring(end + PRESTO_TIMESTAMP_PRECISION_DOC_SUFFIX.length()).stripLeading();
+                    d = after.isEmpty() ? before : before + " " + after;
+                }
+            }
+            return d.isEmpty() ? tag : d + " " + tag;
+        }).orElse(tag);
     }
 
     public static org.apache.iceberg.types.Type toIcebergType(
@@ -206,7 +288,9 @@ public final class TypeConverter
             return Types.TimeType.get();
         }
         if (type instanceof TimestampType) {
-            return Types.TimestampType.withoutZone();
+            return ((TimestampType) type).getPrecision() > 6
+                    ? Types.TimestampNanoType.withoutZone()
+                    : Types.TimestampType.withoutZone();
         }
         if (type instanceof TimestampWithTimeZoneType) {
             return Types.TimestampType.withZone();
@@ -343,7 +427,7 @@ public final class TypeConverter
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP.equals(type) || type instanceof TimestampType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {
@@ -403,6 +487,9 @@ public final class TypeConverter
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+            case TIMESTAMP_NANO:
+                // ORC has no native nanosecond type; use TIMESTAMP_MICROSECONDS as the best available option.
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP_MICROSECONDS, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:

@@ -16,31 +16,80 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 //
-// TIMESTAMP is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
-// TIMESTAMP_MICROSECONDS is stored as microseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
-// on a timestamp the client's time zone must be taken into account.
+// TIMESTAMP(p) stores epoch nanoseconds for all precisions (0-12).
+// This provides a uniform storage model; the precision controls how many
+// fractional-second digits are significant when displaying or comparing.
 //
 public final class TimestampType
         extends AbstractLongType
 {
-    public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
-    public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
+    public static final int DEFAULT_PRECISION = 3;
+    public static final int MAX_PRECISION = 12;
 
-    private final TimeUnit precision;
+    // One singleton per precision to avoid redundant instances.
+    private static final TimestampType[] INSTANCES;
 
-    private TimestampType(TimeUnit precision)
+    static {
+        INSTANCES = new TimestampType[MAX_PRECISION + 1];
+        for (int p = 0; p <= MAX_PRECISION; p++) {
+            INSTANCES[p] = new TimestampType(p);
+        }
+    }
+    // Backward-compatible constants.
+    public static final TimestampType TIMESTAMP = createTimestampType(DEFAULT_PRECISION);
+    public static final TimestampType TIMESTAMP_MICROSECONDS = createTimestampType(6);
+
+    private final int precision;
+
+    private TimestampType(int precision)
     {
-        super(parseTypeSignature(getType(precision)));
+        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.of((long) precision)));
         this.precision = precision;
+    }
+
+    /**
+     * Creates a {@code TimestampType} for the given fractional-seconds precision {@code p} (0-12).
+     * All precisions use nanosecond storage.
+     */
+    public static TimestampType createTimestampType(int precision)
+    {
+        checkArgument(precision >= 0 && precision <= MAX_PRECISION,
+                "Invalid TIMESTAMP precision %s; must be in range [0, %s]", precision, MAX_PRECISION);
+        return INSTANCES[precision];
+    }
+
+    /**
+     * Returns the fractional-seconds precision of this type (0-12).
+     */
+    public int getPrecision()
+    {
+        return precision;
+    }
+
+    /**
+     * Returns {@code true} when this type's precision exceeds the default (milliseconds).
+     * Callers should treat stored values as nanoseconds regardless; this flag indicates
+     * whether sub-millisecond precision is significant for the declared type.
+     */
+    public boolean isLongTimestamp()
+    {
+        return precision > DEFAULT_PRECISION;
+    }
+
+    /**
+     * Returns {@link TimeUnit#NANOSECONDS} — the universal storage unit for all precisions.
+     */
+    public TimeUnit getStorageUnit()
+    {
+        return NANOSECONDS;
     }
 
     @Override
@@ -50,70 +99,57 @@ public final class TimestampType
             return null;
         }
 
-        if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
+        long nanos = block.getLong(position);
+        // Scale nanoseconds down to the display unit matching this type's precision.
+        TimeUnit displayUnit;
+        long displayValue;
+        if (precision <= 3) {
+            displayUnit = MILLISECONDS;
+            displayValue = NANOSECONDS.toMillis(nanos);
+        }
+        else if (precision <= 6) {
+            displayUnit = MICROSECONDS;
+            displayValue = NANOSECONDS.toMicros(nanos);
         }
         else {
-            return new SqlTimestamp(block.getLong(position), precision);
+            displayUnit = NANOSECONDS;
+            displayValue = nanos;
+        }
+
+        if (properties.isLegacyTimestamp()) {
+            return new SqlTimestamp(displayValue, properties.getTimeZoneKey(), displayUnit);
+        }
+        else {
+            return new SqlTimestamp(displayValue, displayUnit);
         }
     }
 
-    public TimeUnit getPrecision()
+    /**
+     * Gets the timestamp's total epoch seconds.
+     */
+    public long getEpochSecond(long timestamp)
     {
-        return this.precision;
+        return NANOSECONDS.toSeconds(timestamp);
+    }
+
+    /**
+     * Gets the timestamp's nanosecond portion (sub-second).
+     */
+    public int getNanos(long timestamp)
+    {
+        long nanosPerSecond = TimeUnit.SECONDS.toNanos(1);
+        return (int) (timestamp % nanosPerSecond);
     }
 
     @Override
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        if (precision == MICROSECONDS) {
-            return other == TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return other == TIMESTAMP;
-        }
-        throw new UnsupportedOperationException("Unsupported precision " + precision);
+        return other instanceof TimestampType && ((TimestampType) other).precision == this.precision;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getClass(), precision);
-    }
-
-    /**
-     * Gets the timestamp's number of total seconds.
-     * The epoch second count is a simple incrementing count of seconds where second 0 is 1970-01-01T00:00:00Z.
-     *
-     * Returns:
-     * the total seconds in timestamp
-     */
-    public long getEpochSecond(long timestamp)
-    {
-        return this.precision.toSeconds(timestamp);
-    }
-
-    /**
-     * Gets the timestamp's nanosecond portion.
-     *
-     * Returns:
-     * this timestamp's fractional seconds component
-     */
-    public int getNanos(long timestamp)
-    {
-        long unitsPerSecond = precision.convert(1, TimeUnit.SECONDS);
-        return (int) precision.toNanos(timestamp % unitsPerSecond);
-    }
-
-    private static String getType(TimeUnit precision)
-    {
-        if (precision == MICROSECONDS) {
-            return StandardTypes.TIMESTAMP_MICROSECONDS;
-        }
-        if (precision == MILLISECONDS) {
-            return StandardTypes.TIMESTAMP;
-        }
-        throw new IllegalArgumentException("Unsupported precision " + precision);
+        return Integer.hashCode(precision);
     }
 }

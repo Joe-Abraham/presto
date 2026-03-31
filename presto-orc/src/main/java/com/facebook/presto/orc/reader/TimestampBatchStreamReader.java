@@ -43,6 +43,8 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBoolean
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TimestampBatchStreamReader
         implements BatchStreamReader
@@ -68,11 +70,13 @@ public class TimestampBatchStreamReader
 
     private boolean rowGroupOpen;
     private final DecodeTimestampOptions decodeTimestampOptions;
+    private final boolean enableMicroPrecision;
 
     public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, boolean enableMicroPrecision)
             throws OrcCorruptionException
     {
         this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, enableMicroPrecision);
+        this.enableMicroPrecision = enableMicroPrecision;
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
@@ -154,7 +158,9 @@ public class TimestampBatchStreamReader
 
         long[] values = new long[nextBatchSize];
         for (int i = 0; i < nextBatchSize; i++) {
-            values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+            long decoded = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+            // Decoded value is in ms or µs; convert to nanoseconds (unified storage unit).
+            values[i] = enableMicroPrecision ? MICROSECONDS.toNanos(decoded) : MILLISECONDS.toNanos(decoded);
         }
         return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
@@ -173,7 +179,9 @@ public class TimestampBatchStreamReader
 
         for (int i = 0; i < isNull.length; i++) {
             if (!isNull[i]) {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                long decoded = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                // Decoded value is in ms or µs; convert to nanoseconds (unified storage unit).
+                values[i] = enableMicroPrecision ? MICROSECONDS.toNanos(decoded) : MILLISECONDS.toNanos(decoded);
             }
         }
         return new LongArrayBlock(isNull.length, Optional.of(isNull), values);

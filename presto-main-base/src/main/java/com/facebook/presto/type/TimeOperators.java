@@ -29,6 +29,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import org.joda.time.chrono.ISOChronology;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -132,10 +134,13 @@ public final class TimeOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIME) long value)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long castToTimestamp(
+            @SqlType(StandardTypes.TIME) long value)
     {
-        return value;
+        // TIME is stored as milliseconds; timestamps are stored in nanoseconds
+        return TimeUnit.MILLISECONDS.toNanos(value);
     }
 
     @ScalarOperator(CAST)

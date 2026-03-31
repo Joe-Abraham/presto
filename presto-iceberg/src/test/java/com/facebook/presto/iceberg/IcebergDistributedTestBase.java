@@ -152,7 +152,6 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
-import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileFormat.ORC;
@@ -1460,7 +1459,7 @@ public abstract class IcebergDistributedTestBase
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(5);
         List<Long> partitions = Arrays.asList(1L, 2L, 3L, 17L, 24L);
         partitions.forEach(p -> BIGINT.writeLong(builder, p));
-        Block partitionsBlock = columnTransform.getTransform().apply(builder.build());
+        Block partitionsBlock = columnTransform.transform().apply(builder.build());
         for (int i = 0; i < partitionsBlock.getPositionCount(); i++) {
             writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("regionkey", 1L), ImmutableMap.of("nationkey_bucket", partitionsBlock.getInt(i)));
             String updatedPartitions = partitions.stream().limit(i + 1).map(Object::toString).collect(Collectors.joining(",", "(", ")"));
@@ -1558,7 +1557,7 @@ public abstract class IcebergDistributedTestBase
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(1);
         List<Integer> partitions = Arrays.asList(1, 2);
         partitions.forEach(p -> BIGINT.writeLong(builder, p));
-        Block partitionsBlock = columnTransform.getTransform().apply(builder.build());
+        Block partitionsBlock = columnTransform.transform().apply(builder.build());
         writeEqualityDeleteToNationTable(icebergTable, ImmutableMap.of("a", 6, "c", 2),
                 ImmutableMap.of("c_bucket", partitionsBlock.getInt(0)));
         assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, '1001', NULL), (3, '1003', NULL), (6, '1004', 1)");

@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -131,7 +132,6 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeUtils.isDistinctType;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
@@ -636,7 +636,7 @@ public final class HiveUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                type instanceof TimestampType ||
                 isVarcharType(type) ||
                 isCharType(type) ||
                 isEnumType(type) ||
@@ -740,11 +740,11 @@ public final class HiveUtil
             return NullableValue.of(DATE, datePartitionKey(value, partitionName));
         }
 
-        if (TIMESTAMP.equals(type)) {
+        if (type instanceof TimestampType) {
             if (isNull) {
-                return NullableValue.asNull(TIMESTAMP);
+                return NullableValue.asNull(type);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+            return NullableValue.of(type, timestampPartitionKey(value, timeZone, partitionName));
         }
 
         if (REAL.equals(type)) {
@@ -1161,7 +1161,7 @@ public final class HiveUtil
         else if (type.equals(DATE)) {
             return datePartitionKey(value, name);
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type instanceof TimestampType) {
             return timestampPartitionKey(value, hiveStorageTimeZone, name);
         }
         else if (isShortDecimal(type)) {

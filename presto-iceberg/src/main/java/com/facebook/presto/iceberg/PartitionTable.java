@@ -58,7 +58,6 @@ import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class PartitionTable
@@ -147,8 +146,8 @@ public class PartitionTable
         return columns.stream().map(column -> ColumnMetadata.builder()
                 .setName(column.name())
                 .setType(RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
+                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), Optional.ofNullable(column.doc()), typeManager)),
+                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), Optional.ofNullable(column.doc()), typeManager)),
                         new RowType.Field(Optional.of("null_count"), BIGINT))))
                         .build())
                 .collect(toImmutableList());
@@ -299,9 +298,14 @@ public class PartitionTable
         }
         if (type instanceof Types.TimestampType) {
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
-            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
-                return MICROSECONDS.toMillis((long) value);
+            if (prestoType instanceof TimestampType) {
+                // Iceberg TIMESTAMP stores microseconds; convert to nanoseconds for Presto.
+                return MICROSECONDS.toNanos((long) value);
             }
+        }
+        if (type instanceof Types.TimestampNanoType) {
+            // Iceberg TIMESTAMP_NANO stores nanoseconds natively; no conversion needed.
+            return (long) value;
         }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);

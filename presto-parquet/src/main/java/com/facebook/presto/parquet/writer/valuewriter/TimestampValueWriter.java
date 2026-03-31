@@ -22,7 +22,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TimestampValueWriter
         extends PrimitiveValueWriter
@@ -43,7 +43,14 @@ public class TimestampValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 long value = type.getLong(block, i);
-                long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
+                long scaledValue;
+                if (writeMicroseconds) {
+                    // Parquet wants microseconds; all timestamps are stored as nanoseconds.
+                    scaledValue = NANOSECONDS.toMicros(value);
+                }
+                else {
+                    scaledValue = value;
+                }
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
             }

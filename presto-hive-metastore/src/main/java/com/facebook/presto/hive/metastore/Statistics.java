@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.spi.ConnectorSession;
@@ -46,7 +47,6 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
@@ -291,7 +291,7 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type instanceof TimestampType) {
             result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
         }
         else if (type instanceof DecimalType) {
@@ -410,7 +410,7 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type instanceof TimestampType) {
             result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(timeZone, min), getTimestampValue(timeZone, max)));
         }
         else if (type instanceof DecimalType) {

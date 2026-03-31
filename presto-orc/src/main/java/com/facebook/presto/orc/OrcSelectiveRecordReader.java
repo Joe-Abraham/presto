@@ -30,6 +30,7 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingB
 import com.facebook.presto.common.predicate.TupleDomainFilter.BigintValuesUsingHashTable;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -71,7 +72,6 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -516,7 +516,7 @@ public class OrcSelectiveRecordReader
             return 10;
         }
 
-        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == TIMESTAMP || type == DATE) {
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type instanceof TimestampType || type == DATE) {
             return 20;
         }
 

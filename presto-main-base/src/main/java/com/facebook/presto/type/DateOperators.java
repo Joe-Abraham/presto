@@ -111,20 +111,26 @@ public final class DateOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long value)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long castToTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType(StandardTypes.DATE) long value)
     {
+        long millis;
         if (properties.isLegacyTimestamp()) {
             long utcMillis = TimeUnit.DAYS.toMillis(value);
 
             // date is encoded as milliseconds at midnight in UTC
             // convert to midnight in the session timezone
             ISOChronology chronology = getChronology(properties.getTimeZoneKey());
-            return utcMillis - chronology.getZone().getOffset(utcMillis);
+            millis = utcMillis - chronology.getZone().getOffset(utcMillis);
         }
         else {
-            return TimeUnit.DAYS.toMillis(value);
+            millis = TimeUnit.DAYS.toMillis(value);
         }
+        // Timestamps are stored in nanoseconds
+        return TimeUnit.MILLISECONDS.toNanos(millis);
     }
 
     @ScalarOperator(CAST)

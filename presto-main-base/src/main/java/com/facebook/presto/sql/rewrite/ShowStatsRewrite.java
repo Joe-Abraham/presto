@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
@@ -85,7 +86,6 @@ import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.QueryUtil.aliased;
@@ -100,6 +100,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class ShowStatsRewrite
         implements StatementRewrite.Rewrite
@@ -382,8 +383,10 @@ public class ShowStatsRewrite
             if (type.equals(DATE)) {
                 return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
             }
-            if (type.equals(TIMESTAMP)) {
-                return new StringLiteral(new SqlTimestamp(round(value) / MICROSECONDS_PER_MILLISECOND, session.getSqlFunctionProperties().getTimeZoneKey(), MILLISECONDS).toString());
+            if (type instanceof TimestampType) {
+                // All timestamp precisions store nanoseconds; convert ns → ms for display.
+                long millis = NANOSECONDS.toMillis(round(value));
+                return new StringLiteral(new SqlTimestamp(millis, session.getSqlFunctionProperties().getTimeZoneKey(), MILLISECONDS).toString());
             }
             if (type.equals(TIME)) {
                 return new StringLiteral(new SqlTime(round(value)).toString());

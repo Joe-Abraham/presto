@@ -58,6 +58,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
@@ -201,7 +202,13 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType) {
+            long nsValue = (Long) marker.getValue();
+            // TIMESTAMP_NANO (p>6) stores nanoseconds natively; TIMESTAMP (p<=6) needs ns→µs conversion.
+            return ((TimestampType) type).getPrecision() > 6 ? nsValue : NANOSECONDS.toMicros(nsValue);
+        }
+
+        if (type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 

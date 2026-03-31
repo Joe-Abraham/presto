@@ -143,7 +143,7 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.TIME)
     public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return properties.isLegacyTimestamp() ? modulo24Hour(unpackChronology(value), unpackMillisUtc(value)) : modulo24Hour(castToTimestamp(properties, value));
+        return properties.isLegacyTimestamp() ? modulo24Hour(unpackChronology(value), unpackMillisUtc(value)) : modulo24Hour(castToTimestampMs(properties, value));
     }
 
     @ScalarOperator(CAST)
@@ -155,7 +155,7 @@ public final class TimestampWithTimeZoneOperators
             return packDateTimeWithZone(millis, unpackZoneKey(value));
         }
         else {
-            long millis = modulo24Hour(castToTimestamp(properties, value));
+            long millis = modulo24Hour(castToTimestampMs(properties, value));
             ISOChronology localChronology = unpackChronology(value);
 
             // This cast does treat TIME as wall time in given TZ. This means that in order to get
@@ -168,8 +168,17 @@ public final class TimestampWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    @LiteralParameters("p")
+    @SqlType("timestamp(p)")
+    public static long castToTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    {
+        // Timestamps are stored in nanoseconds
+        return TimeUnit.MILLISECONDS.toNanos(castToTimestampMs(properties, value));
+    }
+
+    private static long castToTimestampMs(SqlFunctionProperties properties, long value)
     {
         if (properties.isLegacyTimestamp()) {
             return unpackMillisUtc(value);
