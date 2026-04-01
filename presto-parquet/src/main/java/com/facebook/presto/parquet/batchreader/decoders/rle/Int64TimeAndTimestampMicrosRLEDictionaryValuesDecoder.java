@@ -36,13 +36,13 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
 
     private final LongDictionary dictionary;
 
-    private final PackFunction packFunction;
+    private final boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary, boolean withTimezone)
     {
         super(Integer.MAX_VALUE, bitWidth, inputStream);
         this.dictionary = dictionary;
-        this.packFunction = withTimezone ? millis -> packDateTimeWithZone(millis, UTC_KEY) : millis -> millis;
+        this.withTimezone = withTimezone;
     }
 
     public Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(int bitWidth, InputStream inputStream, LongDictionary dictionary)
@@ -68,9 +68,10 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
             switch (mode) {
                 case RLE: {
                     final int rleValue = currentValue;
-                    final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
+                    final long rleEpochMicros = dictionary.decodeToLong(rleValue);
+                    final long rleOutputValue = withTimezone ? packDateTimeWithZone(MICROSECONDS.toMillis(rleEpochMicros), UTC_KEY) : rleEpochMicros;
                     while (destinationIndex < endIndex) {
-                        values[destinationIndex++] = packFunction.pack(rleDictionaryValue);
+                        values[destinationIndex++] = rleOutputValue;
                     }
                     break;
                 }
@@ -78,9 +79,8 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     final int[] localBuffer = currentBuffer;
                     final LongDictionary localDictionary = dictionary;
                     for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
-                        long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
-                        long millisValue = MICROSECONDS.toMillis(dictionaryValue);
-                        values[destinationIndex++] = packFunction.pack(millisValue);
+                        long epochMicros = localDictionary.decodeToLong(localBuffer[srcIndex]);
+                        values[destinationIndex++] = withTimezone ? packDateTimeWithZone(MICROSECONDS.toMillis(epochMicros), UTC_KEY) : epochMicros;
                     }
                     break;
                 }

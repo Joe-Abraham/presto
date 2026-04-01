@@ -303,6 +303,10 @@ public class PartitionTable
                 return MICROSECONDS.toMillis((long) value);
             }
         }
+        if (type instanceof Types.TimestampNanoType) {
+            // TIMESTAMP_NANO values are in nanoseconds, TIMESTAMP_NANOSECONDS also stores nanoseconds - no conversion needed
+            return value;
+        }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);
         }

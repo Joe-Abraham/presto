@@ -39,6 +39,7 @@ import com.facebook.presto.parquet.reader.LongColumnReader;
 import com.facebook.presto.parquet.reader.LongDecimalColumnReader;
 import com.facebook.presto.parquet.reader.LongTimeMicrosColumnReader;
 import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
+import com.facebook.presto.parquet.reader.LongTimestampNanosColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
 import com.facebook.presto.spi.PrestoException;
@@ -50,6 +51,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampNanosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isUuidType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 
@@ -77,6 +79,10 @@ public class ColumnReaderFactory
                 case INT64:
                     if (isTimeStampMicrosType(descriptor) || isTimeMicrosType(descriptor)) {
                         return isNested ? new Int64TimeAndTimestampMicrosNestedBatchReader(descriptor) : new Int64TimeAndTimestampMicrosFlatBatchReader(descriptor);
+                    }
+
+                    if (isTimeStampNanosType(descriptor)) {
+                        return new LongTimestampNanosColumnReader(descriptor);
                     }
 
                     if (!isNested && isShortDecimalType(descriptor)) {
@@ -119,6 +125,9 @@ public class ColumnReaderFactory
             case INT64:
                 if (isTimeStampMicrosType(descriptor)) {
                     return new LongTimestampMicrosColumnReader(descriptor);
+                }
+                if (isTimeStampNanosType(descriptor)) {
+                    return new LongTimestampNanosColumnReader(descriptor);
                 }
                 if (isTimeMicrosType(descriptor)) {
                     return new LongTimeMicrosColumnReader(descriptor);
