@@ -27,6 +27,7 @@ import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -336,6 +337,15 @@ public final class ParquetTypeUtils
     public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
     {
         return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
+    }
+
+    public static boolean isTimeStampNanosType(ColumnDescriptor descriptor)
+    {
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        if (logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation) {
+            return ((TimestampLogicalTypeAnnotation) logicalTypeAnnotation).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS;
+        }
+        return false;
     }
 
     public static boolean isTimeMicrosType(ColumnDescriptor descriptor)

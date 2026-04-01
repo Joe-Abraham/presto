@@ -202,6 +202,11 @@ public final class ExpressionConverter
         }
 
         if (type instanceof TimestampType || type instanceof TimeType) {
+            TimestampType timestampType = type instanceof TimestampType ? (TimestampType) type : null;
+            if (timestampType != null && timestampType.equals(TimestampType.TIMESTAMP_NANOSECONDS)) {
+                // TIMESTAMP_NANOSECONDS stores nanoseconds; Iceberg TIMESTAMP_NANO also uses nanoseconds
+                return marker.getValue();
+            }
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
