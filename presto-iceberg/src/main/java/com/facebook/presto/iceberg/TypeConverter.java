@@ -61,6 +61,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_NANOSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
@@ -124,7 +125,7 @@ public final class TypeConverter
                 if (timestampType.shouldAdjustToUTC()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                return TimestampType.TIMESTAMP;
+                return TIMESTAMP_MICROSECONDS;
             case TIMESTAMP_NANO:
                 Types.TimestampNanoType timestampNanoType = (Types.TimestampNanoType) type.asPrimitiveType();
                 if (timestampNanoType.shouldAdjustToUTC()) {
@@ -355,6 +356,9 @@ public final class TypeConverter
             return HIVE_DATE.getTypeInfo();
         }
         if (TIMESTAMP.equals(type)) {
+            return HIVE_TIMESTAMP.getTypeInfo();
+        }
+        if (TIMESTAMP_MICROSECONDS.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (TIMESTAMP_NANOSECONDS.equals(type)) {

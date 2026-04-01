@@ -36,14 +36,14 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
 
     private final DeltaBinaryPackingValuesReader innerReader;
 
-    private final PackFunction packFunction;
+    private final boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(int valueCount, ByteBufferInputStream bufferInputStream, boolean withTimezone)
             throws IOException
     {
         innerReader = new DeltaBinaryPackingValuesReader();
         innerReader.initFromPage(valueCount, bufferInputStream);
-        this.packFunction = withTimezone ? millis -> packDateTimeWithZone(millis, UTC_KEY) : millis -> millis;
+        this.withTimezone = withTimezone;
     }
 
     @Override
@@ -51,8 +51,8 @@ public class Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder
     {
         int endOffset = offset + length;
         for (int i = offset; i < endOffset; i++) {
-            long curValue = MICROSECONDS.toMillis(innerReader.readLong());
-            values[i] = packFunction.pack(curValue);
+            long epochMicros = innerReader.readLong();
+            values[i] = withTimezone ? packDateTimeWithZone(MICROSECONDS.toMillis(epochMicros), UTC_KEY) : epochMicros;
         }
     }
 

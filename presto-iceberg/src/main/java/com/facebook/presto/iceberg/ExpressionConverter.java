@@ -207,6 +207,10 @@ public final class ExpressionConverter
                 // TIMESTAMP_NANOSECONDS stores nanoseconds; Iceberg TIMESTAMP_NANO also uses nanoseconds
                 return marker.getValue();
             }
+            if (timestampType != null && timestampType.equals(TimestampType.TIMESTAMP_MICROSECONDS)) {
+                // TIMESTAMP_MICROSECONDS stores microseconds; Iceberg TIMESTAMP also uses microseconds
+                return marker.getValue();
+            }
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 

@@ -33,7 +33,7 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
 
     private int bufferOffset;
 
-    private final PackFunction packFunction;
+    private final boolean withTimezone;
 
     public Int64TimeAndTimestampMicrosPlainValuesDecoder(byte[] byteBuffer, int bufferOffset, int length)
     {
@@ -45,7 +45,7 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         this.byteBuffer = byteBuffer;
         this.bufferOffset = bufferOffset;
         this.bufferEnd = bufferOffset + length;
-        this.packFunction = withTimezone ? millis -> packDateTimeWithZone(millis, UTC_KEY) : millis -> millis;
+        this.withTimezone = withTimezone;
     }
 
     @Override
@@ -59,8 +59,8 @@ public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            long valueMillis = MICROSECONDS.toMillis(BytesUtils.getLong(localByteBuffer, localBufferOffset));
-            values[offset++] = packFunction.pack(valueMillis);
+            long epochMicros = BytesUtils.getLong(localByteBuffer, localBufferOffset);
+            values[offset++] = withTimezone ? packDateTimeWithZone(MICROSECONDS.toMillis(epochMicros), UTC_KEY) : epochMicros;
             localBufferOffset += 8;
         }
         bufferOffset = localBufferOffset;

@@ -268,6 +268,8 @@ import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TDigestOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampMicrosecondsOperators;
+import com.facebook.presto.type.TimestampNanosecondsOperators;
 import com.facebook.presto.type.TimestampOperators;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
@@ -839,6 +841,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeOperators.TimeDistinctFromOperator.class)
                 .scalars(TimestampOperators.class)
                 .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
+                .scalars(TimestampMicrosecondsOperators.class)
+                .scalar(TimestampMicrosecondsOperators.TimestampMicrosecondsDistinctFromOperator.class)
+                .scalars(TimestampNanosecondsOperators.class)
+                .scalar(TimestampNanosecondsOperators.TimestampNanosecondsDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)

@@ -34,13 +34,12 @@ public class LongTimestampMicrosColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long utcMillis = MICROSECONDS.toMillis(valuesReader.readLong());
-            // TODO: specialize the class at creation time
+            long epochMicros = valuesReader.readLong();
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+                type.writeLong(blockBuilder, packDateTimeWithZone(MICROSECONDS.toMillis(epochMicros), UTC_KEY));
             }
             else {
-                type.writeLong(blockBuilder, utcMillis);
+                type.writeLong(blockBuilder, epochMicros);
             }
         }
         else if (isValueNull()) {

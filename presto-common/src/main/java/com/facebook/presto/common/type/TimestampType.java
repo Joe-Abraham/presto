@@ -54,7 +54,7 @@ public final class TimestampType
             return null;
         }
 
-        if (properties.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp() && precision == MILLISECONDS) {
             return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
         }
         else {
