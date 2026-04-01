@@ -76,7 +76,7 @@ public class ColumnReaderFactory
                     }
                 case FLOAT:
                     return isNested ? new Int32NestedBatchReader(descriptor) : new Int32FlatBatchReader(descriptor);
-            case INT64:
+                case INT64:
                     if (isTimeStampMicrosType(descriptor) || isTimeMicrosType(descriptor)) {
                         return isNested ? new Int64TimeAndTimestampMicrosNestedBatchReader(descriptor) : new Int64TimeAndTimestampMicrosFlatBatchReader(descriptor);
                     }
