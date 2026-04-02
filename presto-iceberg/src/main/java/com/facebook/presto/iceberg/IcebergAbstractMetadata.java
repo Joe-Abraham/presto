@@ -1702,7 +1702,7 @@ public abstract class IcebergAbstractMetadata
             }
             else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
                 long timestampValue = (long) tableVersion.getTableVersion();
-                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
+                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getStorageUnit().toMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
