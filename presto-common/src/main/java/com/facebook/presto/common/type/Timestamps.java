@@ -149,10 +149,14 @@ public final class Timestamps
         dateTime = dateTime.withNano(nanos);
 
         // Format up to nanosecond precision using Java's built-in formatting
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-                .appendPattern("uuuu-MM-dd HH:mm:ss")
-                .appendFraction(NANO_OF_SECOND, precision > 0 ? precision : 0, precision > 9 ? 9 : precision, true)
-                .toFormatter();
+        DateTimeFormatterBuilder formatterBuilder = new DateTimeFormatterBuilder()
+                .appendPattern("uuuu-MM-dd HH:mm:ss");
+        if (precision > 0) {
+            int minWidth = Math.min(precision, 9);
+            int maxWidth = Math.min(precision, 9);
+            formatterBuilder.appendFraction(NANO_OF_SECOND, minWidth, maxWidth, true);
+        }
+        DateTimeFormatter formatter = formatterBuilder.toFormatter();
 
         String result = dateTime.format(formatter);
 
