@@ -40,7 +40,7 @@ public final class ShortTimestampType
 {
     ShortTimestampType(int precision)
     {
-        super(precision, null);
+        super(precision, long.class);
         if (precision > Timestamps.MAX_SHORT_PRECISION) {
             throw new IllegalArgumentException("Short timestamp precision must be <= " + Timestamps.MAX_SHORT_PRECISION + ": " + precision);
         }

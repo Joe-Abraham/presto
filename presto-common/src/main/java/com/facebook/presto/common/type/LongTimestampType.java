@@ -33,7 +33,7 @@ public final class LongTimestampType
 {
     LongTimestampType(int precision)
     {
-        super(precision, null);
+        super(precision, LongTimestamp.class);
         if (precision <= Timestamps.MAX_SHORT_PRECISION) {
             throw new IllegalArgumentException("Long timestamp precision must be > " + Timestamps.MAX_SHORT_PRECISION + ": " + precision);
         }

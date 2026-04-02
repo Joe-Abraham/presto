@@ -53,9 +53,9 @@ public abstract class TimestampType
 
     private final int precision;
 
-    TimestampType(int precision, TypeSignature typeSignature)
+    TimestampType(int precision, Class<?> javaType)
     {
-        super(long.class);
+        super(javaType);
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException(format("TIMESTAMP precision must be in range [0, %d]: %s", MAX_PRECISION, precision));
         }
