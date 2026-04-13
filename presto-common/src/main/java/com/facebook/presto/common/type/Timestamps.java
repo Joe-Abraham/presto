@@ -95,7 +95,10 @@ public final class Timestamps
     }
 
     /**
-     * Truncates toward zero when dividing.
+     * Divides and truncates toward zero (Java's default integer division behavior).
+     * Note: this is NOT floor division — for negative values, the result is
+     * truncated toward zero rather than toward negative infinity. For floor
+     * division, use {@link Math#floorDiv(long, long)}.
      */
     public static long roundDiv(long value, long divisor)
     {
