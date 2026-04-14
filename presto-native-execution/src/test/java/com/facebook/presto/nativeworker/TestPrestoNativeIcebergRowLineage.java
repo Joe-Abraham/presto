@@ -58,9 +58,10 @@ import static org.testng.Assert.assertTrue;
  * Tests that row lineage values (_row_id and _last_updated_sequence_number) are consistent
  * between the Iceberg API and the Presto native execution engine.
  *
- * <p>This test creates V3 tables and writes data using the Iceberg API
+ * <p>This test creates V2 and V3 tables and writes data using the Iceberg API
  * (HadoopCatalog, GenericRecord, GenericParquetWriter), then verifies that
- * Presto returns identical row lineage values to those derived from the Iceberg file metadata.
+ * Presto returns identical row lineage values to those derived from the Iceberg file metadata
+ * for V3 tables, and null values for V2 tables.
  */
 public class TestPrestoNativeIcebergRowLineage
         extends AbstractTestQueryFramework
@@ -260,7 +261,7 @@ public class TestPrestoNativeIcebergRowLineage
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
 
         try {
-            // Create V2 table (default format version) using the Iceberg Catalog API
+            // Create V2 table using the Iceberg Catalog API
             Schema schema = new Schema(
                     Types.NestedField.required(1, "id", Types.IntegerType.get()),
                     Types.NestedField.optional(2, "value", Types.StringType.get()));
