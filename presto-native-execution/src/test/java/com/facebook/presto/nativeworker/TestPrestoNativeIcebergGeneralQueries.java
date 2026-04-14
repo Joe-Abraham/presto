@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -173,6 +174,6 @@ public class TestPrestoNativeIcebergGeneralQueries
         Long rowIdForSecond = (Long) computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE regionkey=1").getOnlyValue();
         assertNotNull(rowIdForFirst);
         assertNotNull(rowIdForSecond);
-        assertTrue(!rowIdForFirst.equals(rowIdForSecond), "_row_id should be unique per row");
+        assertNotEquals(rowIdForFirst, rowIdForSecond, "_row_id should be unique per row");
     }
 }
