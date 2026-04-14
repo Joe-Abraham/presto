@@ -133,7 +133,10 @@ public class TestPrestoNativeIcebergRowLineage
             }
             expectedPairs.sort((a, b) -> Long.compare(a[0], b[0]));
 
-            // Read row lineage from Presto
+            // Verify native engine reads row lineage columns correctly by comparing with Java engine
+            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
+
+            // Read row lineage from native Presto engine
             MaterializedResult prestoResult = computeActual(
                     "SELECT \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
                             " ORDER BY \"_row_id\"");
@@ -220,7 +223,10 @@ public class TestPrestoNativeIcebergRowLineage
             }
             expectedPairs.sort((a, b) -> Long.compare(a[0], b[0]));
 
-            // Read from Presto
+            // Verify native engine reads row lineage columns correctly by comparing with Java engine
+            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
+
+            // Read from native Presto engine
             MaterializedResult prestoResult = computeActual(
                     "SELECT \"_row_id\", \"_last_updated_sequence_number\" FROM " +
                             tableName + " ORDER BY \"_row_id\"");
@@ -275,6 +281,9 @@ public class TestPrestoNativeIcebergRowLineage
             table.refresh();
             writeRecords(table, schema,
                     GenericRecord.create(schema).copy("id", 2, "value", "two"));
+
+            // Verify native engine reads row lineage columns by comparing with Java engine
+            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
 
             // For V2 tables, _row_id and _last_updated_sequence_number should be null
             assertEquals(computeActual("SELECT \"_row_id\", * FROM " + tableName).getRowCount(), 2);
