@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestPrestoNativeIcebergGeneralQueries
         extends AbstractTestQueryFramework
@@ -70,6 +72,14 @@ public class TestPrestoNativeIcebergGeneralQueries
         javaQueryRunner.execute("DROP TABLE IF EXISTS test_analyze");
         javaQueryRunner.execute("CREATE TABLE test_analyze(i int)");
         javaQueryRunner.execute("INSERT INTO test_analyze VALUES 1, 2, 3, 4, 5");
+
+        javaQueryRunner.execute("DROP TABLE IF EXISTS test_row_lineage_hidden");
+        javaQueryRunner.execute("CREATE TABLE test_row_lineage_hidden AS SELECT * FROM tpch.tiny.region WHERE regionkey=0");
+        javaQueryRunner.execute("INSERT INTO test_row_lineage_hidden SELECT * FROM tpch.tiny.region WHERE regionkey=1");
+
+        javaQueryRunner.execute("DROP TABLE IF EXISTS test_row_lineage_v3");
+        javaQueryRunner.execute("CREATE TABLE test_row_lineage_v3 WITH (\"format-version\" = '3') AS SELECT * FROM tpch.tiny.region WHERE regionkey=0");
+        javaQueryRunner.execute("INSERT INTO test_row_lineage_v3 SELECT * FROM tpch.tiny.region WHERE regionkey=1");
     }
 
     @Test
@@ -125,5 +135,44 @@ public class TestPrestoNativeIcebergGeneralQueries
     public void testAnalyze()
     {
         assertUpdate(getSession(), "ANALYZE test_analyze", 5);
+    }
+
+    @Test
+    public void testRowLineageHiddenColumns()
+    {
+        // For non-V3 tables (format-version = 2, the default), _row_id and _last_updated_sequence_number return null
+        assertEquals(computeActual("SELECT \"_row_id\", * FROM test_row_lineage_hidden").getRowCount(), 2);
+        assertQuery("SELECT \"_row_id\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+        assertQuery("SELECT \"_last_updated_sequence_number\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+
+        // For V3 tables, _row_id and _last_updated_sequence_number must have actual values
+        String v3Table = "test_row_lineage_v3";
+
+        // Both rows must have non-null row lineage values
+        assertEquals(computeActual("SELECT \"_row_id\", * FROM " + v3Table).getRowCount(), 2);
+        assertEquals(computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE \"_row_id\" IS NULL").getRowCount(), 0);
+        assertEquals(computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE \"_last_updated_sequence_number\" IS NULL").getRowCount(), 0);
+
+        // _row_id must be unique across all rows in the table
+        long distinctRowIds = (Long) computeActual("SELECT count(DISTINCT \"_row_id\") FROM " + v3Table).getOnlyValue();
+        assertEquals(distinctRowIds, 2L);
+
+        // _last_updated_sequence_number must differ between the two commits
+        long distinctSeqNums = (Long) computeActual("SELECT count(DISTINCT \"_last_updated_sequence_number\") FROM " + v3Table).getOnlyValue();
+        assertEquals(distinctSeqNums, 2L);
+
+        // Rows from the first commit have a smaller sequence number than rows from the second commit
+        Long seqForFirst = (Long) computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE regionkey=0").getOnlyValue();
+        Long seqForSecond = (Long) computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE regionkey=1").getOnlyValue();
+        assertNotNull(seqForFirst);
+        assertNotNull(seqForSecond);
+        assertTrue(seqForFirst < seqForSecond, "_last_updated_sequence_number should be smaller for earlier commits");
+
+        // Row IDs must differ between the two rows (they are unique)
+        Long rowIdForFirst = (Long) computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE regionkey=0").getOnlyValue();
+        Long rowIdForSecond = (Long) computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE regionkey=1").getOnlyValue();
+        assertNotNull(rowIdForFirst);
+        assertNotNull(rowIdForSecond);
+        assertTrue(!rowIdForFirst.equals(rowIdForSecond), "_row_id should be unique per row");
     }
 }
