@@ -22,11 +22,14 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 //
 // TIMESTAMP is stored as milliseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
 // on a timestamp the client's time zone must be taken into account.
 // TIMESTAMP_MICROSECONDS is stored as microseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
+// on a timestamp the client's time zone must be taken into account.
+// TIMESTAMP_NANOSECONDS is stored as nanoseconds from 1970-01-01T00:00:00 UTC.  When performing calculations
 // on a timestamp the client's time zone must be taken into account.
 //
 public final class TimestampType
@@ -34,6 +37,7 @@ public final class TimestampType
 {
     public static final TimestampType TIMESTAMP = new TimestampType(MILLISECONDS);
     public static final TimestampType TIMESTAMP_MICROSECONDS = new TimestampType(MICROSECONDS);
+    public static final TimestampType TIMESTAMP_NANOSECONDS = new TimestampType(NANOSECONDS);
 
     private final TimeUnit precision;
 
@@ -50,7 +54,7 @@ public final class TimestampType
             return null;
         }
 
-        if (properties.isLegacyTimestamp()) {
+        if (properties.isLegacyTimestamp() && precision == MILLISECONDS) {
             return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), precision);
         }
         else {
@@ -67,6 +71,9 @@ public final class TimestampType
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
+        if (precision == NANOSECONDS) {
+            return other == TIMESTAMP_NANOSECONDS;
+        }
         if (precision == MICROSECONDS) {
             return other == TIMESTAMP_MICROSECONDS;
         }
@@ -108,6 +115,9 @@ public final class TimestampType
 
     private static String getType(TimeUnit precision)
     {
+        if (precision == NANOSECONDS) {
+            return StandardTypes.TIMESTAMP_NANOSECONDS;
+        }
         if (precision == MICROSECONDS) {
             return StandardTypes.TIMESTAMP_MICROSECONDS;
         }

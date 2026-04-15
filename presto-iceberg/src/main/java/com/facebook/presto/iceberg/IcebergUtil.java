@@ -126,6 +126,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_NANOSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -753,6 +754,10 @@ public final class IcebergUtil
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
                 return parseLong(valueString);
             }
+            if (type.equals(TIMESTAMP_NANOSECONDS)) {
+                // Iceberg TIMESTAMP_NANO partition values are stored as nanoseconds since epoch
+                return parseLong(valueString);
+            }
             if (type instanceof VarcharType) {
                 return utf8Slice(valueString);
             }
@@ -798,6 +803,9 @@ public final class IcebergUtil
             case TIME:
             case TIMESTAMP:
                 return singleValue(prestoType, MICROSECONDS.toMillis((Long) value));
+            case TIMESTAMP_NANO:
+                // Iceberg TIMESTAMP_NANO values are stored as nanoseconds since epoch
+                return singleValue(prestoType, value);
             case STRING:
                 return singleValue(prestoType, utf8Slice(value.toString()));
             case FLOAT:
@@ -1479,6 +1487,9 @@ public final class IcebergUtil
                 return Literal.of((long) defaultValue);
             case TIMESTAMP:
                 return Literal.of(MILLISECONDS.toMicros((long) defaultValue));
+            case TIMESTAMP_NANO:
+                // Presto stores TIMESTAMP_NANOSECONDS as nanoseconds since epoch, same as Iceberg TIMESTAMP_NANO
+                return Literal.of((long) defaultValue);
             case DECIMAL:
                 int scale = ((Types.DecimalType) icebergType).scale();
                 return Literal.of(new BigDecimal(new BigInteger(defaultValue.toString()), scale));

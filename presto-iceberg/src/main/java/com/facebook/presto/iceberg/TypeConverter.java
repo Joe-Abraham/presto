@@ -61,6 +61,8 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_NANOSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -123,7 +125,13 @@ public final class TypeConverter
                 if (timestampType.shouldAdjustToUTC()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                return TimestampType.TIMESTAMP;
+                return TIMESTAMP_MICROSECONDS;
+            case TIMESTAMP_NANO:
+                Types.TimestampNanoType timestampNanoType = (Types.TimestampNanoType) type.asPrimitiveType();
+                if (timestampNanoType.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
+                return TIMESTAMP_NANOSECONDS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -209,6 +217,10 @@ public final class TypeConverter
             return Types.TimeType.get();
         }
         if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            if (timestampType.equals(TIMESTAMP_NANOSECONDS)) {
+                return Types.TimestampNanoType.withoutZone();
+            }
             return Types.TimestampType.withoutZone();
         }
         if (type instanceof TimestampWithTimeZoneType) {
@@ -349,6 +361,12 @@ public final class TypeConverter
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
+        if (TIMESTAMP_MICROSECONDS.equals(type)) {
+            return HIVE_TIMESTAMP.getTypeInfo();
+        }
+        if (TIMESTAMP_NANOSECONDS.equals(type)) {
+            return HIVE_TIMESTAMP.getTypeInfo();
+        }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
@@ -406,6 +424,8 @@ public final class TypeConverter
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+            case TIMESTAMP_NANO:
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP_MICROSECONDS, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:

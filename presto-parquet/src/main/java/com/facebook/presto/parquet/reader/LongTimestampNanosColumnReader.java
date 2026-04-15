@@ -20,12 +20,12 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public class LongTimestampMicrosColumnReader
+public class LongTimestampNanosColumnReader
         extends AbstractColumnReader
 {
-    public LongTimestampMicrosColumnReader(RichColumnDescriptor descriptor)
+    public LongTimestampNanosColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }
@@ -34,12 +34,14 @@ public class LongTimestampMicrosColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long epochMicros = valuesReader.readLong();
+            long epochNanos = valuesReader.readLong();
+            // TODO: specialize the class at creation time
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(MICROSECONDS.toMillis(epochMicros), UTC_KEY));
+                long utcMillis = NANOSECONDS.toMillis(epochNanos);
+                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else {
-                type.writeLong(blockBuilder, epochMicros);
+                type.writeLong(blockBuilder, epochNanos);
             }
         }
         else if (isValueNull()) {

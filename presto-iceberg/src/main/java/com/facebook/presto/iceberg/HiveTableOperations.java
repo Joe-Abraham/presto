@@ -530,9 +530,16 @@ public class HiveTableOperations
     private static int parseVersion(String metadataLocation)
     {
         int versionStart = metadataLocation.lastIndexOf('/') + 1; // if '/' isn't found, this will be 0
-        int versionEnd = metadataLocation.indexOf('-', versionStart);
+        String filename = metadataLocation.substring(versionStart);
         try {
-            return parseInt(metadataLocation.substring(versionStart, versionEnd));
+            // Handle "v{N}.metadata.json" format (written by Spark and older Iceberg writers)
+            if (filename.startsWith("v")) {
+                int versionEnd = filename.indexOf('.');
+                return parseInt(filename.substring(1, versionEnd));
+            }
+            // Handle "{N}-{uuid}.metadata.json" format (written by newer Iceberg writers)
+            int versionEnd = filename.indexOf('-');
+            return parseInt(filename.substring(0, versionEnd));
         }
         catch (NumberFormatException | IndexOutOfBoundsException e) {
             log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);

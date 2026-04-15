@@ -43,6 +43,8 @@ import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_NANOSECONDS;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -51,7 +53,9 @@ import static java.lang.Integer.parseInt;
 import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.chrono.ISOChronology.getInstanceUTC;
 
 public final class PartitionTransforms
@@ -89,6 +93,18 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformYear),
                             ValueTransform.from(TIMESTAMP, transformYear));
                 }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformYear = value -> epochYear(MICROSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformYear),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformYear));
+                }
+                if (type.equals(TIMESTAMP_NANOSECONDS)) {
+                    LongUnaryOperator transformYear = value -> epochYear(NANOSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_NANOSECONDS, block, transformYear),
+                            ValueTransform.from(TIMESTAMP_NANOSECONDS, transformYear));
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             case "month":
                 if (type.equals(DATE)) {
@@ -102,6 +118,18 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformMonth),
                             ValueTransform.from(TIMESTAMP, transformMonth));
+                }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(MICROSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformMonth),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformMonth));
+                }
+                if (type.equals(TIMESTAMP_NANOSECONDS)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(NANOSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_NANOSECONDS, block, transformMonth),
+                            ValueTransform.from(TIMESTAMP_NANOSECONDS, transformMonth));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             case "day":
@@ -117,6 +145,18 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformDay),
                             ValueTransform.from(TIMESTAMP, transformDay));
                 }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformDay = value -> epochDay(MICROSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformDay),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformDay));
+                }
+                if (type.equals(TIMESTAMP_NANOSECONDS)) {
+                    LongUnaryOperator transformDay = value -> epochDay(NANOSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_NANOSECONDS, block, transformDay),
+                            ValueTransform.from(TIMESTAMP_NANOSECONDS, transformDay));
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
                 if (type.equals(TIMESTAMP)) {
@@ -124,6 +164,18 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformHour),
                             ValueTransform.from(TIMESTAMP, transformHour));
+                }
+                if (type.equals(TIMESTAMP_MICROSECONDS)) {
+                    LongUnaryOperator transformHour = value -> epochHour(MICROSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_MICROSECONDS, block, transformHour),
+                            ValueTransform.from(TIMESTAMP_MICROSECONDS, transformHour));
+                }
+                if (type.equals(TIMESTAMP_NANOSECONDS)) {
+                    LongUnaryOperator transformHour = value -> epochHour(NANOSECONDS.toMillis(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_NANOSECONDS, block, transformHour),
+                            ValueTransform.from(TIMESTAMP_NANOSECONDS, transformHour));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
         }
