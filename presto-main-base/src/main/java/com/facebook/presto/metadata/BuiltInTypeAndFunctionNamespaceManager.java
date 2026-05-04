@@ -490,6 +490,17 @@ import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_GREATE
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR;
 import static com.facebook.presto.type.DecimalInequalityOperators.DECIMAL_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_BETWEEN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_HASH_CODE_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_INDETERMINATE_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_IS_DISTINCT_FROM_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_XX_HASH_64_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
 import static com.facebook.presto.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
@@ -842,6 +853,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
                 .scalars(TimestampMicrosecondsOperators.class)
                 .scalar(TimestampMicrosecondsOperators.TimestampMicrosecondsDistinctFromOperator.class)
+                .functions(
+                        TIMESTAMP_EQUAL_OPERATOR,
+                        TIMESTAMP_NOT_EQUAL_OPERATOR,
+                        TIMESTAMP_LESS_THAN_OPERATOR,
+                        TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_GREATER_THAN_OPERATOR,
+                        TIMESTAMP_GREATER_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_BETWEEN_OPERATOR,
+                        TIMESTAMP_HASH_CODE_OPERATOR,
+                        TIMESTAMP_XX_HASH_64_OPERATOR,
+                        TIMESTAMP_IS_DISTINCT_FROM_OPERATOR,
+                        TIMESTAMP_INDETERMINATE_OPERATOR)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
