@@ -27,7 +27,7 @@ import static java.lang.String.format;
  * <p>
  * Precision 4-12 (long timestamps with time zone) are stored as 12 bytes using
  * {@link com.facebook.presto.common.block.Fixed12Block}: the first 8 bytes store epoch
- * milliseconds and the last 4 bytes store {@code (picosOfMilli << 12) | (timeZoneKey & 0xFFF)}.
+ * milliseconds and the last 4 bytes store {@code (nanosOfMilli << 12) | (timeZoneKey & 0xFFF)}.
  * <p>
  * Backward compatibility:
  * <ul>

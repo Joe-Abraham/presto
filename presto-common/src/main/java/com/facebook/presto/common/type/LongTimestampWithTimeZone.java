@@ -30,12 +30,12 @@ import static java.lang.Math.toIntExact;
  * Storage encoding (matching Fixed12Block layout):
  * <ul>
  *   <li>First 8 bytes: epoch milliseconds (UTC) as a {@code long}</li>
- *   <li>Last 4 bytes: {@code int} packed as {@code (picosOfMilli << 12) | (timeZoneKey & 0xFFF)}</li>
+ *   <li>Last 4 bytes: {@code int} packed as {@code (nanosOfMilli << 12) | (timeZoneKey & 0xFFF)}</li>
  * </ul>
  * <p>
- * {@code picosOfMilli} stores picoseconds within the millisecond (0 to 999,999,999).
- * With 20 bits available (after the 12-bit timezone key), values up to 1,048,575 are stored
- * directly; this accommodates nanosecond-within-millisecond precision (0 to 999,999).
+ * {@code nanosOfMilli} stores nanoseconds within the millisecond (0 to 999,999).
+ * The packed {@code int} allocates 20 bits (after the 12-bit timezone key), which is sufficient
+ * for values up to 1,048,575 — enough to represent nanosecond-within-millisecond precision.
  */
 public final class LongTimestampWithTimeZone
         implements Comparable<LongTimestampWithTimeZone>
@@ -44,13 +44,13 @@ public final class LongTimestampWithTimeZone
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSSSSS VV");
 
     private final long epochMillis;
-    private final int picosOfMilli;
+    private final int nanosOfMilli;
     private final short timeZoneKey;
 
-    public LongTimestampWithTimeZone(long epochMillis, int picosOfMilli, short timeZoneKey)
+    public LongTimestampWithTimeZone(long epochMillis, int nanosOfMilli, short timeZoneKey)
     {
         this.epochMillis = epochMillis;
-        this.picosOfMilli = picosOfMilli;
+        this.nanosOfMilli = nanosOfMilli;
         this.timeZoneKey = timeZoneKey;
     }
 
@@ -59,9 +59,9 @@ public final class LongTimestampWithTimeZone
         return epochMillis;
     }
 
-    public int getPicosOfMilli()
+    public int getNanosOfMilli()
     {
-        return picosOfMilli;
+        return nanosOfMilli;
     }
 
     public TimeZoneKey getTimeZoneKey()
@@ -70,18 +70,18 @@ public final class LongTimestampWithTimeZone
     }
 
     /**
-     * Packs picosOfMilli and timeZoneKey into a single int for Fixed12Block storage.
-     * Layout: bits 31:12 = picosOfMilli, bits 11:0 = timeZoneKey.
+     * Packs nanosOfMilli and timeZoneKey into a single int for Fixed12Block storage.
+     * Layout: bits 31:12 = nanosOfMilli, bits 11:0 = timeZoneKey.
      */
-    public static int packFraction(int picosOfMilli, short timeZoneKey)
+    public static int packFraction(int nanosOfMilli, short timeZoneKey)
     {
-        return (picosOfMilli << 12) | (timeZoneKey & 0xFFF);
+        return (nanosOfMilli << 12) | (timeZoneKey & 0xFFF);
     }
 
     /**
-     * Extracts picosOfMilli from a packed fraction int (bits 31:12).
+     * Extracts nanosOfMilli from a packed fraction int (bits 31:12).
      */
-    public static int unpackPicosOfMilli(int packed)
+    public static int unpackNanosOfMilli(int packed)
     {
         return (packed >>> 12);
     }
@@ -101,7 +101,7 @@ public final class LongTimestampWithTimeZone
         if (result != 0) {
             return result;
         }
-        return Integer.compare(picosOfMilli, other.picosOfMilli);
+        return Integer.compare(nanosOfMilli, other.nanosOfMilli);
     }
 
     @Override
@@ -115,14 +115,14 @@ public final class LongTimestampWithTimeZone
         }
         LongTimestampWithTimeZone that = (LongTimestampWithTimeZone) o;
         return epochMillis == that.epochMillis &&
-                picosOfMilli == that.picosOfMilli &&
+                nanosOfMilli == that.nanosOfMilli &&
                 timeZoneKey == that.timeZoneKey;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(epochMillis, picosOfMilli, timeZoneKey);
+        return Objects.hash(epochMillis, nanosOfMilli, timeZoneKey);
     }
 
     @JsonValue
@@ -132,8 +132,7 @@ public final class LongTimestampWithTimeZone
         long epochSecond = floorDiv(epochMillis, 1_000L);
         int millisOfSecond = toIntExact(floorMod(epochMillis, 1_000L));
 
-        // Convert millis + picosOfMilli to nanoseconds for Instant construction
-        long nanosOfSecond = millisOfSecond * 1_000_000L + (picosOfMilli / 1_000L);
+        long nanosOfSecond = millisOfSecond * 1_000_000L + nanosOfMilli;
         Instant instant = Instant.ofEpochSecond(epochSecond, nanosOfSecond);
 
         TimeZoneKey tzKey = TimeZoneKey.getTimeZoneKey(timeZoneKey);

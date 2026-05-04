@@ -28,7 +28,7 @@ import static com.facebook.presto.common.block.Fixed12Block.FIXED12_BYTES;
  * using {@link Fixed12Block}:
  * <ul>
  *   <li>First 8 bytes: epoch milliseconds (UTC) as a {@code long}</li>
- *   <li>Last 4 bytes: {@code (picosOfMilli << 12) | (timeZoneKey & 0xFFF)}</li>
+ *   <li>Last 4 bytes: {@code (nanosOfMilli << 12) | (timeZoneKey & 0xFFF)}</li>
  * </ul>
  *
  * @see LongTimestampWithTimeZone
@@ -75,9 +75,9 @@ public final class LongTimestampWithTimeZoneType
             epochMillis = block.getLong(position, 0);
             packed = block.getInt(position);
         }
-        int picosOfMilli = LongTimestampWithTimeZone.unpackPicosOfMilli(packed);
+        int nanosOfMilli = LongTimestampWithTimeZone.unpackNanosOfMilli(packed);
         short timeZoneKey = LongTimestampWithTimeZone.unpackTimeZoneKey(packed);
-        return new LongTimestampWithTimeZone(epochMillis, picosOfMilli, timeZoneKey);
+        return new LongTimestampWithTimeZone(epochMillis, nanosOfMilli, timeZoneKey);
     }
 
     /**
@@ -86,7 +86,7 @@ public final class LongTimestampWithTimeZoneType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LongTimestampWithTimeZone tstz = (LongTimestampWithTimeZone) value;
-        int packed = LongTimestampWithTimeZone.packFraction(tstz.getPicosOfMilli(), tstz.getTimeZoneKey().getKey());
+        int packed = LongTimestampWithTimeZone.packFraction(tstz.getNanosOfMilli(), tstz.getTimeZoneKey().getKey());
         if (blockBuilder instanceof Fixed12BlockBuilder) {
             ((Fixed12BlockBuilder) blockBuilder).writeFixed12(tstz.getEpochMillis(), packed);
         }
@@ -114,16 +114,16 @@ public final class LongTimestampWithTimeZoneType
     {
         LongTimestampWithTimeZone left = getObject(leftBlock, leftPosition);
         LongTimestampWithTimeZone right = getObject(rightBlock, rightPosition);
-        // Equality is based on the UTC instant (epochMillis + picosOfMilli), timezone is irrelevant
+        // Equality is based on the UTC instant (epochMillis + nanosOfMilli), timezone is irrelevant
         return left.getEpochMillis() == right.getEpochMillis() &&
-                left.getPicosOfMilli() == right.getPicosOfMilli();
+                left.getNanosOfMilli() == right.getNanosOfMilli();
     }
 
     @Override
     public long hash(Block block, int position)
     {
         LongTimestampWithTimeZone value = getObject(block, position);
-        return AbstractLongType.hash(value.getEpochMillis()) ^ value.getPicosOfMilli();
+        return AbstractLongType.hash(value.getEpochMillis()) ^ value.getNanosOfMilli();
     }
 
     @Override
