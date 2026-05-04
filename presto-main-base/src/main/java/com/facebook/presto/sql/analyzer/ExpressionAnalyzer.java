@@ -28,6 +28,8 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -148,6 +150,7 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -1385,15 +1388,16 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
+            if (!(valueType instanceof TimestampWithTimeZoneType) && !(valueType instanceof TimestampType) && !valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIME)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
             if (valueType.equals(TIME)) {
                 resultType = TIME_WITH_TIME_ZONE;
             }
-            else if (valueType.equals(TIMESTAMP)) {
-                resultType = TIMESTAMP_WITH_TIME_ZONE;
+            else if (valueType instanceof TimestampType) {
+                // Preserve the precision of the timestamp when converting to timestamp with time zone
+                resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
             }
 
             return setExpressionType(node, resultType);
@@ -1430,7 +1434,7 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type instanceof TimestampWithTimeZoneType)) {
                 throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 
@@ -1442,8 +1446,8 @@ public class ExpressionAnalyzer
             return type.equals(DATE) ||
                     type.equals(TIME) ||
                     type.equals(TIME_WITH_TIME_ZONE) ||
-                    type.equals(TIMESTAMP) ||
-                    type.equals(TIMESTAMP_WITH_TIME_ZONE) ||
+                    type instanceof TimestampType ||
+                    type instanceof TimestampWithTimeZoneType ||
                     type.equals(INTERVAL_DAY_TIME) ||
                     type.equals(INTERVAL_YEAR_MONTH);
         }

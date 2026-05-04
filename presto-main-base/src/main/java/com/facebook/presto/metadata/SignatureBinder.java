@@ -684,6 +684,12 @@ public class SignatureBinder
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
+                        if (i >= typeSignature.getParameters().size()) {
+                            // The actual type's signature does not carry a parameter at this position
+                            // (e.g. the legacy "timestamp" type has no precision parameter).
+                            // This signature cannot satisfy the formal constraint.
+                            return SolverReturnStatus.UNSOLVABLE;
+                        }
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.of(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
@@ -709,6 +715,10 @@ public class SignatureBinder
             }
             SolverReturnStatus result = SolverReturnStatus.UNCHANGED_SATISFIED;
             for (int i = 0; i < parameters.size(); i++) {
+                if (i >= commonSuperTypeSignature.getParameters().size()) {
+                    // Common super type's signature does not have a parameter at this position.
+                    return SolverReturnStatus.UNSOLVABLE;
+                }
                 TypeSignatureParameter typeSignatureParameter = parameters.get(i);
                 long commonSuperLongLiteral = commonSuperTypeSignature.getParameters().get(i).getLongLiteral();
                 if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
