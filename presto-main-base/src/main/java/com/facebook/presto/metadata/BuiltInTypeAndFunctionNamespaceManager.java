@@ -529,6 +529,17 @@ import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LE
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR;
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_NOT_EQUAL_OPERATOR;
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_XX_HASH_64_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_BETWEEN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_HASH_CODE_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_INDETERMINATE_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_IS_DISTINCT_FROM_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_LESS_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_XX_HASH_64_OPERATOR;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -875,6 +886,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeWithTimeZoneOperators.TimeWithTimeZoneDistinctFromOperator.class)
                 .scalars(TimestampWithTimeZoneOperators.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class)
+                .functions(
+                        TIMESTAMP_TZ_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_NOT_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_LESS_THAN_OPERATOR,
+                        TIMESTAMP_TZ_LESS_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_GREATER_THAN_OPERATOR,
+                        TIMESTAMP_TZ_GREATER_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_BETWEEN_OPERATOR,
+                        TIMESTAMP_TZ_HASH_CODE_OPERATOR,
+                        TIMESTAMP_TZ_XX_HASH_64_OPERATOR,
+                        TIMESTAMP_TZ_IS_DISTINCT_FROM_OPERATOR,
+                        TIMESTAMP_TZ_INDETERMINATE_OPERATOR)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)
