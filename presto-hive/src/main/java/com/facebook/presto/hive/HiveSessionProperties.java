@@ -134,6 +134,7 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
+    public static final String TIMESTAMP_PRECISION = "timestamp_precision";
     public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES = "optimize_parsing_of_partition_values";
     public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD = "optimize_parsing_of_partition_values_threshold";
 
@@ -665,6 +666,15 @@ public final class HiveSessionProperties
                         "Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.",
                         hiveClientConfig.isLegacyTimestampBucketing(),
                         false),
+                new PropertyMetadata<>(
+                        TIMESTAMP_PRECISION,
+                        "Precision used for Hive timestamp columns: MILLISECONDS, MICROSECONDS, or NANOSECONDS",
+                        VARCHAR,
+                        HiveTimestampPrecision.class,
+                        hiveClientConfig.getTimestampPrecision(),
+                        false,
+                        value -> HiveTimestampPrecision.valueOf(((String) value).toUpperCase(java.util.Locale.ENGLISH)),
+                        HiveTimestampPrecision::name),
                 booleanProperty(
                         OPTIMIZE_PARSING_OF_PARTITION_VALUES,
                         "Optimize partition values parsing when number of candidates are large",
@@ -1170,6 +1180,11 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
+    }
+
+    public static HiveTimestampPrecision getTimestampPrecision(ConnectorSession session)
+    {
+        return session.getProperty(TIMESTAMP_PRECISION, HiveTimestampPrecision.class);
     }
 
     public static boolean isOptimizeParsingOfPartitionValues(ConnectorSession session)

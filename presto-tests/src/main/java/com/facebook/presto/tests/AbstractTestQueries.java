@@ -3255,6 +3255,7 @@ public abstract class AbstractTestQueries
                 getSession().getUserAgent(),
                 getSession().getClientInfo(),
                 getSession().getClientTags(),
+                getSession().getClientCapabilities(),
                 getSession().getResourceEstimates(),
                 getSession().getStartTime(),
                 ImmutableMap.<String, String>builder()
