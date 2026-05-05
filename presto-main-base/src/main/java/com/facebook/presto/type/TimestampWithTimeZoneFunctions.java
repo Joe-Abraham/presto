@@ -212,8 +212,7 @@ public final class TimestampWithTimeZoneFunctions
     @UsedByGeneratedCode
     public static long atTimezoneOffsetShort(long packedTstz, long zoneOffset)
     {
-        checkArgument((zoneOffset % 60_000L) == 0L, "Invalid time zone offset interval: interval contains seconds");
-        long zoneOffsetMinutes = zoneOffset / 60_000L;
+        long zoneOffsetMinutes = checkAndConvertZoneOffsetToMinutes(zoneOffset);
         try {
             return packDateTimeWithZone(unpackMillisUtc(packedTstz), getTimeZoneKeyForOffset(zoneOffsetMinutes));
         }
@@ -231,8 +230,7 @@ public final class TimestampWithTimeZoneFunctions
     @UsedByGeneratedCode
     public static LongTimestampWithTimeZone atTimezoneOffsetLong(LongTimestampWithTimeZone value, long zoneOffset)
     {
-        checkArgument((zoneOffset % 60_000L) == 0L, "Invalid time zone offset interval: interval contains seconds");
-        long zoneOffsetMinutes = zoneOffset / 60_000L;
+        long zoneOffsetMinutes = checkAndConvertZoneOffsetToMinutes(zoneOffset);
         try {
             TimeZoneKey newZoneKey = getTimeZoneKeyForOffset(zoneOffsetMinutes);
             return new LongTimestampWithTimeZone(value.getEpochMillis(), value.getNanosOfMilli(), newZoneKey.getKey());
@@ -246,5 +244,11 @@ public final class TimestampWithTimeZoneFunctions
         catch (ArithmeticException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e.getMessage(), e);
         }
+    }
+
+    private static long checkAndConvertZoneOffsetToMinutes(long zoneOffset)
+    {
+        checkArgument((zoneOffset % 60_000L) == 0L, "Invalid time zone offset interval: interval contains seconds");
+        return zoneOffset / 60_000L;
     }
 }

@@ -673,7 +673,7 @@ public final class HiveSessionProperties
                         HiveTimestampPrecision.class,
                         hiveClientConfig.getTimestampPrecision(),
                         false,
-                        value -> HiveTimestampPrecision.valueOf(((String) value).toUpperCase(java.util.Locale.ENGLISH)),
+                        value -> HiveTimestampPrecision.valueOf(((String) value).toUpperCase(ENGLISH)),
                         HiveTimestampPrecision::name),
                 booleanProperty(
                         OPTIMIZE_PARSING_OF_PARTITION_VALUES,
