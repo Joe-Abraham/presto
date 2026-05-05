@@ -71,6 +71,7 @@ public final class TimestampWithTimeZoneFunctions
                             .argumentTypes(TIMESTAMP_TZ_SIGNATURE)
                             .returnType(BIGINT_SIGNATURE)
                             .build())
+                    .calledOnNullInput(false)
                     .deterministic(true)
                     .choice(choice -> choice
                             .implementation(methodsGroup -> methodsGroup
@@ -89,6 +90,7 @@ public final class TimestampWithTimeZoneFunctions
                             .argumentTypes(TIMESTAMP_TZ_SIGNATURE)
                             .returnType(BIGINT_SIGNATURE)
                             .build())
+                    .calledOnNullInput(false)
                     .deterministic(true)
                     .choice(choice -> choice
                             .implementation(methodsGroup -> methodsGroup
@@ -107,6 +109,7 @@ public final class TimestampWithTimeZoneFunctions
                             .argumentTypes(TIMESTAMP_TZ_SIGNATURE, parseTypeSignature("varchar(x)", ImmutableSet.of("x")))
                             .returnType(TIMESTAMP_TZ_SIGNATURE)
                             .build())
+                    .calledOnNullInput(false)
                     .deterministic(true)
                     .choice(choice -> choice
                             .implementation(methodsGroup -> methodsGroup
@@ -125,6 +128,7 @@ public final class TimestampWithTimeZoneFunctions
                             .argumentTypes(TIMESTAMP_TZ_SIGNATURE, INTERVAL_SIGNATURE)
                             .returnType(TIMESTAMP_TZ_SIGNATURE)
                             .build())
+                    .calledOnNullInput(false)
                     .deterministic(true)
                     .choice(choice -> choice
                             .implementation(methodsGroup -> methodsGroup
