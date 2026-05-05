@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
@@ -33,8 +35,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static java.util.Objects.requireNonNull;
 
 @Deprecated
@@ -76,8 +77,9 @@ public class DesugarAtTimeZoneRewriter
             if (type.equals(TIME)) {
                 value = new Cast(value, TIME_WITH_TIME_ZONE.getDisplayName());
             }
-            else if (type.equals(TIMESTAMP)) {
-                value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
+            else if (type instanceof TimestampType) {
+                TimestampWithTimeZoneType targetType = createTimestampWithTimeZoneType(((TimestampType) type).getPrecision());
+                value = new Cast(value, targetType.getDisplayName());
             }
 
             return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
