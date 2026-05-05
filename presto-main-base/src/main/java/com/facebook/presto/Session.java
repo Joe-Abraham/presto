@@ -92,6 +92,7 @@ public final class Session
     private final Optional<String> clientInfo;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
+    private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
     private final long startTime;
     private final Map<String, String> systemProperties;
@@ -127,6 +128,7 @@ public final class Session
             Optional<String> userAgent,
             Optional<String> clientInfo,
             Set<String> clientTags,
+            Set<String> clientCapabilities,
             ResourceEstimates resourceEstimates,
             long startTime,
             Map<String, String> systemProperties,
@@ -154,6 +156,7 @@ public final class Session
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
+        this.clientCapabilities = ImmutableSet.copyOf(requireNonNull(clientCapabilities, "clientCapabilities is null"));
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
@@ -241,6 +244,11 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Set<String> getClientCapabilities()
+    {
+        return clientCapabilities;
     }
 
     public Optional<String> getTraceToken()
@@ -460,6 +468,7 @@ public final class Session
                 userAgent,
                 clientInfo,
                 clientTags,
+                clientCapabilities,
                 resourceEstimates,
                 startTime,
                 systemProperties,
@@ -504,6 +513,7 @@ public final class Session
                 userAgent,
                 clientInfo,
                 clientTags,
+                clientCapabilities,
                 resourceEstimates,
                 startTime,
                 systemProperties,
@@ -659,6 +669,7 @@ public final class Session
         private String userAgent;
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
+        private Set<String> clientCapabilities = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
         private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
@@ -696,6 +707,7 @@ public final class Session
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
+            this.clientCapabilities = ImmutableSet.copyOf(session.clientCapabilities);
             this.startTime = session.startTime;
             this.systemProperties.putAll(session.systemProperties);
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
@@ -801,6 +813,12 @@ public final class Session
         public SessionBuilder setClientTags(Set<String> clientTags)
         {
             this.clientTags = ImmutableSet.copyOf(clientTags);
+            return this;
+        }
+
+        public SessionBuilder setClientCapabilities(Set<String> clientCapabilities)
+        {
+            this.clientCapabilities = ImmutableSet.copyOf(clientCapabilities);
             return this;
         }
 
@@ -934,6 +952,7 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
                     clientTags,
+                    clientCapabilities,
                     Optional.ofNullable(resourceEstimates)
                             .orElseGet(new ResourceEstimateBuilder()::build),
                     startTime,
