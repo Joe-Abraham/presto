@@ -529,6 +529,10 @@ import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LE
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR;
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_NOT_EQUAL_OPERATOR;
 import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_XX_HASH_64_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneFunctions.AT_TIMEZONE_WITH_OFFSET_FUNCTION;
+import static com.facebook.presto.type.TimestampWithTimeZoneFunctions.AT_TIMEZONE_WITH_ZONE_ID_FUNCTION;
+import static com.facebook.presto.type.TimestampWithTimeZoneFunctions.TIMEZONE_HOUR_FUNCTION;
+import static com.facebook.presto.type.TimestampWithTimeZoneFunctions.TIMEZONE_MINUTE_FUNCTION;
 import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_BETWEEN_OPERATOR;
 import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_EQUAL_OPERATOR;
 import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_GREATER_THAN_OPERATOR;
@@ -897,7 +901,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
                         TIMESTAMP_TZ_HASH_CODE_OPERATOR,
                         TIMESTAMP_TZ_XX_HASH_64_OPERATOR,
                         TIMESTAMP_TZ_IS_DISTINCT_FROM_OPERATOR,
-                        TIMESTAMP_TZ_INDETERMINATE_OPERATOR)
+                        TIMESTAMP_TZ_INDETERMINATE_OPERATOR,
+                        TIMEZONE_HOUR_FUNCTION,
+                        TIMEZONE_MINUTE_FUNCTION,
+                        AT_TIMEZONE_WITH_ZONE_ID_FUNCTION,
+                        AT_TIMEZONE_WITH_OFFSET_FUNCTION)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)

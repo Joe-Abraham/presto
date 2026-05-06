@@ -61,6 +61,7 @@ import java.util.Set;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_TRACING_MODE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
@@ -112,6 +113,7 @@ public final class HttpRequestSessionContext
     private final String timeZoneId;
     private final String language;
     private final Set<String> clientTags;
+    private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
 
     private final Map<String, String> systemProperties;
@@ -182,6 +184,7 @@ public final class HttpRequestSessionContext
         language = servletRequest.getHeader(PRESTO_LANGUAGE);
         clientInfo = servletRequest.getHeader(PRESTO_CLIENT_INFO);
         clientTags = parseClientTags(servletRequest);
+        clientCapabilities = parseClientCapabilities(servletRequest);
         resourceEstimates = parseResourceEstimate(servletRequest);
 
         // parse session properties
@@ -476,6 +479,12 @@ public final class HttpRequestSessionContext
     }
 
     @Override
+    public Set<String> getClientCapabilities()
+    {
+        return clientCapabilities;
+    }
+
+    @Override
     public ResourceEstimates getResourceEstimates()
     {
         return resourceEstimates;
@@ -577,6 +586,12 @@ public final class HttpRequestSessionContext
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_TAGS))));
+    }
+
+    private Set<String> parseClientCapabilities(HttpServletRequest servletRequest)
+    {
+        Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(servletRequest.getHeader(PRESTO_CLIENT_CAPABILITIES))));
     }
 
     public static ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)

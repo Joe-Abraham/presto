@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.client.ClientCapabilities;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.client.QueryError;
@@ -29,6 +30,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -663,9 +665,11 @@ class Query
             List<Type> columnTypes = outputInfo.getColumnTypes();
             checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
 
+            boolean supportsParametricDatetime = session.getClientCapabilities()
+                    .contains(ClientCapabilities.PARAMETRIC_DATETIME.name());
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(new Column(columnNames.get(i), columnTypes.get(i)));
+                list.add(toColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDatetime));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -675,6 +679,73 @@ class Query
         if (outputInfo.isNoMoreBufferLocations()) {
             exchangeClient.noMoreLocations();
         }
+    }
+
+    /**
+     * Build a Column for the response. For clients that do not advertise {@code PARAMETRIC_DATETIME} capability,
+     * downgrade parametric timestamp types (e.g. {@code timestamp(6)}) to the legacy unparameterized form
+     * (e.g. {@code timestamp}).
+     */
+    private static Column toColumn(String name, Type type, boolean supportsParametricDatetime)
+    {
+        if (supportsParametricDatetime) {
+            return new Column(name, type);
+        }
+        TypeSignature signature = toClientTypeSignature(type.getTypeSignature());
+        return new Column(name, signature);
+    }
+
+    /**
+     * Rewrites a type signature for old clients that do not support parametric datetime types.
+     * {@code timestamp(p)} → {@code timestamp}, {@code timestamp(p) with time zone} → {@code timestamp with time zone}.
+     * Recursively rewrites type parameters (for ARRAY, MAP, ROW, etc.).
+     */
+    private static TypeSignature toClientTypeSignature(TypeSignature signature)
+    {
+        String base = signature.getBase();
+        if (base.equalsIgnoreCase(StandardTypes.TIMESTAMP) && !signature.getParameters().isEmpty()) {
+            return new TypeSignature(StandardTypes.TIMESTAMP);
+        }
+        if (base.equalsIgnoreCase(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) && !signature.getParameters().isEmpty()) {
+            return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        }
+        if (signature.getParameters().isEmpty()) {
+            return signature;
+        }
+        // Recursively rewrite parameters for complex types (ARRAY, MAP, ROW, etc.)
+        boolean changed = false;
+        ImmutableList.Builder<com.facebook.presto.common.type.TypeSignatureParameter> newParams = ImmutableList.builder();
+        for (com.facebook.presto.common.type.TypeSignatureParameter param : signature.getParameters()) {
+            if (param.isTypeSignature()) {
+                TypeSignature rewritten = toClientTypeSignature(param.getTypeSignature());
+                if (!rewritten.equals(param.getTypeSignature())) {
+                    changed = true;
+                    newParams.add(com.facebook.presto.common.type.TypeSignatureParameter.of(rewritten));
+                }
+                else {
+                    newParams.add(param);
+                }
+            }
+            else if (param.isNamedTypeSignature()) {
+                com.facebook.presto.common.type.NamedTypeSignature namedSig = param.getNamedTypeSignature();
+                TypeSignature rewritten = toClientTypeSignature(namedSig.getTypeSignature());
+                if (!rewritten.equals(namedSig.getTypeSignature())) {
+                    changed = true;
+                    newParams.add(com.facebook.presto.common.type.TypeSignatureParameter.of(
+                            new com.facebook.presto.common.type.NamedTypeSignature(namedSig.getFieldName(), rewritten)));
+                }
+                else {
+                    newParams.add(param);
+                }
+            }
+            else {
+                newParams.add(param);
+            }
+        }
+        if (changed) {
+            return new TypeSignature(base, newParams.build());
+        }
+        return signature;
     }
 
     private ListenableFuture<?> queryDoneFuture(QueryState currentState)

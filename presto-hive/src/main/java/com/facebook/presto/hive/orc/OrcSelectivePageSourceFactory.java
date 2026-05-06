@@ -106,6 +106,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFil
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static com.facebook.presto.hive.HiveSessionProperties.getTimestampPrecision;
 import static com.facebook.presto.hive.HiveSessionProperties.isAdaptiveFilterReorderingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
@@ -332,7 +333,7 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, List<Subfield>> requiredSubfields = collectRequiredSubfields(physicalColumns, outputIndices, tupleDomainFilters, remainingPredicate, columnIndices, functionResolution, rowExpressionService, session);
 
             Map<Integer, Type> columnTypes = physicalColumns.stream()
-                    .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, column -> typeManager.getType(column.getTypeSignature())));
+                    .collect(toImmutableMap(HiveColumnHandle::getHiveColumnIndex, column -> OrcBatchPageSourceFactory.getColumnType(column, typeManager, getTimestampPrecision(session))));
 
             Map<Integer, Object> typedPrefilledValues = Maps.transformEntries(
                     prefilledValues.entrySet().stream()
