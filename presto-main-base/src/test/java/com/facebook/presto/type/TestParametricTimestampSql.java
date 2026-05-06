@@ -307,6 +307,132 @@ public class TestParametricTimestampSql
     }
 
     // -----------------------------------------------------------------------
+    // Precision-3 (millisecond) boundary — storage-tier edge cases
+    //
+    // All TIMESTAMP literals in the current port resolve to precision-3:
+    // - The SQL analyzer always assigns TimestampType.TIMESTAMP (p=3).
+    // - parseTimestampLiteral() truncates fractional digits beyond 3 to epoch-ms.
+    //
+    // Higher-precision queries (illustrative, require precision-inference port):
+    //   SELECT typeof(CAST(ts AS timestamp(6)));   → "timestamp microseconds"
+    //   SELECT typeof(CAST(ts AS timestamp(9)));   → "timestamp(9)"
+    //   SELECT typeof(CAST(ts AS timestamp(12)));  → "timestamp(12)"
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testSubMillisecondLiteralTruncation()
+    {
+        // Fractional digits beyond 3 in a literal are truncated to milliseconds
+        // at parse time — the type stays precision-3.
+        assertFunction(
+                "TIMESTAMP '2021-01-01 00:00:00.999999' = TIMESTAMP '2021-01-01 00:00:00.999'",
+                BOOLEAN, true);
+        assertFunction(
+                "TIMESTAMP '2021-01-01 00:00:00.000001' = TIMESTAMP '2021-01-01 00:00:00.000'",
+                BOOLEAN, true);
+        assertFunction(
+                "TIMESTAMP '2021-01-01 00:00:00.123456789' = TIMESTAMP '2021-01-01 00:00:00.123'",
+                BOOLEAN, true);
+    }
+
+    @Test
+    public void testMillisecondBoundaryComparisons()
+    {
+        // 1 ms difference is detectable at precision-3 (short-timestamp operators)
+        assertFunction(
+                "TIMESTAMP '2021-01-01 00:00:00.000' < TIMESTAMP '2021-01-01 00:00:00.001'",
+                BOOLEAN, true);
+        assertFunction(
+                "TIMESTAMP '2021-01-01 00:00:00.999' < TIMESTAMP '2021-01-01 00:00:01.000'",
+                BOOLEAN, true);
+        assertFunction(
+                "TIMESTAMP '2021-06-30 23:59:59.999' < TIMESTAMP '2021-07-01 00:00:00.000'",
+                BOOLEAN, true);
+        assertFunction(
+                "TIMESTAMP '2021-12-31 23:59:59.999' < TIMESTAMP '2022-01-01 00:00:00.000'",
+                BOOLEAN, true);
+    }
+
+    @Test
+    public void testNegativeEpochTimestamps()
+    {
+        // Timestamps before 1970-01-01 have negative epoch-millisecond values.
+        assertFunction(
+                "TIMESTAMP '1969-12-31 23:59:59.999' < TIMESTAMP '1970-01-01 00:00:00.000'",
+                BOOLEAN, true);
+        assertFunction("EXTRACT(YEAR  FROM TIMESTAMP '1969-12-31 23:59:59')", BIGINT, 1969L);
+        assertFunction("EXTRACT(MONTH FROM TIMESTAMP '1969-12-31 23:59:59')", BIGINT, 12L);
+        assertFunction("EXTRACT(DAY   FROM TIMESTAMP '1969-12-31 23:59:59')", BIGINT, 31L);
+        assertFunction("EXTRACT(HOUR  FROM TIMESTAMP '1969-12-31 23:59:59')", BIGINT, 23L);
+    }
+
+    @Test
+    public void testDateBoundaries()
+    {
+        // Year boundary
+        assertFunction("EXTRACT(YEAR FROM TIMESTAMP '2020-12-31 23:59:59.999')", BIGINT, 2020L);
+        assertFunction("EXTRACT(YEAR FROM TIMESTAMP '2021-01-01 00:00:00.000')", BIGINT, 2021L);
+        // Leap year: 2020-02-29 is valid
+        assertFunction("EXTRACT(DAY   FROM TIMESTAMP '2020-02-29 12:00:00')", BIGINT, 29L);
+        assertFunction("EXTRACT(MONTH FROM TIMESTAMP '2020-02-29 12:00:00')", BIGINT, 2L);
+    }
+
+    // -----------------------------------------------------------------------
+    // TSTZ cross-zone: same epoch, different offset representations
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testTimestampWithTimeZoneCrossZoneEquality()
+    {
+        // The same instant expressed in four different offset zones is equal.
+        assertFunction("TIMESTAMP '2021-06-15 12:00:00.000 +00:00' = TIMESTAMP '2021-06-15 14:00:00.000 +02:00'", BOOLEAN, true);
+        assertFunction("TIMESTAMP '2021-06-15 12:00:00.000 +00:00' = TIMESTAMP '2021-06-15 06:00:00.000 -06:00'", BOOLEAN, true);
+        assertFunction("TIMESTAMP '2021-06-15 12:00:00.000 +00:00' = TIMESTAMP '2021-06-15 22:30:00.000 +10:30'", BOOLEAN, true);
+        // One millisecond apart is distinguishable even across zones
+        assertFunction("TIMESTAMP '2021-06-15 12:00:00.000 +00:00' = TIMESTAMP '2021-06-15 12:00:00.001 +00:00'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneCrossZoneOrdering()
+    {
+        // Ordering is by epoch, independent of the display zone.
+        assertFunction("TIMESTAMP '2021-01-01 11:59:59.999 +00:00' < TIMESTAMP '2021-01-01 12:00:00.000 +00:00'", BOOLEAN, true);
+        // 11:59 UTC is EARLIER than 17:30 +05:30 (which is 12:00 UTC)
+        assertFunction("TIMESTAMP '2021-01-01 11:59:59.999 +00:00' < TIMESTAMP '2021-01-01 17:30:00.000 +05:30'", BOOLEAN, true);
+        // 12:01 UTC is LATER than 17:30 +05:30 (which is 12:00 UTC)
+        assertFunction("TIMESTAMP '2021-01-01 12:00:00.001 +00:00' > TIMESTAMP '2021-01-01 17:30:00.000 +05:30'", BOOLEAN, true);
+    }
+
+    @Test
+    public void testExtractAllFieldsFromTimestamp()
+    {
+        // Comprehensive EXTRACT coverage at precision-3 (all short-timestamp paths)
+        String ts = "TIMESTAMP '2021-11-23 14:37:52.456'";
+        assertFunction("EXTRACT(YEAR        FROM " + ts + ")", BIGINT, 2021L);
+        assertFunction("EXTRACT(MONTH       FROM " + ts + ")", BIGINT, 11L);
+        assertFunction("EXTRACT(DAY         FROM " + ts + ")", BIGINT, 23L);
+        assertFunction("EXTRACT(DAY_OF_WEEK FROM " + ts + ")", BIGINT, 2L);  // Tuesday
+        assertFunction("EXTRACT(DAY_OF_YEAR FROM " + ts + ")", BIGINT, 327L);
+        assertFunction("EXTRACT(HOUR        FROM " + ts + ")", BIGINT, 14L);
+        assertFunction("EXTRACT(MINUTE      FROM " + ts + ")", BIGINT, 37L);
+        assertFunction("EXTRACT(SECOND      FROM " + ts + ")", BIGINT, 52L);
+        assertFunction("EXTRACT(QUARTER     FROM " + ts + ")", BIGINT, 4L);
+    }
+
+    @Test
+    public void testTypeOfPrecision3IsBackwardCompatName()
+    {
+        // All plain timestamp literals are precision-3; typeof returns the
+        // backward-compatible bare name "timestamp", not "timestamp(3)".
+        assertFunctionString("typeof(TIMESTAMP '2021-01-01')", VARCHAR, "timestamp");
+        assertFunctionString("typeof(TIMESTAMP '2021-01-01 00:00:00')", VARCHAR, "timestamp");
+        assertFunctionString("typeof(TIMESTAMP '2021-01-01 00:00:00.123')", VARCHAR, "timestamp");
+        // Extra literal digits are truncated; type is still precision-3.
+        assertFunctionString("typeof(TIMESTAMP '2021-01-01 00:00:00.123456')", VARCHAR, "timestamp");
+        assertFunctionString("typeof(TIMESTAMP '2021-01-01 00:00:00.123456789')", VARCHAR, "timestamp");
+    }
+
+    // -----------------------------------------------------------------------
     // NULL semantics
     // -----------------------------------------------------------------------
 
