@@ -843,7 +843,9 @@ For V1/V2 tables the column returns ``NULL``.
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 
-All above metadata columns are supported in Presto C++.
+All above metadata columns are supported in Presto C++, except row lineage
+columns (``_row_id``, ``_last_updated_sequence_number``) on Iceberg format
+version 1/2 tables.
 
 Extra Hidden Metadata Tables
 ----------------------------
