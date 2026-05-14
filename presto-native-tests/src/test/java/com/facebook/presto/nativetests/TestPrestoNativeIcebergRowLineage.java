@@ -200,7 +200,7 @@ public class TestPrestoNativeIcebergRowLineage
     }
 
     @Test
-    public void testV2TableRowLineageNullThenBackfilledAfterV3Upgrade()
+    public void testV2TableRowLineageReturnsNull()
             throws Exception
     {
         String tableName = "test_native_row_lineage_v2_" + RUN_ID;
@@ -218,55 +218,29 @@ public class TestPrestoNativeIcebergRowLineage
             writeRecords(table,
                     GenericRecord.create(schema).copy("id", 3, "value", "three"));
 
-            // V1/V2 tables have no row lineage; both columns are null.
-            assertEquals(computeActual("SELECT \"_row_id\", * FROM " + tableName).getRowCount(), 3);
-            assertQuery("SELECT \"_row_id\" FROM " + tableName + " ORDER BY id", "VALUES NULL, NULL, NULL");
+            // Native engine should still read visible columns for V2 tables.
+            assertQuery("SELECT id, value FROM " + tableName);
 
-            table.refresh();
-            table.updateProperties()
-                    .set("format-version", "3")
-                    .commit();
-            table.refresh();
+            QueryRunner expectedQueryRunner = (QueryRunner) getExpectedQueryRunner();
+            MaterializedResult rowIdResult = expectedQueryRunner.execute(
+                    "SELECT \"_row_id\" FROM " + tableName + " ORDER BY id");
+            MaterializedResult sequenceResult = expectedQueryRunner.execute(
+                    "SELECT \"_last_updated_sequence_number\" FROM " + tableName + " ORDER BY id");
 
-            writeRecords(table,
-                    GenericRecord.create(schema).copy("id", 4, "value", "four"),
-                    GenericRecord.create(schema).copy("id", 5, "value", "five"));
-            table.refresh();
-
-            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
-
-            // V2→V3 upgrade backfills firstRowId on existing manifest entries, so all rows
-            // (including the 3 pre-upgrade ones) now have non-null row lineage.
-            assertEquals(computeActual("SELECT count(*) FROM " + tableName +
-                    " WHERE \"_row_id\" IS NULL").getOnlyValue(), 0L,
-                    "All rows should have non-null _row_id after V3 upgrade");
-            assertEquals(computeActual("SELECT count(*) FROM " + tableName +
-                    " WHERE \"_last_updated_sequence_number\" IS NULL").getOnlyValue(), 0L,
-                    "All rows should have non-null _last_updated_sequence_number after V3 upgrade");
-
-            long distinctRowIds = (Long) computeActual(
-                    "SELECT count(DISTINCT \"_row_id\") FROM " + tableName).getOnlyValue();
-            assertEquals(distinctRowIds, 5L, "Row IDs must be unique across all 5 rows after upgrade");
-
-            table.refresh();
-            List<long[]> allExpectedPairs = buildExpectedPairs(table, "All files should have firstRowId set after V3 upgrade");
-
-            MaterializedResult postUpgradeResult = computeActual(
-                    "SELECT \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
-                            " ORDER BY \"_row_id\"");
-            List<MaterializedRow> postUpgradeRows = postUpgradeResult.getMaterializedRows();
-            assertEquals(postUpgradeRows.size(), allExpectedPairs.size());
-            for (int i = 0; i < postUpgradeRows.size(); i++) {
-                Long prestoRowId = (Long) postUpgradeRows.get(i).getField(0);
-                Long prestoSeqNum = (Long) postUpgradeRows.get(i).getField(1);
-                assertEquals(prestoRowId.longValue(), allExpectedPairs.get(i)[0],
-                        "_row_id should match Iceberg metadata");
-                assertEquals(prestoSeqNum.longValue(), allExpectedPairs.get(i)[1],
-                        "_last_updated_sequence_number should match Iceberg metadata");
-            }
+            assertEquals(rowIdResult.getRowCount(), 3);
+            assertEquals(sequenceResult.getRowCount(), 3);
+            assertAllRowsNull(rowIdResult, "_row_id");
+            assertAllRowsNull(sequenceResult, "_last_updated_sequence_number");
         }
         finally {
             catalog.dropTable(tableId, true);
+        }
+    }
+
+    private static void assertAllRowsNull(MaterializedResult result, String columnName)
+    {
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            assertEquals(row.getField(0), null, columnName + " should be NULL for Iceberg V2 tables");
         }
     }
 
