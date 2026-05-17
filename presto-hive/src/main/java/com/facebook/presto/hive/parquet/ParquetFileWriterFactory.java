@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveTimestampPrecision;
+import com.facebook.presto.hive.util.TimestampEncodingUtil;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -46,6 +49,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetWriterVersion;
+import static com.facebook.presto.hive.HiveSessionProperties.getTimestampPrecision;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetOptimizedWriterEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static java.util.Objects.requireNonNull;
@@ -114,6 +118,9 @@ public class ParquetFileWriterFactory
                 .map(hiveType -> hiveType.getType(typeManager))
                 .collect(toList());
 
+        // Validate timestamp precision compatibility for Parquet format
+        validateTimestampPrecisionSupport(session, fileColumnTypes);
+
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
@@ -153,5 +160,29 @@ public class ParquetFileWriterFactory
             return CompressionCodecName.GZIP;
         }
         return CompressionCodecName.valueOf(compressionName);
+    }
+
+    /**
+     * Validates that the session timestamp precision configuration is compatible
+     * with the timestamp types being written to Parquet format.
+     */
+    private static void validateTimestampPrecisionSupport(ConnectorSession session, List<Type> columnTypes)
+    {
+        HiveTimestampPrecision configuredPrecision = getTimestampPrecision(session);
+        
+        for (Type type : columnTypes) {
+            if (type instanceof TimestampType) {
+                TimestampType timestampType = (TimestampType) type;
+                
+                // Check if the configured precision can losslessly store this timestamp type
+                if (!TimestampEncodingUtil.canStoreLosslessly(timestampType, configuredPrecision)) {
+                    // Parquet can store nanosecond precision natively, so this is informational
+                    // The actual precision handling happens in TimestampFieldSetter
+                }
+                
+                // Validate that the format supports the precision
+                TimestampEncodingUtil.validateFormatSupport("PARQUET", configuredPrecision);
+            }
+        }
     }
 }

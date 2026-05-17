@@ -297,6 +297,8 @@ public final class SystemSessionProperties
     public static final String USE_PERFECTLY_CONSISTENT_HISTORIES = "use_perfectly_consistent_histories";
     public static final String HISTORY_CANONICAL_PLAN_NODE_LIMIT = "history_canonical_plan_node_limit";
     public static final String HISTORY_BASED_OPTIMIZER_ESTIMATE_SIZE_USING_VARIABLES = "history_based_optimizer_estimate_size_using_variables";
+    public static final String PARAMETRIC_TIMESTAMPS_ENABLED = "parametric_timestamps_enabled";
+    public static final String LEGACY_TIMESTAMP_ENABLED = "deprecated.legacy_timestamp";
     public static final String HISTORY_BASED_OPTIMIZER_TIMEOUT_LIMIT = "history_based_optimizer_timeout_limit";
     public static final String RESTRICT_HISTORY_BASED_OPTIMIZATION_TO_COMPLEX_QUERY = "restrict_history_based_optimization_to_complex_query";
     public static final String HISTORY_INPUT_TABLE_STATISTICS_MATCHING_THRESHOLD = "history_input_table_statistics_matching_threshold";
@@ -2305,6 +2307,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS,
                         "Minimum number of non-sort-key columns required before TopN row_id optimization triggers",
                         10,
+                        false),
+                booleanProperty(
+                        PARAMETRIC_TIMESTAMPS_ENABLED,
+                        "Enable parametric timestamp types with precision 0-12",
+                        featuresConfig.isParametricTimestampsEnabled(),
+                        false),
+                booleanProperty(
+                        LEGACY_TIMESTAMP_ENABLED,
+                        "Enable legacy timestamp semantics for backward compatibility",
+                        featuresConfig.isLegacyTimestampEnabled(),
                         false));
     }
 
@@ -3923,5 +3935,15 @@ public final class SystemSessionProperties
     public static boolean isAlwaysAnalyzeCreateTableQueryEnabled(Session session)
     {
         return session.getSystemProperty(ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParametricTimestampsEnabled(Session session)
+    {
+        return session.getSystemProperty(PARAMETRIC_TIMESTAMPS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isLegacyTimestampEnabled(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TIMESTAMP_ENABLED, Boolean.class);
     }
 }

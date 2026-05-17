@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
+import com.facebook.presto.spi.function.LiteralParameter;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -70,9 +71,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class DateTimeFunctions
 {
-    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
-            new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
-
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final DateTimeField SECOND_OF_MINUTE = UTC_CHRONOLOGY.secondOfMinute();
     private static final DateTimeField MILLISECOND_OF_SECOND = UTC_CHRONOLOGY.millisOfSecond();
@@ -92,6 +90,8 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final ThreadLocalCache<Slice, DateTimeFormatter> DATETIME_FORMATTER_CACHE =
+            new ThreadLocalCache<>(100, DateTimeFunctions::createDateTimeFormatter);
 
     private DateTimeFunctions() {}
 
@@ -165,6 +165,43 @@ public final class DateTimeFunctions
     {
         try {
             return packDateTimeWithZone(properties.getSessionStartTime(), properties.getTimeZoneKey());
+        }
+        catch (NotSupportedException | TimeZoneNotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, e.getMessage(), e);
+        }
+    }
+
+    @Description("current timestamp with time zone at specified precision")
+    @ScalarFunction("current_timestamp")
+    @LiteralParameters("p")
+    @SqlType("timestamp(p) with time zone")
+    public static Object currentTimestampWithPrecision(@LiteralParameter("p") long precision, SqlFunctionProperties properties)
+    {
+        if (precision < 0 || precision > 12) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "TIMESTAMP precision must be in range [0, 12]: " + precision);
+        }
+
+        try {
+            long sessionStartTime = properties.getSessionStartTime();
+            TimeZoneKey timeZoneKey = properties.getTimeZoneKey();
+
+            if (precision <= 3) {
+                // Short timestamp with time zone (precision 0-3)
+                // Truncate session start time to the specified precision
+                long truncatedTime = truncateToMillisecondPrecision(sessionStartTime, (int) precision);
+                return packDateTimeWithZone(truncatedTime, timeZoneKey);
+            }
+            else {
+                // Long timestamp with time zone (precision 4-12)
+                // For now, use LongTimestampWithTimeZone - this needs proper implementation
+                throw new UnsupportedOperationException("current_timestamp with precision > 3 not yet implemented");
+            }
         }
         catch (NotSupportedException | TimeZoneNotSupportedException e) {
             throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
@@ -521,6 +558,53 @@ public final class DateTimeFunctions
     {
         long millis = getTimestampField(unpackChronology(timestampWithTimeZone), unit).add(unpackMillisUtc(timestampWithTimeZone), toIntExact(value));
         return updateMillisUtc(millis, timestampWithTimeZone);
+    }
+
+    @Description("add the specified amount of time to the given parametric timestamp")
+    @LiteralParameters({"x", "p"})
+    @ScalarFunction("date_add")
+    @SqlType("timestamp(p)")
+    public static Object addFieldValueParametricTimestamp(
+            SqlFunctionProperties properties,
+            @SqlType("varchar(x)") Slice unit,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType("timestamp(p)") Object timestamp)
+    {
+        if (timestamp instanceof Long) {
+            // Short timestamp (precision 0-6)
+            long timestampLong = (Long) timestamp;
+            if (properties.isLegacyTimestamp()) {
+                long result = getTimestampField(getChronology(properties.getTimeZoneKey()), unit).add(timestampLong, toIntExact(value));
+                return result;
+            }
+            long result = getTimestampField(UTC_CHRONOLOGY, unit).add(timestampLong, toIntExact(value));
+            return result;
+        }
+        else {
+            // Long timestamp (precision 7-12)
+            throw new UnsupportedOperationException("date_add for long timestamp not yet implemented");
+        }
+    }
+
+    @Description("add the specified amount of time to the given parametric timestamp with time zone")
+    @LiteralParameters({"x", "p"})
+    @ScalarFunction("date_add")
+    @SqlType("timestamp(p) with time zone")
+    public static Object addFieldValueParametricTimestampWithTimeZone(
+            @SqlType("varchar(x)") Slice unit,
+            @SqlType(StandardTypes.BIGINT) long value,
+            @SqlType("timestamp(p) with time zone") Object timestampWithTimeZone)
+    {
+        if (timestampWithTimeZone instanceof Long) {
+            // Short timestamp with time zone (precision 0-3)
+            long timestampLong = (Long) timestampWithTimeZone;
+            long millis = getTimestampField(unpackChronology(timestampLong), unit).add(unpackMillisUtc(timestampLong), toIntExact(value));
+            return updateMillisUtc(millis, timestampLong);
+        }
+        else {
+            // Long timestamp with time zone (precision 4-12)
+            throw new UnsupportedOperationException("date_add for long timestamp with time zone not yet implemented");
+        }
     }
 
     @Description("difference of the given dates in the given unit")
@@ -1310,6 +1394,38 @@ public final class DateTimeFunctions
         return extractZoneOffsetMinutes(timestampWithTimeZone) / 60;
     }
 
+    @Description("time zone minute of the given parametric timestamp")
+    @ScalarFunction("timezone_minute")
+    @LiteralParameters("p")
+    @SqlType(StandardTypes.BIGINT)
+    public static long timeZoneMinuteFromParametricTimestampWithTimeZone(@SqlType("timestamp(p) with time zone") Object timestampWithTimeZone)
+    {
+        if (timestampWithTimeZone instanceof Long) {
+            // Short timestamp with time zone (precision 0-3)
+            return extractZoneOffsetMinutes((Long) timestampWithTimeZone) % 60;
+        }
+        else {
+            // Long timestamp with time zone (precision 4-12) - extract from LongTimestampWithTimeZone
+            throw new UnsupportedOperationException("Long timestamp with time zone timezone_minute not yet implemented");
+        }
+    }
+
+    @Description("time zone hour of the given parametric timestamp")
+    @ScalarFunction("timezone_hour")
+    @LiteralParameters("p")
+    @SqlType(StandardTypes.BIGINT)
+    public static long timeZoneHourFromParametricTimestampWithTimeZone(@SqlType("timestamp(p) with time zone") Object timestampWithTimeZone)
+    {
+        if (timestampWithTimeZone instanceof Long) {
+            // Short timestamp with time zone (precision 0-3)
+            return extractZoneOffsetMinutes((Long) timestampWithTimeZone) / 60;
+        }
+        else {
+            // Long timestamp with time zone (precision 4-12) - extract from LongTimestampWithTimeZone
+            throw new UnsupportedOperationException("Long timestamp with time zone timezone_hour not yet implemented");
+        }
+    }
+
     @SuppressWarnings("fallthrough")
     public static DateTimeFormatter createDateTimeFormatter(Slice format)
     {
@@ -1548,5 +1664,20 @@ public final class DateTimeFunctions
     public static long toMilliseconds(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
         return value;
+    }
+
+    private static long truncateToMillisecondPrecision(long epochMillis, int precision)
+    {
+        if (precision >= 3) {
+            return epochMillis; // No truncation needed
+        }
+
+        // Truncate to the specified precision
+        long factor = 1;
+        for (int i = precision; i < 3; i++) {
+            factor *= 10;
+        }
+
+        return (epochMillis / factor) * factor;
     }
 }

@@ -166,15 +166,19 @@ class ColumnInfo
                 break;
             case "timestamp":
                 builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_MAX);
+                // Extract precision from type parameters for parametric timestamps
+                int timestampPrecision = getTimestampPrecision(type);
+                builder.setPrecision(timestampPrecision);
+                builder.setScale(timestampPrecision); // For JDBC, scale represents fractional seconds precision
+                builder.setColumnDisplaySize(getTimestampDisplaySize(timestampPrecision));
                 break;
             case "timestamp with time zone":
                 builder.setSigned(true);
-                builder.setPrecision(3);
-                builder.setScale(0);
-                builder.setColumnDisplaySize(TIMESTAMP_WITH_TIME_ZONE_MAX);
+                // Extract precision from type parameters for parametric timestamps
+                int timestampTzPrecision = getTimestampPrecision(type);
+                builder.setPrecision(timestampTzPrecision);
+                builder.setScale(timestampTzPrecision); // For JDBC, scale represents fractional seconds precision
+                builder.setColumnDisplaySize(getTimestampTzDisplaySize(timestampTzPrecision));
                 break;
             case "date":
                 builder.setSigned(true);
@@ -443,5 +447,45 @@ class ColumnInfo
                     schemaName,
                     catalogName);
         }
+    }
+
+    /**
+     * Extracts the precision from a parametric timestamp type.
+     * Returns 3 (milliseconds) for legacy timestamp types without parameters.
+     */
+    private static int getTimestampPrecision(TypeSignature type)
+    {
+        // Check if this is a parametric timestamp with precision parameter
+        if (!type.getParameters().isEmpty()) {
+            TypeSignatureParameter firstParam = type.getParameters().get(0);
+            if (firstParam.isLongLiteral()) {
+                return firstParam.getLongLiteral().intValue();
+            }
+        }
+        
+        // Default to millisecond precision for legacy timestamps
+        return 3;
+    }
+
+    /**
+     * Calculates the display size for a timestamp column based on precision.
+     * Base format: "yyyy-MM-dd HH:mm:ss" (19 chars) + fractional seconds if precision > 0
+     */
+    private static int getTimestampDisplaySize(int precision)
+    {
+        int baseSize = "yyyy-MM-dd HH:mm:ss".length(); // 19 characters
+        if (precision > 0) {
+            return baseSize + 1 + precision; // +1 for decimal point + precision digits
+        }
+        return baseSize;
+    }
+
+    /**
+     * Calculates the display size for a timestamp with time zone column based on precision.
+     * Adds time zone offset to the timestamp display size.
+     */
+    private static int getTimestampTzDisplaySize(int precision)
+    {
+        return getTimestampDisplaySize(precision) + TIME_ZONE_MAX;
     }
 }

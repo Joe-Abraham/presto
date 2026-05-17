@@ -31,6 +31,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveClientConfig.InsertExistingPartitionsBehavior;
+import static com.facebook.presto.hive.HiveTimestampPrecision.MILLISECONDS;
 import static com.facebook.presto.hive.OrcFileWriterConfig.DEFAULT_COMPRESSION_LEVEL;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.METASTORE_HEADERS;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.USER_DEFINED_TYPE_ENCODING_ENABLED;
@@ -97,6 +98,7 @@ public final class HiveSessionProperties
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
     public static final String CTE_VIRTUAL_BUCKET_COUNT = "cte_virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
+    public static final String TIMESTAMP_PRECISION = "timestamp_precision";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
     public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
@@ -134,6 +136,7 @@ public final class HiveSessionProperties
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
+    public static final String TIMESTAMP_PRECISION = "timestamp_precision";
     public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES = "optimize_parsing_of_partition_values";
     public static final String OPTIMIZE_PARSING_OF_PARTITION_VALUES_THRESHOLD = "optimize_parsing_of_partition_values_threshold";
 
@@ -665,6 +668,15 @@ public final class HiveSessionProperties
                         "Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.",
                         hiveClientConfig.isLegacyTimestampBucketing(),
                         false),
+                new PropertyMetadata<>(
+                        TIMESTAMP_PRECISION,
+                        "Precision used for Hive timestamp columns: MILLISECONDS, MICROSECONDS, or NANOSECONDS",
+                        VARCHAR,
+                        HiveTimestampPrecision.class,
+                        hiveClientConfig.getTimestampPrecision(),
+                        false,
+                        value -> HiveTimestampPrecision.valueOf(((String) value).toUpperCase(ENGLISH)),
+                        HiveTimestampPrecision::name),
                 booleanProperty(
                         OPTIMIZE_PARSING_OF_PARTITION_VALUES,
                         "Optimize partition values parsing when number of candidates are large",
@@ -683,7 +695,16 @@ public final class HiveSessionProperties
                         NATIVE_MAX_TARGET_FILE_SIZE,
                        "Native Execution only. Maximum target file size. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. Zero means no limit.",
                         new DataSize(0, DataSize.Unit.BYTE),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        TIMESTAMP_PRECISION,
+                        "Precision for timestamps read from Hive connector sources",
+                        VARCHAR,
+                        HiveTimestampPrecision.class,
+                        MILLISECONDS,
+                        false,
+                        value -> HiveTimestampPrecision.valueOf(((String) value).toUpperCase()),
+                        HiveTimestampPrecision::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1170,6 +1191,11 @@ public final class HiveSessionProperties
     public static boolean isLegacyTimestampBucketing(ConnectorSession session)
     {
         return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
+    }
+
+    public static HiveTimestampPrecision getTimestampPrecision(ConnectorSession session)
+    {
+        return session.getProperty(TIMESTAMP_PRECISION, HiveTimestampPrecision.class);
     }
 
     public static boolean isOptimizeParsingOfPartitionValues(ConnectorSession session)
