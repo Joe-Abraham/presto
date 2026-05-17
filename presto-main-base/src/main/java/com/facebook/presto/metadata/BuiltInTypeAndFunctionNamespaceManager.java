@@ -268,8 +268,11 @@ import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TDigestOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampMicrosecondsOperators;
 import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampParametricType;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampWithTimeZoneParametricType;
 import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.UuidOperators;
@@ -332,6 +335,7 @@ import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -514,6 +518,28 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_BETWEEN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_HASH_CODE_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_INDETERMINATE_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_IS_DISTINCT_FROM_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampParametricOperators.TIMESTAMP_XX_HASH_64_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_BETWEEN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_GREATER_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_GREATER_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_HASH_CODE_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_INDETERMINATE_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_IS_DISTINCT_FROM_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_LESS_THAN_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_LESS_THAN_OR_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_NOT_EQUAL_OPERATOR;
+import static com.facebook.presto.type.TimestampWithTimeZoneParametricOperators.TIMESTAMP_TZ_XX_HASH_64_OPERATOR;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -646,7 +672,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(TIME);
         addType(TIME_WITH_TIME_ZONE);
         addType(TIMESTAMP);
+        addParametricType(TimestampParametricType.TIMESTAMP);
+        addType(TIMESTAMP_MICROSECONDS);
         addType(TIMESTAMP_WITH_TIME_ZONE);
+        addParametricType(TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE);
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
@@ -836,6 +865,20 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeOperators.TimeDistinctFromOperator.class)
                 .scalars(TimestampOperators.class)
                 .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
+                .scalars(TimestampMicrosecondsOperators.class)
+                .scalar(TimestampMicrosecondsOperators.TimestampMicrosecondsDistinctFromOperator.class)
+                .functions(
+                        TIMESTAMP_EQUAL_OPERATOR,
+                        TIMESTAMP_NOT_EQUAL_OPERATOR,
+                        TIMESTAMP_LESS_THAN_OPERATOR,
+                        TIMESTAMP_LESS_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_GREATER_THAN_OPERATOR,
+                        TIMESTAMP_GREATER_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_BETWEEN_OPERATOR,
+                        TIMESTAMP_HASH_CODE_OPERATOR,
+                        TIMESTAMP_XX_HASH_64_OPERATOR,
+                        TIMESTAMP_IS_DISTINCT_FROM_OPERATOR,
+                        TIMESTAMP_INDETERMINATE_OPERATOR)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
@@ -844,6 +887,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeWithTimeZoneOperators.TimeWithTimeZoneDistinctFromOperator.class)
                 .scalars(TimestampWithTimeZoneOperators.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampWithTimeZoneDistinctFromOperator.class)
+                .functions(
+                        TIMESTAMP_TZ_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_NOT_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_LESS_THAN_OPERATOR,
+                        TIMESTAMP_TZ_LESS_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_GREATER_THAN_OPERATOR,
+                        TIMESTAMP_TZ_GREATER_THAN_OR_EQUAL_OPERATOR,
+                        TIMESTAMP_TZ_BETWEEN_OPERATOR,
+                        TIMESTAMP_TZ_HASH_CODE_OPERATOR,
+                        TIMESTAMP_TZ_XX_HASH_64_OPERATOR,
+                        TIMESTAMP_TZ_IS_DISTINCT_FROM_OPERATOR,
+                        TIMESTAMP_TZ_INDETERMINATE_OPERATOR)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)
