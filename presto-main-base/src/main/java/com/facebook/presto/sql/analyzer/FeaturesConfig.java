@@ -247,6 +247,10 @@ public class FeaturesConfig
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
     private MaterializedViewRefreshType materializedViewDefaultRefreshType = MaterializedViewRefreshType.FULL;
+    
+    // Parametric timestamp configuration
+    private boolean parametricTimestampsEnabled;
+    private boolean legacyTimestampEnabled = true;
     private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
@@ -3669,5 +3673,37 @@ public class FeaturesConfig
     {
         this.tryFunctionCatchableErrors = tryFunctionCatchableErrors;
         return this;
+    }
+
+    public boolean isParametricTimestampsEnabled()
+    {
+        return parametricTimestampsEnabled;
+    }
+
+    @Config("parametric-timestamps.enabled")
+    @ConfigDescription("Enable parametric timestamp types with precision 0-12")
+    public FeaturesConfig setParametricTimestampsEnabled(boolean parametricTimestampsEnabled)
+    {
+        this.parametricTimestampsEnabled = parametricTimestampsEnabled;
+        return this;
+    }
+
+    public boolean isLegacyTimestampEnabled()
+    {
+        return legacyTimestampEnabled;
+    }
+
+    @Config("deprecated.legacy-timestamp")
+    @ConfigDescription("Enable legacy timestamp semantics for backward compatibility")
+    public FeaturesConfig setLegacyTimestampEnabled(boolean legacyTimestampEnabled)
+    {
+        this.legacyTimestampEnabled = legacyTimestampEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "At least one timestamp mode must be enabled: either deprecated.legacy-timestamp or parametric-timestamps.enabled")
+    public boolean isValidTimestampConfiguration()
+    {
+        return legacyTimestampEnabled || parametricTimestampsEnabled;
     }
 }

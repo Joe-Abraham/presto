@@ -218,6 +218,7 @@ public class HiveClientConfig
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
     private boolean legacyTimestampBucketing;
+    private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLISECONDS;
     private boolean optimizeParsingOfPartitionValues;
     private int optimizeParsingOfPartitionValuesThreshold = 500;
     private boolean symlinkOptimizedReaderEnabled = true;
@@ -1803,6 +1804,19 @@ public class HiveClientConfig
     public HiveClientConfig setLegacyTimestampBucketing(boolean legacyTimestampBucketing)
     {
         this.legacyTimestampBucketing = legacyTimestampBucketing;
+        return this;
+    }
+
+    public HiveTimestampPrecision getTimestampPrecision()
+    {
+        return timestampPrecision;
+    }
+
+    @Config("hive.timestamp-precision")
+    @ConfigDescription("Precision used for Hive timestamp columns: MILLISECONDS, MICROSECONDS, or NANOSECONDS")
+    public HiveClientConfig setTimestampPrecision(HiveTimestampPrecision timestampPrecision)
+    {
+        this.timestampPrecision = timestampPrecision;
         return this;
     }
 

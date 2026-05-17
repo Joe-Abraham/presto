@@ -76,6 +76,12 @@ public final class DockerContainer
         }
     }
 
+    private static int extractPort(Entry<String, List<PortBinding>> entry)
+    {
+        checkArgument(!entry.getKey().contains("/udp"), "UDP port binding is not supported");
+        return Integer.parseInt(entry.getKey().replace("/tcp", ""));
+    }
+
     private void startContainer(List<Integer> ports, CheckedConsumer<HostPortProvider> healthCheck)
             throws Exception
     {
@@ -134,15 +140,15 @@ public final class DockerContainer
                 .collect(toImmutableSet());
 
         containerId = dockerClient.createContainer(ContainerConfig.builder()
-                .hostConfig(HostConfig.builder()
-                        .portBindings(portBindings)
+                        .hostConfig(HostConfig.builder()
+                                .portBindings(portBindings)
+                                .build())
+                        .exposedPorts(exposedPorts)
+                        .env(environment.entrySet().stream()
+                                .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
+                                .collect(toImmutableList()))
+                        .image(image)
                         .build())
-                .exposedPorts(exposedPorts)
-                .env(environment.entrySet().stream()
-                        .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
-                        .collect(toImmutableList()))
-                .image(image)
-                .build())
                 .id();
 
         LOG.info("Started docker container with id: %s", containerId);
@@ -209,14 +215,8 @@ public final class DockerContainer
 
     public int getHostPort(int port)
     {
-        checkArgument(hostPorts.keySet().contains(port), "Port %s is not bound", port);
+        checkArgument(hostPorts.containsKey(port), "Port %s is not bound", port);
         return hostPorts.get(port);
-    }
-
-    private static int extractPort(Entry<String, List<PortBinding>> entry)
-    {
-        checkArgument(!entry.getKey().contains("/udp"), "UDP port binding is not supported");
-        return Integer.parseInt(entry.getKey().replace("/tcp", ""));
     }
 
     private void removeContainer(String containerId)
