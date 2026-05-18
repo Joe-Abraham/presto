@@ -16,17 +16,60 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
+import java.util.Objects;
+
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.lang.String.format;
 
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final int MAX_PRECISION = 12;
+    public static final int DEFAULT_PRECISION = 3;
 
-    private TimestampWithTimeZoneType()
+    private static final TimestampWithTimeZoneType[] INSTANCES = new TimestampWithTimeZoneType[MAX_PRECISION + 1];
+
+    static {
+        for (int p = 0; p <= MAX_PRECISION; p++) {
+            INSTANCES[p] = new TimestampWithTimeZoneType(p);
+        }
+    }
+
+    // Preserves "timestamp with time zone" (no parameter) so existing serialized metadata continues to parse.
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = INSTANCES[DEFAULT_PRECISION];
+
+    private final int precision;
+
+    public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format(
+                    "TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+        }
+        return INSTANCES[precision];
+    }
+
+    private TimestampWithTimeZoneType(int precision)
+    {
+        super(buildTypeSignature(precision));
+        this.precision = precision;
+    }
+
+    private static TypeSignature buildTypeSignature(int precision)
+    {
+        if (precision == DEFAULT_PRECISION) {
+            // Preserve "timestamp with time zone" (no parameter) so existing serialized metadata continues to parse.
+            return parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        }
+        // Other precisions use a numeric parameter; the type registry does not yet recognize the
+        // "timestamp with time zone(p)" string form, so these instances are created directly rather than parsed.
+        return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of((long) precision));
+    }
+
+    public int getPrecision()
+    {
+        return precision;
     }
 
     /**
@@ -78,12 +121,13 @@ public final class TimestampWithTimeZoneType
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        return other == TIMESTAMP_WITH_TIME_ZONE;
+        // One interned instance per precision level, so reference equality is sufficient.
+        return this == other;
     }
 
     @Override
     public int hashCode()
     {
-        return getClass().hashCode();
+        return Objects.hash(getClass(), precision);
     }
 }
