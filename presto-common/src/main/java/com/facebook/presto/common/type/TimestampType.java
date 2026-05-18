@@ -14,6 +14,11 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.Fixed12ArrayBlock;
+import com.facebook.presto.common.block.Fixed12ArrayBlockBuilder;
+import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.util.Objects;
@@ -132,6 +137,42 @@ public final class TimestampType
     public boolean isShort()
     {
         return precision <= MAX_SHORT_PRECISION;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        if (isShort()) {
+            return super.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+        }
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
+        }
+        return new Fixed12ArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, maxBlockSizeInBytes / Fixed12ArrayBlock.FIXED12_BYTES));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        if (isShort()) {
+            return super.createBlockBuilder(blockBuilderStatus, expectedEntries);
+        }
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, Fixed12ArrayBlock.FIXED12_BYTES);
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        if (isShort()) {
+            return super.createFixedSizeBlockBuilder(positionCount);
+        }
+        return new Fixed12ArrayBlockBuilder(null, positionCount);
     }
 
     @Override
