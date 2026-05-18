@@ -66,8 +66,7 @@ public final class TimestampType
 
     public static final TimestampType TIMESTAMP = INSTANCES[DEFAULT_PRECISION];
 
-    // Keeps the legacy "timestamp microseconds" type signature so existing code that matches
-    // on type-signature base strings continues to work without changes.
+    // Interned instance for microsecond precision. Type signature is now "timestamp(6)".
     public static final TimestampType TIMESTAMP_MICROSECONDS = INSTANCES[MAX_SHORT_PRECISION];
 
     private final int precision;
@@ -93,12 +92,7 @@ public final class TimestampType
             // Preserve "timestamp" (no parameter) so existing serialized metadata continues to parse.
             return parseTypeSignature(StandardTypes.TIMESTAMP);
         }
-        if (precision == MAX_SHORT_PRECISION) {
-            // Preserve "timestamp microseconds" for the same reason.
-            return parseTypeSignature(StandardTypes.TIMESTAMP_MICROSECONDS);
-        }
-        // Other precisions use a numeric parameter; the type registry does not yet recognize the
-        // "timestamp(p)" string form, so these instances are created directly rather than parsed.
+        // All other precisions serialize as "timestamp(p)" with a numeric parameter.
         return new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.of((long) precision));
     }
 
