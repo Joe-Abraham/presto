@@ -512,6 +512,7 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
+import static com.facebook.presto.type.TimestampPrecisionCasts.TIMESTAMP_TO_TIMESTAMP_CAST;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -962,6 +963,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ROW_HASH_CODE, ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST, ROW_INDETERMINATE)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
+                .function(TIMESTAMP_TO_TIMESTAMP_CAST)
                 .function(castVarcharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)

@@ -63,7 +63,6 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.translate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Integer.min;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -372,7 +371,7 @@ public class ExpressionEquivalence
         @Override
         public int compare(List<T> left, List<T> right)
         {
-            int compareLength = min(left.size(), right.size());
+            int compareLength = Integer.min(left.size(), right.size());
             for (int i = 0; i < compareLength; i++) {
                 int result = elementComparator.compare(left.get(i), right.get(i));
                 if (result != 0) {
