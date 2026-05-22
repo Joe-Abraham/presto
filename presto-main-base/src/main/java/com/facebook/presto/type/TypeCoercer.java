@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -45,6 +46,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.createTimestampType;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -386,6 +388,12 @@ public class TypeCoercer
             }
             if (fromTypeBaseName.equals(StandardTypes.CHAR) && !functionsConfig.isLegacyCharToVarcharCoercion()) {
                 Type commonSuperType = getCommonSuperTypeForChar((CharType) standardFromType, (CharType) standardToType);
+                return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) {
+                TimestampType fromTs = (TimestampType) standardFromType;
+                TimestampType toTs = (TimestampType) standardToType;
+                Type commonSuperType = createTimestampType(Math.max(fromTs.getPrecision(), toTs.getPrecision()));
                 return TypeCompatibility.compatible(toSemanticType(toType, commonSuperType), commonSuperType.equals(standardToType));
             }
             if (fromTypeBaseName.equals(StandardTypes.ROW)) {

@@ -401,8 +401,15 @@ public class TestSqlParser
         assertCast("date");
         assertCast("time");
         assertCast("timestamp");
+        assertCast("timestamp(3)");
+        assertCast("timestamp(6)");
+        assertCast("timestamp(9)");
         assertCast("time with time zone");
         assertCast("timestamp with time zone");
+        assertCast("timestamp(3) with time zone", "timestamp with time zone(3)");
+        assertCast("timestamp(6) with time zone", "timestamp with time zone(6)");
+        assertCast("timestamp(9) with time zone", "timestamp with time zone(9)");
+        assertCast("TIMESTAMP(9) WITH TIME ZONE", "timestamp with time zone(9)");
         assertCast("foo");
         assertCast("FOO");
 

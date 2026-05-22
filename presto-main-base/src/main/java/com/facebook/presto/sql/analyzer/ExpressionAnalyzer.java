@@ -1448,8 +1448,13 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException | UnknownTypeException e) {
+            catch (UnknownTypeException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            }
+            catch (IllegalArgumentException e) {
+                // Propagate the original message so precision-out-of-range errors are user-readable
+                // e.g. "TIMESTAMP precision must be in range [0, 12]: 13"
+                throw new SemanticException(TYPE_MISMATCH, node, e.getMessage());
             }
 
             if (type.equals(UNKNOWN)) {

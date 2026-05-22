@@ -210,6 +210,13 @@ public class TestBuiltInTypeRegistry
         assertThat("row(a row(c integer),b varchar(2))", "row(row(c integer),varchar(5))").hasCommonSuperType("row(row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
         assertThat("row(a row(c integer),b varchar(2))", "row(a row(c integer),d varchar(5))").hasCommonSuperType("row(a row(c integer),varchar(5))").canCoerceFirstToSecondOnly();
         assertThat("row(a row(c integer),b varchar(5))", "row(d row(e integer),b varchar(5))").hasCommonSuperType("row(row(integer),b varchar(5))").canCoerceToEachOther();
+
+        assertThat("timestamp", "timestamp(6)").hasCommonSuperType("timestamp(6)").canCoerceFirstToSecondOnly();
+        assertThat("timestamp(6)", "timestamp").hasCommonSuperType("timestamp(6)").canCoerceSecondToFirstOnly();
+        assertThat("timestamp(3)", "timestamp(3)").hasCommonSuperType("timestamp(3)").canCoerceToEachOther();
+        assertThat("timestamp(3)", "timestamp(6)").hasCommonSuperType("timestamp(6)").canCoerceFirstToSecondOnly();
+        assertThat("timestamp(6)", "timestamp(3)").hasCommonSuperType("timestamp(6)").canCoerceSecondToFirstOnly();
+        assertThat("timestamp(0)", "timestamp(6)").hasCommonSuperType("timestamp(6)").canCoerceFirstToSecondOnly();
     }
 
     @Test

@@ -206,22 +206,88 @@ Values of this type are parsed and rendered in the session time zone.
 An optional precision parameter ``p`` (0–12) specifies the number of fractional
 second digits retained:
 
-* ``TIMESTAMP(0)`` — seconds
-* ``TIMESTAMP(3)`` — milliseconds (the default when no precision is given)
-* ``TIMESTAMP(6)`` — microseconds
-* ``TIMESTAMP(9)`` — nanoseconds
-* ``TIMESTAMP(12)`` — picoseconds
+.. list-table::
+   :widths: 20 30 50
+   :header-rows: 1
+
+   * - Type
+     - Resolution
+     - Notes
+   * - ``TIMESTAMP(0)``
+     - Seconds
+     -
+   * - ``TIMESTAMP(1)``
+     - Deciseconds (0.1 s)
+     -
+   * - ``TIMESTAMP(2)``
+     - Centiseconds (0.01 s)
+     -
+   * - ``TIMESTAMP(3)``
+     - Milliseconds
+     - Default; bare ``TIMESTAMP`` is equivalent
+   * - ``TIMESTAMP(4)``
+     - 0.1 ms
+     -
+   * - ``TIMESTAMP(5)``
+     - 0.01 ms
+     -
+   * - ``TIMESTAMP(6)``
+     - Microseconds
+     -
+   * - ``TIMESTAMP(7)``–``TIMESTAMP(12)``
+     - Sub-microsecond (up to picoseconds)
+     - Stored as microseconds + sub-microsecond remainder
 
 Bare ``TIMESTAMP`` is equivalent to ``TIMESTAMP(3)`` and is retained for backward
-compatibility. Precision values 0–6 are stored as a single scaled integer; precision
-values 7–12 store an additional sub-microsecond remainder, enabling nanosecond and
-picosecond resolution.
+compatibility. Precision values 0–6 are stored as a single scaled integer (epoch
+units scaled by the precision); precision values 7–12 additionally store a
+sub-microsecond remainder, enabling nanosecond and picosecond resolution.
+
+**Coercion and CAST**
+
+Presto applies the following rules when mixing ``TIMESTAMP`` values of different
+precisions:
+
+* **Implicit widening** — a lower-precision value is automatically coerced to a
+  higher-precision type wherever the types must match (e.g. both sides of a
+  ``UNION``, function arguments, column assignments). The sub-unit digits that did
+  not exist in the source are zero-filled.
+
+  ::
+
+      -- UNION widens the TIMESTAMP(3) column to TIMESTAMP(6)
+      SELECT ts3_col FROM t1
+      UNION
+      SELECT ts6_col FROM t2   -- result type is TIMESTAMP(6)
+
+* **Explicit narrowing** — reducing precision requires an explicit ``CAST``.
+  Attempting an implicit narrowing (e.g. inserting a ``TIMESTAMP(6)`` value into
+  a ``TIMESTAMP(3)`` column without a ``CAST``) is a type error.
+
+* **Truncation semantics** — ``CAST`` to a lower precision always *truncates toward
+  negative infinity* (floor), never rounds. This matches the behaviour of integer
+  floor division and is consistent for timestamps before and after the Unix epoch.
+
+  ::
+
+      -- Widening: zero-fills sub-millisecond digits
+      CAST(TIMESTAMP '2001-08-22 03:04:05.321' AS TIMESTAMP(6))
+      -- → 2001-08-22 03:04:05.321000
+
+      -- Narrowing: floor-truncates sub-millisecond digits
+      CAST(TIMESTAMP '2001-08-22 03:04:05.321999' AS TIMESTAMP(3))
+      -- → 2001-08-22 03:04:05.321   (not .322)
+
+      -- Floor semantics apply before the epoch too
+      CAST(TIMESTAMP '1969-12-31 23:59:59.999001' AS TIMESTAMP(3))
+      -- → 1969-12-31 23:59:59.999   (not 2000-01-01 00:00:00.000)
 
 .. note::
 
-    Implicit coercion widens from lower to higher precision (e.g. ``TIMESTAMP(3)``
-    to ``TIMESTAMP(6)``) automatically. Narrowing requires an explicit ``CAST``, which
-    truncates (floor) rather than rounds.
+    The short-precision range (p ≤ 6) supports full ``CAST`` between any two
+    precisions. Casts involving long-precision timestamps (p > 6) are not yet
+    supported and will produce a binding error; use an intermediate cast to
+    ``TIMESTAMP(6)`` as a workaround if needed.
 
 Examples::
 
@@ -237,6 +303,8 @@ Values of this type are rendered using the time zone from the value.
 
 Accepts the same optional precision parameter ``p`` (0–12) as ``TIMESTAMP(p)``.
 Bare ``TIMESTAMP WITH TIME ZONE`` is equivalent to ``TIMESTAMP(3) WITH TIME ZONE``.
+The same implicit widening and explicit narrowing rules described for
+``TIMESTAMP(p)`` apply to ``TIMESTAMP(p) WITH TIME ZONE``.
 
 Examples::
 
