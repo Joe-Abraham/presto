@@ -2973,6 +2973,11 @@ class AstBuilder
 
     private String getType(SqlBaseParser.TypeContext type)
     {
+        // TIMESTAMP(p) WITH TIME ZONE — precision-parameterized timezone-aware timestamp
+        if (type.TIMESTAMP() != null) {
+            return "timestamp with time zone(" + typeParameterToString(type.typeParameter(0)) + ")";
+        }
+
         if (type.baseType() != null) {
             String signature = type.baseType().getText();
             if (type.baseType().DOUBLE_PRECISION() != null) {

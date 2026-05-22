@@ -502,6 +502,7 @@ type
     | ARRAY '<' type '>'
     | MAP '<' type ',' type '>'
     | ROW '(' identifier type (',' identifier type)* ')'
+    | TIMESTAMP '(' typeParameter ')' WITH TIME ZONE
     | baseType ('(' typeParameter (',' typeParameter)* ')')?
     | INTERVAL from=intervalField TO to=intervalField
     ;
