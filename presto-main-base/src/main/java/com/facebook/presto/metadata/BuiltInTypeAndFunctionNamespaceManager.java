@@ -396,6 +396,14 @@ import static com.facebook.presto.operator.scalar.ArrayTransformFunction.ARRAY_T
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.DATE_ADD_TIMESTAMP;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.DATE_DIFF_TIMESTAMP;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.INTERVAL_DAY_ADD_TIMESTAMP;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.INTERVAL_YEAR_ADD_TIMESTAMP;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.TIMESTAMP_ADD_INTERVAL_DAY;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.TIMESTAMP_ADD_INTERVAL_YEAR;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.TIMESTAMP_SUBTRACT_INTERVAL_DAY;
+import static com.facebook.presto.operator.scalar.DateArithmeticPrecisionFunctions.TIMESTAMP_SUBTRACT_INTERVAL_YEAR;
 import static com.facebook.presto.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.Greatest.GREATEST;
 import static com.facebook.presto.operator.scalar.IdentityCast.IDENTITY_CAST;
@@ -967,6 +975,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(TIMESTAMP_TO_TIMESTAMP_CAST)
                 .functions(DATE_TRUNC_TIMESTAMP, AT_TIMEZONE_TIMESTAMP_TZ)
+                .functions(DATE_ADD_TIMESTAMP, DATE_DIFF_TIMESTAMP,
+                        TIMESTAMP_ADD_INTERVAL_DAY, INTERVAL_DAY_ADD_TIMESTAMP, TIMESTAMP_SUBTRACT_INTERVAL_DAY,
+                        TIMESTAMP_ADD_INTERVAL_YEAR, INTERVAL_YEAR_ADD_TIMESTAMP, TIMESTAMP_SUBTRACT_INTERVAL_YEAR)
                 .function(castVarcharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
