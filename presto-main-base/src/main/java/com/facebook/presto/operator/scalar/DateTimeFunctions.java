@@ -622,7 +622,7 @@ public final class DateTimeFunctions
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
     }
 
-    private static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
+    static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
     {
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {

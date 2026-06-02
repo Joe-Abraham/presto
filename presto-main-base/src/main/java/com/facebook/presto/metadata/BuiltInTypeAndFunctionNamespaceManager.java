@@ -432,6 +432,8 @@ import static com.facebook.presto.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static com.facebook.presto.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.operator.scalar.TimestampPrecisionFunctions.AT_TIMEZONE_TIMESTAMP_TZ;
+import static com.facebook.presto.operator.scalar.TimestampPrecisionFunctions.DATE_TRUNC_TIMESTAMP;
 import static com.facebook.presto.operator.scalar.TryCastFunction.TRY_CAST;
 import static com.facebook.presto.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static com.facebook.presto.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
@@ -964,6 +966,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(TIMESTAMP_TO_TIMESTAMP_CAST)
+                .functions(DATE_TRUNC_TIMESTAMP, AT_TIMEZONE_TIMESTAMP_TZ)
                 .function(castVarcharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
