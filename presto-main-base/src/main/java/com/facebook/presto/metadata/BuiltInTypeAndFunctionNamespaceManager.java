@@ -522,6 +522,12 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_DISTINCT_FROM;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_EQUAL;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_HASH_CODE;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_INDETERMINATE;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_LESS_THAN;
+import static com.facebook.presto.type.TimestampComparisonOperators.TIMESTAMP_XX_HASH_64;
 import static com.facebook.presto.type.TimestampPrecisionCasts.TIMESTAMP_TO_TIMESTAMP_CAST;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
@@ -978,6 +984,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(DATE_ADD_TIMESTAMP, DATE_DIFF_TIMESTAMP,
                         TIMESTAMP_ADD_INTERVAL_DAY, INTERVAL_DAY_ADD_TIMESTAMP, TIMESTAMP_SUBTRACT_INTERVAL_DAY,
                         TIMESTAMP_ADD_INTERVAL_YEAR, INTERVAL_YEAR_ADD_TIMESTAMP, TIMESTAMP_SUBTRACT_INTERVAL_YEAR)
+                .functions(TIMESTAMP_EQUAL, TIMESTAMP_LESS_THAN, TIMESTAMP_HASH_CODE, TIMESTAMP_XX_HASH_64, TIMESTAMP_DISTINCT_FROM, TIMESTAMP_INDETERMINATE)
                 .function(castVarcharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(functionsConfig.getRe2JDfaStatesLimit(), functionsConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
