@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.Nullable;
 
 import java.security.cert.X509Certificate;
@@ -64,6 +65,11 @@ public interface SessionContext
     String getClientInfo();
 
     Set<String> getClientTags();
+
+    default Set<String> getClientCapabilities()
+    {
+        return ImmutableSet.of();
+    }
 
     ResourceEstimates getResourceEstimates();
 

@@ -27,6 +27,7 @@ import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
+import com.facebook.presto.hive.HiveTimestampPrecision;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -103,6 +104,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.getTimestampPrecision;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactoryUtils.mapToPrestoException;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -208,7 +210,7 @@ public class ParquetPageSourceFactory
 
             Optional<MessageType> message = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))
-                    .map(column -> getColumnType(typeManager.getType(column.getTypeSignature()), fileSchema, useParquetColumnNames, column, tableName, path))
+                    .map(column -> getColumnType(getPrestoType(column, typeManager, getTimestampPrecision(session)), fileSchema, useParquetColumnNames, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -276,7 +278,7 @@ public class ParquetPageSourceFactory
                 checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be REGULAR: %s", column);
 
                 String name = column.getName();
-                Type type = typeManager.getType(column.getTypeSignature());
+                Type type = getPrestoType(column, typeManager, getTimestampPrecision(session));
 
                 namesBuilder.add(name);
                 typesBuilder.add(type);
@@ -533,5 +535,13 @@ public class ParquetPageSourceFactory
                 stats,
                 hiveFileContext,
                 parquetMetadataSource));
+    }
+
+    private static Type getPrestoType(HiveColumnHandle column, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
+    {
+        if (column.getTypeSignature().getBase().equalsIgnoreCase(TIMESTAMP)) {
+            return timestampPrecision.getTimestampType();
+        }
+        return typeManager.getType(column.getTypeSignature());
     }
 }

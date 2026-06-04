@@ -15,6 +15,7 @@ package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.type.TimestampTypeCompatibility;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlReferences;
@@ -131,7 +132,7 @@ final class DescribeInputRewrite
             List<Parameter> parameters = getParameters(statement);
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
+            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis, session)).toArray(Row[]::new);
             Optional<String> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
@@ -152,16 +153,17 @@ final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis, Session session)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
                 type = UNKNOWN;
             }
 
+            String typeString = TimestampTypeCompatibility.getTypeStringForClient(type, session.getClientCapabilities());
             return row(
                     new LongLiteral(Integer.toString(parameter.getPosition())),
-                    new StringLiteral(type.getTypeSignature().getBase()));
+                    new StringLiteral(typeString));
         }
 
         @Override

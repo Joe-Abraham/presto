@@ -69,3 +69,17 @@ presto-native-execution/deps-install
 /docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
 /docker/presto-function-server-executable.jar
+
+/.agent/
+/.agents/
+/.bob/
+/.claude/
+/_bmad/
+/_bmad-output/
+
+/.agent/
+/.agents/
+/.bob/
+/.claude/
+/_bmad/
+/_bmad-output/

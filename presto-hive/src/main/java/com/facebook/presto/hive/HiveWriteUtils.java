@@ -22,6 +22,8 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.LongTimestamp;
+import com.facebook.presto.common.type.LongTimestampType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimestampType;
@@ -96,6 +98,7 @@ import org.apache.hive.common.util.ReflectionUtil;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -104,6 +107,9 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static com.facebook.presto.common.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static com.facebook.presto.common.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
@@ -124,6 +130,8 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -341,7 +349,7 @@ public final class HiveWriteUtils
         else if (type.equals(DateType.DATE)) {
             return javaDateObjectInspector;
         }
-        else if (type.equals(TimestampType.TIMESTAMP)) {
+        else if (type instanceof TimestampType) {
             return javaTimestampObjectInspector;
         }
         else if (type instanceof DecimalType) {
@@ -629,7 +637,7 @@ public final class HiveWriteUtils
             return writableDateObjectInspector;
         }
 
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return writableTimestampObjectInspector;
         }
 
@@ -691,8 +699,8 @@ public final class HiveWriteUtils
             return new DateFieldSetter(rowInspector, row, field);
         }
 
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            return new TimestampFieldSetter(rowInspector, row, field);
+        if (type instanceof TimestampType) {
+            return new TimestampFieldSetter(rowInspector, row, field, (TimestampType) type);
         }
 
         if (type instanceof DecimalType) {
@@ -938,17 +946,34 @@ public final class HiveWriteUtils
             extends FieldSetter
     {
         private final TimestampWritable value = new TimestampWritable();
+        private final TimestampType type;
 
-        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, TimestampType type)
         {
             super(rowInspector, row, field);
+            this.type = requireNonNull(type, "type is null");
         }
 
         @Override
         public void setField(Block block, int position)
         {
-            long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.setTime(millisUtc);
+            long epochMicros;
+            int picosOfMicro = 0;
+            if (type.isShort()) {
+                long raw = type.getLong(block, position);
+                epochMicros = (type.getPrecision() <= 3) ? raw * MICROSECONDS_PER_MILLISECOND : raw;
+            }
+            else {
+                LongTimestamp lts = ((LongTimestampType) type).getObject(block, position);
+                epochMicros = lts.getEpochMicros();
+                picosOfMicro = lts.getPicosOfMicro();
+            }
+            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int microsOfSecond = toIntExact(floorMod(epochMicros, MICROSECONDS_PER_SECOND));
+            int nanosOfSecond = microsOfSecond * 1_000 + picosOfMicro / 1_000;
+            Timestamp ts = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
+            ts.setNanos(nanosOfSecond);
+            value.set(ts);
             rowInspector.setStructFieldData(row, field, value);
         }
     }

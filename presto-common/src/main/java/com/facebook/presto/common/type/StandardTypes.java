@@ -70,6 +70,8 @@ public final class StandardTypes
             VARCHAR,
             CHAR,
             DECIMAL,
+            TIMESTAMP,
+            TIMESTAMP_WITH_TIME_ZONE,
             ROW,
             ARRAY,
             MAP,

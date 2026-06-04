@@ -16,6 +16,7 @@ package com.facebook.presto.hive.orc;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -25,6 +26,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
+import com.facebook.presto.hive.HiveTimestampPrecision;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
@@ -57,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
@@ -64,6 +67,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStr
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
+import static com.facebook.presto.hive.HiveSessionProperties.getTimestampPrecision;
 import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.orc.OrcPageSourceFactoryUtils.getOrcDataSource;
@@ -218,9 +222,10 @@ public class OrcBatchPageSourceFactory
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+            HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
             for (HiveColumnHandle column : physicalColumns) {
                 if (column.getColumnType() == REGULAR) {
-                    Type type = typeManager.getType(column.getTypeSignature());
+                    Type type = getColumnType(column, typeManager, timestampPrecision);
                     includedColumns.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
                 }
@@ -261,5 +266,14 @@ public class OrcBatchPageSourceFactory
             }
             throw mapToPrestoException(e, path, fileSplit);
         }
+    }
+
+    static Type getColumnType(HiveColumnHandle column, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
+    {
+        TypeSignature signature = column.getTypeSignature();
+        if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
+            return timestampPrecision.getTimestampType();
+        }
+        return typeManager.getType(signature);
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
@@ -122,7 +123,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
@@ -1152,12 +1153,15 @@ public final class SqlToRowExpressionTranslator
                         TIME_WITH_TIME_ZONE,
                         value);
             }
-            else if (valueType.equals(TIMESTAMP)) {
+            else if (valueType instanceof TimestampType) {
+                // Preserve the precision of the source timestamp when casting to timestamp with time zone
+                TimestampType tsType = (TimestampType) valueType;
+                Type targetType = createTimestampWithTimeZoneType(tsType.getPrecision());
                 value = call(
                         getSourceLocation(node),
                         CAST.name(),
-                        functionAndTypeResolver.lookupCast("CAST", valueType, TIMESTAMP_WITH_TIME_ZONE),
-                        TIMESTAMP_WITH_TIME_ZONE,
+                        functionAndTypeResolver.lookupCast("CAST", valueType, targetType),
+                        targetType,
                         value);
             }
 

@@ -167,6 +167,7 @@ public class TestHiveClientConfig
                 .setOptimizeParsingOfPartitionValues(false)
                 .setOptimizeParsingOfPartitionValuesThreshold(500)
                 .setLegacyTimestampBucketing(false)
+                .setTimestampPrecision(HiveTimestampPrecision.MILLISECONDS)
                 .setSymlinkOptimizedReaderEnabled(true));
     }
 
@@ -294,6 +295,7 @@ public class TestHiveClientConfig
                 .put("hive.optimize-parsing-of-partition-values-enabled", "true")
                 .put("hive.optimize-parsing-of-partition-values-threshold", "100")
                 .put("hive.legacy-timestamp-bucketing", "true")
+                .put("hive.timestamp-precision", "MICROSECONDS")
                 .put("hive.experimental.symlink.optimized-reader.enabled", "false")
                 .build();
 
@@ -417,6 +419,7 @@ public class TestHiveClientConfig
                 .setOptimizeParsingOfPartitionValues(true)
                 .setOptimizeParsingOfPartitionValuesThreshold(100)
                 .setLegacyTimestampBucketing(true)
+                .setTimestampPrecision(HiveTimestampPrecision.MICROSECONDS)
                 .setSymlinkOptimizedReaderEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);

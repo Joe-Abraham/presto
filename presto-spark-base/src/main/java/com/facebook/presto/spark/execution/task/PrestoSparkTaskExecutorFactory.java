@@ -673,6 +673,7 @@ public class PrestoSparkTaskExecutorFactory
                 sessionRepresentation.getUserAgent(),
                 sessionRepresentation.getClientInfo(),
                 sessionRepresentation.getClientTags(),
+                ImmutableSet.of(),
                 sessionRepresentation.getResourceEstimates(),
                 sessionRepresentation.getStartTime(),
                 ImmutableMap.copyOf(updatedSessionProperties),

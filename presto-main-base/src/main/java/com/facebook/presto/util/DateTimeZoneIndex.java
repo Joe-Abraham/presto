@@ -90,4 +90,21 @@ public final class DateTimeZoneIndex
             return FIXED_ZONE_OFFSET[zoneKey];
         }
     }
+
+    /**
+     * Extracts the zone offset in minutes from a time zone key and an epoch-millisecond instant.
+     * Used for long TIMESTAMP WITH TIME ZONE values (precision 4-12) which store the zone key
+     * separately from the epoch millis in a {@link com.facebook.presto.common.type.LongTimestampWithTimeZone}.
+     */
+    public static int extractZoneOffsetMinutes(TimeZoneKey timeZoneKey, long epochMillis)
+    {
+        short key = timeZoneKey.getKey();
+
+        if (FIXED_ZONE_OFFSET[key] == VARIABLE_ZONE) {
+            return DATE_TIME_ZONES[key].getOffset(epochMillis) / 60_000;
+        }
+        else {
+            return FIXED_ZONE_OFFSET[key];
+        }
+    }
 }

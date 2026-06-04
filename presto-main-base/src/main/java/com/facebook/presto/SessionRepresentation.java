@@ -33,6 +33,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.Locale;
 import java.util.Map;
@@ -347,6 +348,7 @@ public final class SessionRepresentation
                 userAgent,
                 clientInfo,
                 clientTags,
+                ImmutableSet.of(),
                 resourceEstimates,
                 startTime,
                 systemProperties,

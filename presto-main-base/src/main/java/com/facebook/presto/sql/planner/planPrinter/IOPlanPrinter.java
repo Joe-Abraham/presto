@@ -573,7 +573,10 @@ public class IOPlanPrinter
             }
             if (type instanceof TimestampType) {
                 TimestampType timestampType = (TimestampType) type;
-                long timestampValue = timestampType.getPrecision().toMillis((Long) value);
+                if (timestampType.isLong()) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
+                }
+                long timestampValue = timestampType.getStorageUnit().toMillis((Long) value);
                 return printTimestampWithoutTimeZone(timestampValue);
             }
             if (type instanceof TimestampWithTimeZoneType) {
