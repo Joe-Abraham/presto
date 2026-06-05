@@ -75,7 +75,7 @@ public abstract class AbstractLongType
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();

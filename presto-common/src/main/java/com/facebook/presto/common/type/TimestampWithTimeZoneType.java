@@ -43,11 +43,15 @@ public final class TimestampWithTimeZoneType
 
     public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
-        if (precision < 0 || precision > MAX_PRECISION) {
+        // The underlying encoding (DateTimeEncoding) is millisecond-based, so only precision 3
+        // is correctly supported. High-precision TIMESTAMP WITH TIME ZONE requires a new encoding
+        // and a registered ParametricType before other precisions can be enabled.
+        if (precision != DEFAULT_PRECISION) {
             throw new IllegalArgumentException(format(
-                    "TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+                    "TIMESTAMP WITH TIME ZONE only supports precision %s (milliseconds); got: %s",
+                    DEFAULT_PRECISION, precision));
         }
-        return INSTANCES[precision];
+        return INSTANCES[DEFAULT_PRECISION];
     }
 
     private TimestampWithTimeZoneType(int precision)
@@ -58,13 +62,7 @@ public final class TimestampWithTimeZoneType
 
     private static TypeSignature buildTypeSignature(int precision)
     {
-        if (precision == DEFAULT_PRECISION) {
-            // Preserve "timestamp with time zone" (no parameter) so existing serialized metadata continues to parse.
-            return parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
-        }
-        // Other precisions use a numeric parameter; the type registry does not yet recognize the
-        // "timestamp with time zone(p)" string form, so these instances are created directly rather than parsed.
-        return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of((long) precision));
+        return parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
 
     public int getPrecision()

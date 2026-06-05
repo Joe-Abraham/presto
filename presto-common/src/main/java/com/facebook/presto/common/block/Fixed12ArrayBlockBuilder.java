@@ -106,9 +106,14 @@ public class Fixed12ArrayBlockBuilder
     @Override
     public BlockBuilder closeEntry()
     {
-        if (entryFieldCount != 2) {
+        if (entryFieldCount == 0) {
             throw new IllegalStateException(
-                    "Each entry requires writeLong(epochMicros) then writeInt(picosOfMicro) before closeEntry()");
+                    "Each entry requires writeLong(epochMicros) before closeEntry()");
+        }
+        if (entryFieldCount == 1) {
+            // Generic long-type code paths call writeLong(...).closeEntry() without writeInt();
+            // default the picosOfMicro remainder to 0 for compatibility.
+            values[positionCount * INTS_PER_POSITION + 2] = 0;
         }
         positionCount++;
         entryFieldCount = 0;

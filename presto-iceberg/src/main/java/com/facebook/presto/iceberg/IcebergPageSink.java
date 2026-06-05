@@ -453,7 +453,9 @@ public class IcebergPageSink
         }
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == 3 ? timestamp * 1_000L : timestamp;
+            return ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION
+                    ? MILLISECONDS.toMicros(timestamp)
+                    : timestamp;
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -465,8 +467,12 @@ public class IcebergPageSink
     public static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
     {
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
-            long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
+            if (!timestampType.isShort()) {
+                throw new UnsupportedOperationException(
+                        "Legacy timezone adjustment is not supported for TIMESTAMP(" + timestampType.getPrecision() + "); only short timestamps (p ≤ 6) are supported");
+            }
+            long timestampValue = (long) value;
             Instant instant = Instant.ofEpochSecond(timestampType.getEpochSecond(timestampValue),
                     timestampType.getNanos(timestampValue));
             LocalDateTime localDateTime = instant

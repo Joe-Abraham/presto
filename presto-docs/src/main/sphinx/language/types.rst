@@ -219,7 +219,7 @@ picosecond resolution.
 
 .. note::
 
-    Implicit coercion widens from lower to higher precision (e.g. ``TIMESTAMP(3)``
+    Implicit coercion widens from lower to higher precision (for example, ``TIMESTAMP(3)``
     to ``TIMESTAMP(6)``) automatically. Narrowing requires an explicit ``CAST``, which
     truncates (floor) rather than rounds.
 
@@ -229,19 +229,14 @@ Examples::
     TIMESTAMP '2001-08-22 03:04:05.123456'         -- TIMESTAMP(6), microseconds
     TIMESTAMP '2001-08-22 03:04:05.123456789'      -- TIMESTAMP(9), nanoseconds
 
-``TIMESTAMP WITH TIME ZONE`` / ``TIMESTAMP(p) WITH TIME ZONE``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``TIMESTAMP WITH TIME ZONE``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Instant in time that includes the date and time of day with a time zone.
 Values of this type are rendered using the time zone from the value.
+Stored with millisecond precision.
 
-Accepts the same optional precision parameter ``p`` (0–12) as ``TIMESTAMP(p)``.
-Bare ``TIMESTAMP WITH TIME ZONE`` is equivalent to ``TIMESTAMP(3) WITH TIME ZONE``.
-
-Examples::
-
-    TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'      -- milliseconds
-    TIMESTAMP '2001-08-22 03:04:05.123456 America/Los_Angeles'   -- microseconds
+Example: ``TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'``
 
 ``INTERVAL YEAR TO MONTH``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

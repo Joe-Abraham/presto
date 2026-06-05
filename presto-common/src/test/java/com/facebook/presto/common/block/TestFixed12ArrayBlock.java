@@ -14,6 +14,7 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.type.TimestampType;
+import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.TimestampType.createTimestampType;
@@ -21,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestFixed12ArrayBlock
 {
@@ -134,5 +136,84 @@ public class TestFixed12ArrayBlock
         Block block = builder.build();
         assertEquals(block.getLong(0, 0), epochMicros);
         assertEquals(block.getInt(0), picosOfMicro);
+    }
+
+    @Test
+    public void testWriteIntBeforeWriteLongThrows()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
+        expectThrows(IllegalStateException.class, () -> builder.writeInt(0));
+    }
+
+    @Test
+    public void testCloseEntryWithNoWriteThrows()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
+        expectThrows(IllegalStateException.class, builder::closeEntry);
+    }
+
+    @Test
+    public void testAppendNullDuringOpenEntryThrows()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
+        builder.writeLong(100L);
+        expectThrows(IllegalStateException.class, builder::appendNull);
+    }
+
+    @Test
+    public void testCloseEntryAfterWriteLongOnlyDefaultsPicosToZero()
+    {
+        // Generic AbstractLongType paths call writeLong(...).closeEntry() without writeInt();
+        // the builder should default picosOfMicro to 0.
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 1);
+        builder.writeLong(42L).closeEntry();
+
+        Block block = builder.build();
+        assertEquals(block.getLong(0, 0), 42L);
+        assertEquals(block.getInt(0), 0);
+    }
+
+    @Test
+    public void testAppendToPreservesPicosOfMicro()
+    {
+        // TimestampType.appendTo must copy both epochMicros and picosOfMicro for p>6.
+        TimestampType longType = createTimestampType(9);
+        Fixed12ArrayBlockBuilder src = new Fixed12ArrayBlockBuilder(null, 2);
+        src.writeLong(1_000_000L).writeInt(500_000).closeEntry();
+        src.appendNull();
+        Block srcBlock = src.build();
+
+        Fixed12ArrayBlockBuilder dst = new Fixed12ArrayBlockBuilder(null, 2);
+        longType.appendTo(srcBlock, 0, dst);
+        longType.appendTo(srcBlock, 1, dst);
+        Block dstBlock = dst.build();
+
+        assertEquals(dstBlock.getLong(0, 0), 1_000_000L);
+        assertEquals(dstBlock.getInt(0), 500_000);
+        assertTrue(dstBlock.isNull(1));
+    }
+
+    @Test
+    public void testSerdeRoundTrip()
+    {
+        Fixed12ArrayBlockBuilder builder = new Fixed12ArrayBlockBuilder(null, 3);
+        builder.writeLong(1_000_000L).writeInt(500_000).closeEntry();
+        builder.writeLong(-1L).writeInt(0).closeEntry();
+        builder.appendNull();
+        Block original = builder.build();
+
+        BlockEncodingSerde serde = new TestingBlockEncodingSerde();
+        DynamicSliceOutput out = new DynamicSliceOutput(256);
+        serde.writeBlock(out, original);
+        Block decoded = serde.readBlock(out.slice().getInput());
+
+        assertEquals(decoded.getPositionCount(), original.getPositionCount());
+        assertFalse(decoded.isNull(0));
+        assertEquals(decoded.getLong(0, 0), 1_000_000L);
+        assertEquals(decoded.getInt(0), 500_000);
+        assertFalse(decoded.isNull(1));
+        assertEquals(decoded.getLong(1, 0), -1L);
+        assertEquals(decoded.getInt(1), 0);
+        assertTrue(decoded.isNull(2));
     }
 }

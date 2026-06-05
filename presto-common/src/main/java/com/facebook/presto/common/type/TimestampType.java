@@ -27,7 +27,6 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 // Short timestamps (p ≤ 6) are stored as a single epoch-scaled long (e.g. epoch-millis for p=3,
@@ -96,15 +95,6 @@ public final class TimestampType
         return new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.of((long) precision));
     }
 
-    /**
-     * Returns a {@link SqlTimestamp} for the value at {@code position}.
-     *
-     * <p>Only precision {@value #DEFAULT_PRECISION} (milliseconds) and precision
-     * {@value #MAX_SHORT_PRECISION} (microseconds) are supported. All other precisions
-     * throw {@link UnsupportedOperationException}; callers that receive a {@code TimestampType}
-     * from generic code should check {@link #isShort()} and read high-precision values
-     * directly from the block as {@link LongTimestamp} instead.
-     */
     @Override
     public Object getObjectValue(SqlFunctionProperties properties, Block block, int position)
     {
@@ -115,11 +105,13 @@ public final class TimestampType
             throw new UnsupportedOperationException(
                     "getObjectValue is not supported for TIMESTAMP(" + precision + "); read the block as LongTimestamp");
         }
-        java.util.concurrent.TimeUnit unit = toTimeUnit(precision);
+        // Normalize any short precision (0–6) to epoch-millis so SqlTimestamp always receives
+        // a well-defined unit regardless of which precision was stored.
+        long epochMillis = toEpochMillis(block.getLong(position));
         if (properties.isLegacyTimestamp()) {
-            return new SqlTimestamp(block.getLong(position), properties.getTimeZoneKey(), unit);
+            return new SqlTimestamp(epochMillis, properties.getTimeZoneKey(), MILLISECONDS);
         }
-        return new SqlTimestamp(block.getLong(position), unit);
+        return new SqlTimestamp(epochMillis, MILLISECONDS);
     }
 
     public int getPrecision()
@@ -183,22 +175,83 @@ public final class TimestampType
         return Objects.hash(getClass(), precision);
     }
 
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else if (!isShort()) {
+            blockBuilder.writeLong(block.getLong(position, 0))
+                    .writeInt(block.getInt(position))
+                    .closeEntry();
+        }
+        else {
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
+        }
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            return leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0)
+                    && leftBlock.getInt(leftPosition) == rightBlock.getInt(rightPosition);
+        }
+        return super.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        if (!isShort()) {
+            long epochMicros = block.getLong(position, 0);
+            int picosOfMicro = block.getInt(position);
+            return AbstractLongType.hash(epochMicros) ^ AbstractLongType.hash(picosOfMicro);
+        }
+        return super.hash(block, position);
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            int cmp = Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
+            if (cmp != 0) {
+                return cmp;
+            }
+            return Integer.compare(leftBlock.getInt(leftPosition), rightBlock.getInt(rightPosition));
+        }
+        return super.compareTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
     // Floor division handles negative (pre-1970) timestamps correctly; Java % does not.
     public long getEpochSecond(long timestamp)
     {
+        checkShort("getEpochSecond");
         return floorDiv(timestamp, PRECISION_SCALE[precision]);
     }
 
     // Floor modulo handles negative (pre-1970) timestamps correctly; Java % does not.
     public int getNanos(long timestamp)
     {
+        checkShort("getNanos");
         long fractional = floorMod(timestamp, PRECISION_SCALE[precision]);
         return (int) (fractional * (1_000_000_000L / PRECISION_SCALE[precision]));
     }
 
     public long toEpochMillis(long timestamp)
     {
+        checkShort("toEpochMillis");
         return getEpochSecond(timestamp) * 1_000L + getNanos(timestamp) / 1_000_000;
+    }
+
+    private void checkShort(String method)
+    {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    method + " requires a short timestamp (p ≤ " + MAX_SHORT_PRECISION + "); use LongTimestamp for p > " + MAX_SHORT_PRECISION);
+        }
     }
 
     public long fromEpochComponents(long epochSecond, int nanos)
@@ -212,19 +265,5 @@ public final class TimestampType
         // For p ≤ 6, scale ≤ 1_000_000, so 1_000_000_000 / scale is always ≥ 1000 (no zero divisor).
         long scale = PRECISION_SCALE[precision];
         return epochSecond * scale + nanos / (1_000_000_000L / scale);
-    }
-
-    private static java.util.concurrent.TimeUnit toTimeUnit(int precision)
-    {
-        // Exact-precision checks: DEFAULT_PRECISION (3) stores epoch-millis; MAX_SHORT_PRECISION (6)
-        // stores epoch-micros. Other precisions have no direct TimeUnit mapping.
-        if (precision == DEFAULT_PRECISION) {
-            return MILLISECONDS;
-        }
-        if (precision == MAX_SHORT_PRECISION) {
-            return MICROSECONDS;
-        }
-        throw new UnsupportedOperationException(
-                "getObjectValue is not implemented for TIMESTAMP(" + precision + "); supported: p=3 (millis), p=6 (micros)");
     }
 }

@@ -155,4 +155,46 @@ public class TestTimestampType
         assertEquals(createTimestampType(3).toEpochMillis(1_500L), 1_500L);
         assertEquals(createTimestampType(6).toEpochMillis(1_500_000L), 1_500L);
     }
+
+    @Test
+    public void testToEpochMillisNegative()
+    {
+        TimestampType millis = createTimestampType(3);
+        // -1 ms → -1 ms (epoch-millis value already is ms)
+        assertEquals(millis.toEpochMillis(-1L), -1L);
+        // -1001 ms → -1001 ms
+        assertEquals(millis.toEpochMillis(-1_001L), -1_001L);
+
+        TimestampType micros = createTimestampType(6);
+        // -1 µs: epochSecond=-1, nanos=999_999_000 → -1*1000 + 999_999_000/1_000_000 = -1000 + 999 = -1 ms
+        assertEquals(micros.toEpochMillis(-1L), -1L);
+        // -1_001_000 µs → -1001 ms
+        assertEquals(micros.toEpochMillis(-1_001_000L), -1_001L);
+    }
+
+    @Test
+    public void testFromEpochComponentsRoundTrip()
+    {
+        TimestampType millis = createTimestampType(3);
+        // Positive: 1s + 500ms
+        long storedMillis = millis.fromEpochComponents(1L, 500_000_000);
+        assertEquals(millis.getEpochSecond(storedMillis), 1L);
+        assertEquals(millis.getNanos(storedMillis), 500_000_000);
+
+        // Pre-epoch: -1s + 999ms (i.e. -1 ms)
+        long storedNeg = millis.fromEpochComponents(-1L, 999_000_000);
+        assertEquals(millis.getEpochSecond(storedNeg), -1L);
+        assertEquals(millis.getNanos(storedNeg), 999_000_000);
+
+        TimestampType micros = createTimestampType(6);
+        // Positive: 1s + 500_000µs
+        long storedMicros = micros.fromEpochComponents(1L, 500_000_000);
+        assertEquals(micros.getEpochSecond(storedMicros), 1L);
+        assertEquals(micros.getNanos(storedMicros), 500_000_000);
+
+        // Pre-epoch: -1s + 999_999µs (i.e. -1 µs)
+        long storedNegMicros = micros.fromEpochComponents(-1L, 999_999_000);
+        assertEquals(micros.getEpochSecond(storedNegMicros), -1L);
+        assertEquals(micros.getNanos(storedNegMicros), 999_999_000);
+    }
 }

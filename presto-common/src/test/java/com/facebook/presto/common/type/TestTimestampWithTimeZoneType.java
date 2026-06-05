@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.fail;
 
@@ -103,7 +104,7 @@ public class TestTimestampWithTimeZoneType
                 TimestampWithTimeZoneType a = createTimestampWithTimeZoneType(p);
                 TimestampWithTimeZoneType b = createTimestampWithTimeZoneType(q);
                 // Different precisions → different instances
-                assert a != b : "Expected distinct instances for p=" + p + " and q=" + q;
+                assertNotSame(a, b, "Expected distinct instances for p=" + p + " and q=" + q);
             }
         }
     }

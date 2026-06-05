@@ -146,6 +146,12 @@ public class Fixed12ArrayBlock
         return getEpochMicros(position + positionOffset);
     }
 
+    @Override
+    public long getLong(int position)
+    {
+        return getLong(position, 0);
+    }
+
     // Returns picosOfMicro at position.
     @Override
     public int getInt(int position)
@@ -270,6 +276,12 @@ public class Fixed12ArrayBlock
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         assert offset == 0 : "offset must be 0";
         return getEpochMicros(internalPosition);
+    }
+
+    @Override
+    public long getLongUnchecked(int internalPosition)
+    {
+        return getLongUnchecked(internalPosition, 0);
     }
 
     @Override

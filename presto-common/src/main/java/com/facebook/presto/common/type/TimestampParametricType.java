@@ -46,6 +46,10 @@ public class TimestampParametricType
             throw new IllegalArgumentException("TIMESTAMP precision must be an integer literal");
         }
         long precision = parameter.getLongLiteral();
+        if (precision < 0 || precision > TimestampType.MAX_PRECISION) {
+            throw new IllegalArgumentException(
+                    "TIMESTAMP precision must be in range [0, " + TimestampType.MAX_PRECISION + "]: " + precision);
+        }
         return createTimestampType((int) precision);
     }
 }
