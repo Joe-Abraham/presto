@@ -58,7 +58,6 @@ import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class PartitionTable
@@ -299,8 +298,8 @@ public class PartitionTable
         }
         if (type instanceof Types.TimestampType) {
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
-            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
-                return MICROSECONDS.toMillis((long) value);
+            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isMillisPrecision()) {
+                return TimestampType.TIMESTAMP_MICROSECONDS.toEpochMillis((long) value);
             }
         }
         if (type instanceof Types.TimeType) {
