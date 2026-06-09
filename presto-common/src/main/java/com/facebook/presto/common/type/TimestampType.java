@@ -14,6 +14,11 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.Fixed12ArrayBlock;
+import com.facebook.presto.common.block.Fixed12ArrayBlockBuilder;
+import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.util.concurrent.TimeUnit;
@@ -138,6 +143,12 @@ public final class TimestampType
         return precision == DEFAULT_PRECISION;
     }
 
+    @Override
+    public int getFixedSize()
+    {
+        return isShort() ? Long.BYTES : Fixed12ArrayBlock.FIXED12_BYTES;
+    }
+
     // Instances are interned (one per precision, 0–MAX_PRECISION), so reference equality is correct.
     // Both methods are overridden solely to satisfy the checkstyle EqualsHashCode rule; the default
     // Object implementations would behave identically.
@@ -151,6 +162,212 @@ public final class TimestampType
     public int hashCode()
     {
         return System.identityHashCode(this);
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        if (!isShort()) {
+            int maxBlockSizeInBytes = blockBuilderStatus == null
+                    ? PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES
+                    : blockBuilderStatus.getMaxPageSizeInBytes();
+            return new Fixed12ArrayBlockBuilder(
+                    blockBuilderStatus,
+                    Math.min(expectedEntries, maxBlockSizeInBytes / Fixed12ArrayBlock.FIXED12_BYTES));
+        }
+        return super.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        if (!isShort()) {
+            return new Fixed12ArrayBlockBuilder(null, positionCount);
+        }
+        return super.createFixedSizeBlockBuilder(positionCount);
+    }
+
+    // Long precision requires both epochMicros and picosOfMicro; use writeLongTimestamp instead.
+    @Override
+    public void writeLong(BlockBuilder blockBuilder, long value)
+    {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLong is not supported for TIMESTAMP(" + precision + "); use writeLongTimestamp");
+        }
+        super.writeLong(blockBuilder, value);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else if (!isShort()) {
+            blockBuilder.writeLong(block.getLong(position, 0))
+                    .writeInt(block.getInt(position))
+                    .closeEntry();
+        }
+        else {
+            super.appendTo(block, position, blockBuilder);
+        }
+    }
+
+    public void writeLongTimestamp(BlockBuilder blockBuilder, LongTimestamp value)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use writeLong");
+        }
+        blockBuilder.writeLong(value.getEpochMicros())
+                .writeInt(value.getPicosOfMicro())
+                .closeEntry();
+    }
+
+    public LongTimestamp getLongTimestamp(Block block, int position)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "getLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use getLong");
+        }
+        return new LongTimestamp(block.getLong(position, 0), block.getInt(position));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            int epochCompare = Long.compare(leftBlock.getLong(leftPosition), rightBlock.getLong(rightPosition));
+            if (epochCompare != 0) {
+                return epochCompare;
+            }
+            return Integer.compare(leftBlock.getInt(leftPosition), rightBlock.getInt(rightPosition));
+        }
+        return super.compareTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            return leftBlock.getLong(leftPosition) == rightBlock.getLong(rightPosition)
+                    && leftBlock.getInt(leftPosition) == rightBlock.getInt(rightPosition);
+        }
+        return super.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        if (!isShort()) {
+            long epochHash = AbstractLongType.hash(block.getLong(position));
+            return 31 * epochHash + AbstractLongType.hash(block.getInt(position));
+        }
+        return super.hash(block, position);
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        if (!isShort()) {
+            int maxBlockSizeInBytes = blockBuilderStatus == null
+                    ? PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES
+                    : blockBuilderStatus.getMaxPageSizeInBytes();
+            return new Fixed12ArrayBlockBuilder(
+                    blockBuilderStatus,
+                    Math.min(expectedEntries, maxBlockSizeInBytes / Fixed12ArrayBlock.FIXED12_BYTES));
+        }
+        return super.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        if (!isShort()) {
+            return new Fixed12ArrayBlockBuilder(null, positionCount);
+        }
+        return super.createFixedSizeBlockBuilder(positionCount);
+    }
+
+    // Long precision requires both epochMicros and picosOfMicro; use writeLongTimestamp instead.
+    @Override
+    public void writeLong(BlockBuilder blockBuilder, long value)
+    {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLong is not supported for TIMESTAMP(" + precision + "); use writeLongTimestamp");
+        }
+        super.writeLong(blockBuilder, value);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else if (!isShort()) {
+            blockBuilder.writeLong(block.getLong(position, 0))
+                    .writeInt(block.getInt(position))
+                    .closeEntry();
+        }
+        else {
+            super.appendTo(block, position, blockBuilder);
+        }
+    }
+
+    public void writeLongTimestamp(BlockBuilder blockBuilder, LongTimestamp value)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use writeLong");
+        }
+        blockBuilder.writeLong(value.getEpochMicros())
+                .writeInt(value.getPicosOfMicro())
+                .closeEntry();
+    }
+
+    public LongTimestamp getLongTimestamp(Block block, int position)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "getLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use getLong");
+        }
+        return new LongTimestamp(block.getLong(position, 0), block.getInt(position));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            int epochCompare = Long.compare(leftBlock.getLong(leftPosition), rightBlock.getLong(rightPosition));
+            if (epochCompare != 0) {
+                return epochCompare;
+            }
+            return Integer.compare(leftBlock.getInt(leftPosition), rightBlock.getInt(rightPosition));
+        }
+        return super.compareTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            return leftBlock.getLong(leftPosition) == rightBlock.getLong(rightPosition)
+                    && leftBlock.getInt(leftPosition) == rightBlock.getInt(rightPosition);
+        }
+        return super.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        if (!isShort()) {
+            long epochHash = AbstractLongType.hash(block.getLong(position));
+            return 31 * epochHash + AbstractLongType.hash(block.getInt(position));
+        }
+        return super.hash(block, position);
     }
 
     // Floor division gives the correct epoch-second for negative (pre-1970) timestamps.
