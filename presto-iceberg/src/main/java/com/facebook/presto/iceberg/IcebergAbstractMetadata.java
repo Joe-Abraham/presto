@@ -77,6 +77,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -132,6 +134,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
@@ -335,6 +338,8 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS = "presto.materialized_view.use_timestamp_based_staleness";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
+    // 5 retries covers typical concurrent-write contention without excessive delay
+    private static final int MAX_COMMIT_RETRIES = 5;
 
     protected final TypeManager typeManager;
     protected final ProcedureRegistry procedureRegistry;
@@ -2796,6 +2801,44 @@ public abstract class IcebergAbstractMetadata
         }
         catch (RuntimeException e) {
             throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
+    public void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
+    {
+        if (!(constraint instanceof NotNullConstraint)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported constraint type %s; Iceberg only supports NOT NULL constraints", constraint.getClass().getSimpleName()));
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints added");
+        validateNoBranchSpecified(handle, "ALTER COLUMN SET NOT NULL");
+        verify(constraint.getColumns().size() == 1, "NotNullConstraint must apply to exactly one column");
+        String columnName = constraint.getColumns().iterator().next();
+        // Intentionally bypasses the transaction cache (getRawIcebergTable instead of getIcebergTable)
+        // so that refresh() between retries fetches a current version number. Iceberg's UpdateSchema
+        // does not retry CommitFailedException internally, so we do it here.
+        Table icebergTable = getRawIcebergTable(session, handle.getSchemaTableName());
+        try {
+            for (int attempt = 0; ; attempt++) {
+                try {
+                    // allowIncompatibleChanges is required: optional→required is an incompatible change.
+                    icebergTable.updateSchema().allowIncompatibleChanges().requireColumn(columnName).commit();
+                    break;
+                }
+                catch (CommitFailedException e) {
+                    if (attempt >= MAX_COMMIT_RETRIES) {
+                        throw e;
+                    }
+                    icebergTable.refresh();
+                }
+            }
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(NOT_SUPPORTED, format("Failed to set NOT NULL on column '%s': %s", columnName, firstNonNull(e.getMessage(), e)), e);
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, format("Failed to set NOT NULL on column '%s': %s", columnName, firstNonNull(e.getMessage(), e)), e);
         }
     }
 
