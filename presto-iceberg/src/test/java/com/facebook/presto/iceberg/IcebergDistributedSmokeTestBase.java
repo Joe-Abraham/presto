@@ -1561,6 +1561,27 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testSetNotNullOnInternalColumns()
+    {
+        // _row_id and _last_updated_sequence_number are Iceberg metadata columns exposed in
+        // getColumnHandles but absent from the user table schema. requireColumn() in Iceberg
+        // rejects them, so SET NOT NULL must fail even though they are not flagged as hidden.
+        String tableName = "test_set_not_null_internal_cols_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", tableName));
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"_row_id\" SET NOT NULL", tableName),
+                    ".*Failed to set NOT NULL on column '_row_id'.*");
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN \"_last_updated_sequence_number\" SET NOT NULL", tableName),
+                    ".*Failed to set NOT NULL on column '_last_updated_sequence_number'.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testAlterColumnNotNullOnBranch()
     {
         String tableName = "test_alter_column_not_null_branch_" + randomTableSuffix();

@@ -22,7 +22,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
