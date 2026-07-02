@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.Fixed12ArrayBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -40,6 +42,15 @@ public class TestTimestampType
             assertSame(createTimestampType(p), createTimestampType(p),
                     "createTimestampType(" + p + ") must return the same reference on repeated calls");
         }
+    }
+
+    @Test
+    public void testConstantsAreNonNull()
+    {
+        // Guards against static initialization order regressions: the static block filling INSTANCES
+        // must execute before TIMESTAMP and TIMESTAMP_MICROSECONDS are assigned.
+        assertNotNull(TIMESTAMP, "TIMESTAMP constant must not be null");
+        assertNotNull(TIMESTAMP_MICROSECONDS, "TIMESTAMP_MICROSECONDS constant must not be null");
     }
 
     @Test
@@ -166,7 +177,7 @@ public class TestTimestampType
         assertEquals(createTimestampType(0).toEpochMicros(-1L), -1_000_000L);
         assertEquals(createTimestampType(3).toEpochMicros(1_500L), 1_500_000L);
         assertEquals(createTimestampType(3).toEpochMicros(0L), 0L);
-        // Pre-epoch: IcebergPageSink uses toEpochMicros for p=3 (millis → micros).
+        // Pre-epoch: IcebergPageSink uses toEpochMicros for p=3 (millis -> micros).
         assertEquals(createTimestampType(3).toEpochMicros(-1L), -1_000L);
         assertEquals(createTimestampType(3).toEpochMicros(-1_000L), -1_000_000L);
         assertEquals(createTimestampType(3).toEpochMicros(-1_001L), -1_001_000L);
@@ -267,5 +278,165 @@ public class TestTimestampType
             assertEquals(micros.fromEpochComponents(micros.getEpochSecond(v), (int) micros.getNanos(v)), v,
                     "round-trip failed for p=6, v=" + v);
         }
+    }
+
+    @Test
+    public void testGetEpochSecondThrowsForLongPrecision()
+    {
+        for (int p = TimestampType.MAX_SHORT_PRECISION + 1; p <= TimestampType.MAX_PRECISION; p++) {
+            TimestampType ts = createTimestampType(p);
+            expectThrows(UnsupportedOperationException.class, () -> ts.getEpochSecond(0L));
+            expectThrows(UnsupportedOperationException.class, () -> ts.getNanos(0L));
+        }
+    }
+
+    @Test
+    public void testGetFixedSize()
+    {
+        for (int p = 0; p <= TimestampType.MAX_SHORT_PRECISION; p++) {
+            assertEquals(createTimestampType(p).getFixedSize(), Long.BYTES,
+                    "short precision p=" + p + " must report Long.BYTES");
+        }
+        for (int p = TimestampType.MAX_SHORT_PRECISION + 1; p <= TimestampType.MAX_PRECISION; p++) {
+            assertEquals(createTimestampType(p).getFixedSize(), Fixed12ArrayBlock.FIXED12_BYTES,
+                    "long precision p=" + p + " must report FIXED12_BYTES");
+        }
+    }
+
+    @Test
+    public void testWriteLongThrowsForLongPrecision()
+    {
+        TimestampType longType = createTimestampType(9);
+        BlockBuilder builder = longType.createBlockBuilder(null, 1);
+        expectThrows(UnsupportedOperationException.class, () -> longType.writeLong(builder, 0L));
+    }
+
+    @Test
+    public void testWriteLongWorksForShortPrecision()
+    {
+        TimestampType millis = createTimestampType(3);
+        BlockBuilder builder = millis.createBlockBuilder(null, 1);
+        millis.writeLong(builder, 1_500L);
+        Block block = builder.build();
+        assertEquals(block.getLong(0), 1_500L);
+    }
+
+    @Test
+    public void testWriteLongTimestampAndGetLongTimestamp()
+    {
+        TimestampType nanos = createTimestampType(9);
+        LongTimestamp ts = new LongTimestamp(1_000_000L, 999_999);
+
+        BlockBuilder builder = nanos.createBlockBuilder(null, 1);
+        nanos.writeLongTimestamp(builder, ts);
+        Block block = builder.build();
+
+        LongTimestamp read = nanos.getLongTimestamp(block, 0);
+        assertEquals(read.getEpochMicros(), 1_000_000L);
+        assertEquals(read.getPicosOfMicro(), 999_999);
+    }
+
+    @Test
+    public void testWriteLongTimestampThrowsForShortPrecision()
+    {
+        TimestampType millis = createTimestampType(3);
+        BlockBuilder builder = millis.createBlockBuilder(null, 1);
+        expectThrows(UnsupportedOperationException.class,
+                () -> millis.writeLongTimestamp(builder, new LongTimestamp(0L, 0)));
+    }
+
+    @Test
+    public void testGetLongTimestampThrowsForShortPrecision()
+    {
+        TimestampType millis = createTimestampType(3);
+        BlockBuilder builder = millis.createBlockBuilder(null, 1);
+        millis.writeLong(builder, 1_000L);
+        Block block = builder.build();
+        expectThrows(UnsupportedOperationException.class, () -> millis.getLongTimestamp(block, 0));
+    }
+
+    @Test
+    public void testAppendToLongPrecision()
+    {
+        TimestampType nanos = createTimestampType(9);
+        BlockBuilder source = nanos.createBlockBuilder(null, 2);
+        nanos.writeLongTimestamp(source, new LongTimestamp(5_000_000L, 123_456));
+        source.appendNull();
+        Block sourceBlock = source.build();
+
+        BlockBuilder dest = nanos.createBlockBuilder(null, 2);
+        nanos.appendTo(sourceBlock, 0, dest);
+        nanos.appendTo(sourceBlock, 1, dest);
+        Block destBlock = dest.build();
+
+        assertFalse(destBlock.isNull(0));
+        assertEquals(destBlock.getLong(0, 0), 5_000_000L);
+        assertEquals(destBlock.getInt(0), 123_456);
+        assertTrue(destBlock.isNull(1));
+    }
+
+    @Test
+    public void testCompareToLongPrecision()
+    {
+        TimestampType nanos = createTimestampType(9);
+        BlockBuilder builder = nanos.createBlockBuilder(null, 3);
+        nanos.writeLongTimestamp(builder, new LongTimestamp(100L, 0));
+        nanos.writeLongTimestamp(builder, new LongTimestamp(100L, 500_000));
+        nanos.writeLongTimestamp(builder, new LongTimestamp(200L, 0));
+        Block block = builder.build();
+
+        assertEquals(nanos.compareTo(block, 0, block, 0), 0);
+        assertTrue(nanos.compareTo(block, 0, block, 1) < 0);
+        assertTrue(nanos.compareTo(block, 1, block, 0) > 0);
+        assertTrue(nanos.compareTo(block, 0, block, 2) < 0);
+        assertTrue(nanos.compareTo(block, 2, block, 0) > 0);
+    }
+
+    @Test
+    public void testEqualToLongPrecision()
+    {
+        TimestampType nanos = createTimestampType(9);
+        BlockBuilder builder = nanos.createBlockBuilder(null, 2);
+        nanos.writeLongTimestamp(builder, new LongTimestamp(100L, 500_000));
+        nanos.writeLongTimestamp(builder, new LongTimestamp(100L, 500_000));
+        Block block = builder.build();
+
+        assertTrue(nanos.equalTo(block, 0, block, 1));
+        assertTrue(nanos.equalTo(block, 0, block, 0));
+    }
+
+    @Test
+    public void testHashLongPrecision()
+    {
+        // hash must not throw for long-precision blocks
+        TimestampType nanos = createTimestampType(9);
+        BlockBuilder builder = nanos.createBlockBuilder(null, 1);
+        nanos.writeLongTimestamp(builder, new LongTimestamp(42L, 7));
+        Block block = builder.build();
+
+        long h1 = nanos.hash(block, 0);
+        long h2 = nanos.hash(block, 0);
+        assertEquals(h1, h2);
+    }
+
+    @Test
+    public void testAppendToRleNullBlock()
+    {
+        // Fixed12ArrayBlockBuilder.build() returns a RunLengthEncodedBlock when all entries are null.
+        // appendTo must handle the RLE-wrapped null without attempting getLong/getInt.
+        TimestampType nanos = createTimestampType(9);
+        BlockBuilder source = nanos.createBlockBuilder(null, 2);
+        source.appendNull();
+        source.appendNull();
+        Block rleBlock = source.build();
+
+        BlockBuilder dest = nanos.createBlockBuilder(null, 2);
+        nanos.appendTo(rleBlock, 0, dest);
+        nanos.appendTo(rleBlock, 1, dest);
+        Block result = dest.build();
+
+        assertEquals(result.getPositionCount(), 2);
+        assertTrue(result.isNull(0));
+        assertTrue(result.isNull(1));
     }
 }
