@@ -14,6 +14,11 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.Fixed12ArrayBlock;
+import com.facebook.presto.common.block.Fixed12ArrayBlockBuilder;
+import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import java.util.concurrent.TimeUnit;
@@ -29,10 +34,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 // number of units elapsed since 1970-01-01T00:00:00 UTC — e.g. p=3 stores epoch-milliseconds and
 // p=6 stores epoch-microseconds.
 //
-// Long precisions (p=7–12) will use a two-field LongTimestamp representation (epochMicros + picosOfMicro)
-// once that type is introduced in a follow-up change (see github.com/prestodb/presto/issues/27934).
-// Instances for p=7–12 are pre-allocated here but their arithmetic helpers throw
-// UnsupportedOperationException until the LongTimestamp path is wired in.
+// Long precisions (p=7–12) use a two-field LongTimestamp representation (epochMicros + picosOfMicro)
+// stored in a Fixed12ArrayBlock. The block encoding infrastructure is in place as of the Phase 1
+// change (github.com/prestodb/presto/issues/27934). SQL grammar, operator registration, and
+// connector I/O are wired in later phases.
 public final class TimestampType
         extends AbstractLongType
 {
@@ -72,6 +77,12 @@ public final class TimestampType
 
     private final int precision;
 
+    private TimestampType(int precision)
+    {
+        super(buildTypeSignature(precision));
+        this.precision = precision;
+    }
+
     // Returns the interned instance for p=0..MAX_PRECISION. Only p=3 and p=6 are registered in
     // the type manager; all other precisions are arithmetic-only until a follow-up change wires
     // full type-system support (see github.com/prestodb/presto/issues/27934).
@@ -82,12 +93,6 @@ public final class TimestampType
                     "TIMESTAMP precision must be in range [0, %d]: %d", MAX_PRECISION, precision));
         }
         return INSTANCES[precision];
-    }
-
-    private TimestampType(int precision)
-    {
-        super(buildTypeSignature(precision));
-        this.precision = precision;
     }
 
     private static TypeSignature buildTypeSignature(int precision)
@@ -153,15 +158,132 @@ public final class TimestampType
         return System.identityHashCode(this);
     }
 
+    @Override
+    public int getFixedSize()
+    {
+        return isShort() ? Long.BYTES : Fixed12ArrayBlock.FIXED12_BYTES;
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        if (!isShort()) {
+            return new Fixed12ArrayBlockBuilder(null, positionCount);
+        }
+        return super.createFixedSizeBlockBuilder(positionCount);
+    }
+
+    @Override
+    public void writeLong(BlockBuilder blockBuilder, long value)
+    {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLong is not supported for TIMESTAMP(" + precision + "); use writeLongTimestamp");
+        }
+        super.writeLong(blockBuilder, value);
+    }
+
+    @Override
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        if (block.isNull(position)) {
+            blockBuilder.appendNull();
+        }
+        else if (isShort()) {
+            blockBuilder.writeLong(block.getLong(position)).closeEntry();
+        }
+        else {
+            blockBuilder.writeLong(block.getLong(position, 0))
+                    .writeInt(block.getInt(position))
+                    .closeEntry();
+        }
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        if (!isShort()) {
+            int maxBlockSizeInBytes = blockBuilderStatus == null
+                    ? PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES
+                    : blockBuilderStatus.getMaxPageSizeInBytes();
+            return new Fixed12ArrayBlockBuilder(
+                    blockBuilderStatus,
+                    Math.min(expectedEntries, maxBlockSizeInBytes / Fixed12ArrayBlock.FIXED12_BYTES));
+        }
+        return super.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+    }
+
+    public void writeLongTimestamp(BlockBuilder blockBuilder, LongTimestamp value)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "writeLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use writeLong");
+        }
+        blockBuilder.writeLong(value.getEpochMicros())
+                .writeInt(value.getPicosOfMicro())
+                .closeEntry();
+    }
+
+    // Not for use in scan/projection hot paths — allocates a LongTimestamp per call.
+    public LongTimestamp getLongTimestamp(Block block, int position)
+    {
+        if (isShort()) {
+            throw new UnsupportedOperationException(
+                    "getLongTimestamp is not supported for short TIMESTAMP(" + precision + "); use getLong");
+        }
+        return new LongTimestamp(block.getLong(position, 0), block.getInt(position));
+    }
+
+    @Override
+    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            int epochCompare = Long.compare(leftBlock.getLong(leftPosition), rightBlock.getLong(rightPosition));
+            if (epochCompare != 0) {
+                return epochCompare;
+            }
+            return Integer.compare(leftBlock.getInt(leftPosition), rightBlock.getInt(rightPosition));
+        }
+        return super.compareTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        if (!isShort()) {
+            return leftBlock.getLong(leftPosition) == rightBlock.getLong(rightPosition)
+                    && leftBlock.getInt(leftPosition) == rightBlock.getInt(rightPosition);
+        }
+        return super.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
+    }
+
+    @Override
+    public long hash(Block block, int position)
+    {
+        if (!isShort()) {
+            long epochHash = AbstractLongType.hash(block.getLong(position));
+            return 31 * epochHash + AbstractLongType.hash(block.getInt(position));
+        }
+        return super.hash(block, position);
+    }
+
     // Floor division gives the correct epoch-second for negative (pre-1970) timestamps.
     public long getEpochSecond(long timestamp)
     {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    "getEpochSecond is not supported for TIMESTAMP(" + precision + "); use LongTimestamp.getEpochMicros()");
+        }
         return floorDiv(timestamp, PRECISION_SCALE[precision]);
     }
 
     // Floor modulo handles negative (pre-1970) timestamps correctly; Java % does not.
     public int getNanos(long timestamp)
     {
+        if (!isShort()) {
+            throw new UnsupportedOperationException(
+                    "getNanos is not supported for TIMESTAMP(" + precision + "); use LongTimestamp.getPicosOfMicro()");
+        }
         long fractional = floorMod(timestamp, PRECISION_SCALE[precision]);
         long scale = PRECISION_SCALE[precision];
         // For p <= 9, scale <= 1e9: multiply up to nanoseconds.
