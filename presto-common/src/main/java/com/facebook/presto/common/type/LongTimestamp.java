@@ -15,6 +15,8 @@ package com.facebook.presto.common.type;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
+
 public final class LongTimestamp
 {
     public static final int MAX_PICOS_OF_MICRO = 999_999;
@@ -64,6 +66,6 @@ public final class LongTimestamp
     @Override
     public String toString()
     {
-        return "LongTimestamp{epochMicros=" + epochMicros + ", picosOfMicro=" + picosOfMicro + "}";
+        return format("LongTimestamp{epochMicros=%d, picosOfMicro=%d}", epochMicros, picosOfMicro);
     }
 }

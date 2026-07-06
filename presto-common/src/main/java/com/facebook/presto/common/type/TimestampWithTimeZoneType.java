@@ -18,15 +18,52 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.lang.String.format;
 
 public final class TimestampWithTimeZoneType
         extends AbstractLongType
 {
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new TimestampWithTimeZoneType();
+    public static final int MAX_PRECISION = 12;
+    public static final int DEFAULT_PRECISION = 3;
 
-    private TimestampWithTimeZoneType()
+    private static final TimestampWithTimeZoneType[] INSTANCES = new TimestampWithTimeZoneType[MAX_PRECISION + 1];
+
+    static {
+        for (int p = 0; p <= MAX_PRECISION; p++) {
+            INSTANCES[p] = new TimestampWithTimeZoneType(p);
+        }
+    }
+
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = INSTANCES[DEFAULT_PRECISION];
+
+    private final int precision;
+
+    private TimestampWithTimeZoneType(int precision)
     {
-        super(parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE));
+        super(buildTypeSignature(precision));
+        this.precision = precision;
+    }
+
+    public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
+    {
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format(
+                    "TIMESTAMP WITH TIME ZONE precision must be in range [0, %d]: %d", MAX_PRECISION, precision));
+        }
+        return INSTANCES[precision];
+    }
+
+    public int getPrecision()
+    {
+        return precision;
+    }
+
+    private static TypeSignature buildTypeSignature(int precision)
+    {
+        if (precision == DEFAULT_PRECISION) {
+            return parseTypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        }
+        return new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of((long) precision));
     }
 
     /**
@@ -48,7 +85,10 @@ public final class TimestampWithTimeZoneType
         if (block.isNull(position)) {
             return null;
         }
-
+        if (precision != DEFAULT_PRECISION) {
+            throw new UnsupportedOperationException(
+                    "getObjectValue is not supported for TIMESTAMP WITH TIME ZONE(" + precision + ")");
+        }
         return new SqlTimestampWithTimeZone(block.getLong(position));
     }
 
@@ -78,12 +118,12 @@ public final class TimestampWithTimeZoneType
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object other)
     {
-        return other == TIMESTAMP_WITH_TIME_ZONE;
+        return this == other;
     }
 
     @Override
     public int hashCode()
     {
-        return getClass().hashCode();
+        return System.identityHashCode(this);
     }
 }

@@ -129,6 +129,11 @@ public final class TimestampType
         return new SqlTimestamp(block.getLong(position), unit);
     }
 
+    public int getPrecision()
+    {
+        return precision;
+    }
+
     // True when the value fits in a single long (p <= MAX_SHORT_PRECISION). Storage concept only —
     // short precisions other than p=3 and p=6 are not yet registered in the type manager.
     public boolean isShort()

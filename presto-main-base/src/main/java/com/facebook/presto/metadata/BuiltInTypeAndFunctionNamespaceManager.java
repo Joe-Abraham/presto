@@ -327,7 +327,9 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampParametricType.TIMESTAMP_PARAMETRIC;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE_PARAMETRIC;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -670,6 +672,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(KLL_SKETCH);
         addParametricType(BIGINT_ENUM);
         addParametricType(VARCHAR_ENUM);
+        addParametricType(TIMESTAMP_PARAMETRIC);
+        addParametricType(TIMESTAMP_WITH_TIME_ZONE_PARAMETRIC);
     }
 
     private List<? extends SqlFunction> getBuiltInFunctions(FunctionsConfig functionsConfig)
