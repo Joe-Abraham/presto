@@ -661,6 +661,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
+        // TODO(#27934 Phase 2): Not registered yet: would make TIMESTAMP(p) SQL-reachable ahead of Phase 2 (#27934).
         addParametricType(ROW);
         addParametricType(ARRAY);
         addParametricType(MAP);
