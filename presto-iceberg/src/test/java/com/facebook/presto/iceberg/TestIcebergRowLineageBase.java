@@ -198,6 +198,207 @@ public abstract class TestIcebergRowLineageBase
         }
     }
 
+    @Test
+    public void testRowIdPredicatesReturnCorrectRows()
+            throws Exception
+    {
+        String tableName = "test_row_id_predicates";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"),
+                    GenericRecord.create(schema).copy("id", 3, "value", "three"));
+            table.refresh();
+
+            List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
+            assertEquals(expectedPairs.size(), 3, "table should have 3 rows with assigned row IDs");
+
+            // Every row in a freshly-written V3 table has a non-null _row_id, so this
+            // predicate must match nothing.
+            assertEquals(
+                    computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_row_id\" IS NULL").getOnlyValue(),
+                    0L, "no row should match _row_id IS NULL in a V3 table");
+
+            // Each assigned _row_id must select exactly the one row that has it, not zero
+            // rows (the predicate wrongly dropping the matching split/row) and not every row
+            // (the predicate wrongly matching a placeholder value).
+            for (long[] pair : expectedPairs) {
+                long rowId = pair[0];
+                MaterializedResult result = computeActual(
+                        "SELECT id FROM " + tableName + " WHERE \"_row_id\" = " + rowId);
+                assertEquals(result.getRowCount(), 1, "exactly one row should match _row_id = " + rowId);
+            }
+
+            long neverAssignedRowId = expectedPairs.get(0)[0] - 1;
+            assertEquals(
+                    computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_row_id\" = " + neverAssignedRowId).getOnlyValue(),
+                    0L, "no row should match a _row_id that was never assigned");
+
+            // Same correctness requirement for _last_updated_sequence_number: every row has
+            // a non-null value, and each assigned value must select exactly the rows sharing
+            // that commit's sequence number.
+            assertEquals(
+                    computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" IS NULL").getOnlyValue(),
+                    0L, "no row should match _last_updated_sequence_number IS NULL in a V3 table");
+
+            long commitSeqNum = expectedPairs.get(0)[1];
+            long expectedRowsForCommit = expectedPairs.stream().filter(pair -> pair[1] == commitSeqNum).count();
+            assertEquals(
+                    computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + commitSeqNum).getOnlyValue(),
+                    expectedRowsForCommit,
+                    "exactly the rows from that commit should match _last_updated_sequence_number = " + commitSeqNum);
+        }
+        finally {
+            try {
+                catalog.dropTable(tableId, true);
+            }
+            catch (Exception ignored) {
+            }
+        }
+    }
+
+    @Test
+    public void testRowIdLessThanPredicate()
+            throws Exception
+    {
+        String tableName = "test_row_id_less_than";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"),
+                    GenericRecord.create(schema).copy("id", 3, "value", "three"),
+                    GenericRecord.create(schema).copy("id", 4, "value", "four"),
+                    GenericRecord.create(schema).copy("id", 5, "value", "five"));
+            table.refresh();
+
+            List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
+            assertEquals(expectedPairs.size(), 5, "table should have 5 rows with assigned row IDs");
+
+            // expectedPairs is sorted by _row_id ascending, which matches write order for a
+            // single-file commit, so expectedPairs.get(i) corresponds to id = i + 1.
+            long threshold = expectedPairs.get(3)[0];
+            List<Integer> expectedIds = new ArrayList<>();
+            for (int i = 0; i < expectedPairs.size(); i++) {
+                if (expectedPairs.get(i)[0] < threshold) {
+                    expectedIds.add(i + 1);
+                }
+            }
+            assertEquals(expectedIds.size(), 3, "test setup should pick a threshold matching exactly 3 rows");
+
+            MaterializedResult result = computeActual(
+                    "SELECT id FROM " + tableName + " WHERE \"_row_id\" < " + threshold + " ORDER BY id");
+            List<Integer> actualIds = new ArrayList<>();
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                actualIds.add((Integer) row.getField(0));
+            }
+            assertEquals(actualIds, expectedIds,
+                    "_row_id < " + threshold + " should match exactly the rows with a smaller row id");
+        }
+        finally {
+            try {
+                catalog.dropTable(tableId, true);
+            }
+            catch (Exception ignored) {
+            }
+        }
+    }
+
+    @Test
+    public void testLastUpdatedSequenceNumberGreaterThanPredicate()
+            throws Exception
+    {
+        String tableName = "test_seq_num_greater_than";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+
+            // One commit per row so _last_updated_sequence_number increases monotonically
+            // and distinctly per row, giving a meaningful ">" threshold to test against.
+            for (int id = 1; id <= 6; id++) {
+                writeRecords(table, GenericRecord.create(schema).copy("id", id, "value", "v" + id));
+                table.refresh();
+            }
+
+            List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
+            assertEquals(expectedPairs.size(), 6, "table should have 6 rows, one per commit");
+
+            long expectedMatches = expectedPairs.stream().filter(pair -> pair[1] > 3).count();
+            assertTrue(expectedMatches > 0 && expectedMatches < expectedPairs.size(),
+                    "test setup should produce sequence numbers both above and below 3");
+
+            long actualMatches = (Long) computeActual(
+                    "SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" > 3").getOnlyValue();
+            assertEquals(actualMatches, expectedMatches,
+                    "_last_updated_sequence_number > 3 should match exactly the rows committed after sequence number 3");
+        }
+        finally {
+            try {
+                catalog.dropTable(tableId, true);
+            }
+            catch (Exception ignored) {
+            }
+        }
+    }
+
+    @Test
+    public void testSelectStarDistinctWithWherePredicate()
+            throws Exception
+    {
+        String tableName = "test_select_star_distinct_where";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+
+            // Two separate commits produce duplicate (id, value) pairs that get distinct
+            // _row_id/_last_updated_sequence_number values, so DISTINCT only collapses them
+            // if SELECT * excludes the hidden row lineage columns.
+            writeRecords(table, GenericRecord.create(schema).copy("id", 1, "value", "dup"));
+            table.refresh();
+            writeRecords(table, GenericRecord.create(schema).copy("id", 1, "value", "dup"));
+            table.refresh();
+            writeRecords(table, GenericRecord.create(schema).copy("id", 2, "value", "two"));
+            table.refresh();
+
+            MaterializedResult allRows = computeActual(
+                    "SELECT * FROM " + tableName + " WHERE id <= 2 ORDER BY id");
+            assertEquals(allRows.getRowCount(), 3, "WHERE predicate should keep both duplicate rows and the unique row");
+            assertEquals(allRows.getMaterializedRows().get(0).getFieldCount(), 2,
+                    "SELECT * should only expose the visible id and value columns, not the hidden row lineage columns");
+
+            MaterializedResult distinctRows = computeActual(
+                    "SELECT DISTINCT * FROM " + tableName + " WHERE id <= 2 ORDER BY id");
+            assertEquals(distinctRows.getRowCount(), 2,
+                    "DISTINCT should collapse the duplicate (id, value) rows since SELECT * excludes hidden row lineage columns");
+
+            List<MaterializedRow> rows = distinctRows.getMaterializedRows();
+            assertEquals(rows.get(0).getField(0), 1);
+            assertEquals(rows.get(0).getField(1), "dup");
+            assertEquals(rows.get(1).getField(0), 2);
+            assertEquals(rows.get(1).getField(1), "two");
+        }
+        finally {
+            try {
+                catalog.dropTable(tableId, true);
+            }
+            catch (Exception ignored) {
+            }
+        }
+    }
+
     protected void assertPrestoRowLineageMatchesExpected(String tableName, List<long[]> expectedPairs)
     {
         MaterializedResult result = computeActual(
